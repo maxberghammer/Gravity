@@ -142,12 +142,6 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
 
-            <!--<Label Grid.Row="0" 
-                   Grid.RowSpan="3"
-                   Content="{Binding Viewport.Center}"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>-->
-
             <DockPanel Grid.Row="2"
                        HorizontalAlignment="Stretch"
                        LastChildFill="False">
