@@ -1,0 +1,196 @@
+﻿<Window x:Class="Gravity.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewmodel="clr-namespace:Gravity.Viewmodel"
+        xmlns:gravity="clr-namespace:Gravity"
+        mc:Ignorable="d"
+        Title="Gravity"
+        WindowState="Maximized">
+    <Window.DataContext>
+        <viewmodel:World x:Name="mViewmodel"/>
+    </Window.DataContext>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid.Resources>
+                <Style TargetType="Label">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="IsHitTestVisible" Value="False"/>
+                </Style>
+                <Style TargetType="Button">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Width" Value="30"/>
+                    <Setter Property="Height" Value="30"/>
+                    <Setter Property="FontSize" Value="20"/>
+                </Style>
+                <Style TargetType="ToggleButton">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Width" Value="30"/>
+                    <Setter Property="Height" Value="30"/>
+                    <Setter Property="FontSize" Value="20"/>
+                </Style>
+            </Grid.Resources>
+
+            <gravity:WorldView Grid.Row="0" 
+                               Grid.RowSpan="3"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"
+                               Background="Black"
+                               SizeChanged="OnWorldSizeChanged"
+                               MouseWheel="OnWorldMouseWheel"
+                               MouseDown="OnWorldMouseDown"
+                               MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
+                               MouseRightButtonUp="OnWorldRightButtonUp"/>
+            <DockPanel Grid.Row="0"
+                       HorizontalAlignment="Stretch"
+                       Margin="0,10,0,0"
+                       LastChildFill="False">
+                <Label DockPanel.Dock="Left"
+                       Content="{Binding Viewport.Scale}"
+                       ContentStringFormat="1px=10^{0}m"
+                       VerticalContentAlignment="Center"/>
+                <Button DockPanel.Dock="Left"
+                        FontFamily="WingDings"
+                        ToolTip="Sichtbereich automatisch anpassen"
+                        Content="ó"
+                        Click="OnAutoScaleAndCenterViewportClicked"/>
+                <ToggleButton DockPanel.Dock="Left"
+                              Margin="10,0,0,0"
+                              FontFamily="WingDings"
+                              Content="°"
+                              ToolTip="Automatisch zentrieren an/aus"
+                              IsChecked="{Binding AutoCenterViewport}"/>
+                <Button DockPanel.Dock="Right"
+                        FontFamily="Wingdings 3"
+                        ToolTip="Zurücksetzen"
+                        Content="Q"
+                        Click="OnResetClicked"/>
+                <ToggleButton DockPanel.Dock="Right"
+                              Margin="0,0,10,0"
+                              FontFamily="Arial"
+                              ToolTip="Simulation starten/anhalten"
+                              Content="►"
+                              IsChecked="{Binding IsRunning, Mode=TwoWay}"/>
+            </DockPanel>
+
+            <StackPanel Grid.Row="0"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center">
+                <ToggleButton ToolTip="Pfade anzeigen"
+                              Content="ꟿ"
+                              IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
+                <ToggleButton Margin="10,0,0,0" 
+                              FontFamily="Wingdings 3"
+                              Content="F"
+                              ToolTip="Geschlossene Grenzen"
+                              IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
+                <ToggleButton Margin="10,0,0,0" 
+                              FontFamily="Wingdings"
+                              Content="R"
+                              ToolTip="Elastische Zusammenstöße an/aus" 
+                              IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
+                <ToggleButton Margin="10,0,0,0"
+                              FontFamily="Wingdings"
+                              Content="¡"
+                              ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
+                              IsChecked="{Binding IsObjectSelectionVisible, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <ComboBox Grid.Row="1"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Top"
+                      Visibility="{Binding IsObjectSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                      ItemsSource="{Binding EntityPresets}"
+                      SelectedItem="{Binding SelectedEntityPreset}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Resources>
+                                <Style TargetType="Label">
+                                    <Setter Property="Foreground" Value="Black"/>
+                                </Style>
+                            </StackPanel.Resources>
+                            <Ellipse Width="20"
+                                     Height="20"
+                                     VerticalAlignment="Center"
+                                     Fill="{Binding Fill}"
+                                     Stroke="{Binding Stroke}"
+                                     StrokeThickness="{Binding StrokeWidth}"/>
+                            <Label Margin="10,0,0,0"
+                                   Content="{Binding Name}"/>
+                            <Label Margin="10,0,0,0"
+                                   Content="Radius (m):"/>
+                            <Label Content="{Binding r}"/>
+                            <Label Content="Masse (kg):"/>
+                            <Label Content="{Binding m}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <!--<Label Grid.Row="0" 
+                   Grid.RowSpan="3"
+                   Content="{Binding Viewport.Center}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>-->
+
+            <DockPanel Grid.Row="2"
+                       HorizontalAlignment="Stretch"
+                       LastChildFill="False">
+                <DockPanel.Resources>
+                    <Style TargetType="Label">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="IsHitTestVisible" Value="False"/>
+                    </Style>
+                </DockPanel.Resources>
+                <Label DockPanel.Dock="Left"
+                       Content="{Binding CpuUtilizationInPercent}"
+                       ContentStringFormat="CPU={0}%"/>
+                <Slider DockPanel.Dock="Right"
+                        Width="100"
+                        IsSnapToTickEnabled="True"
+                        Minimum="0"
+                        Maximum="10"
+                        TickFrequency="1"
+                        TickPlacement="Both"
+                        Value="{Binding TimeScale}"/>
+                <Label DockPanel.Dock="Right"
+                       Content="{Binding RuntimeInSeconds}"
+                       ContentStringFormat="t={0}"/>
+                <Label DockPanel.Dock="Right"
+                       Content="{Binding EntityCount}"
+                       ContentStringFormat=" {0} Objekte"/>
+            </DockPanel>
+
+            <Grid Grid.Row="2" 
+                  HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="1"
+                       Content="{Binding SelectedEntity.v}"
+                       ContentStringFormat="v={0}m/s"/>
+                <Label Grid.Column="2"
+                       Content="{Binding SelectedEntity.m}"
+                       ContentStringFormat="m={0}kg"/>
+            </Grid>
+        </Grid>
+</Window>
