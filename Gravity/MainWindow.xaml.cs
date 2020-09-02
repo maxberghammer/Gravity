@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
 using Gravity.Viewmodel;
 
 namespace Gravity
@@ -29,83 +28,120 @@ namespace Gravity
 		{
 			var viewportPoint = aE.GetPosition((IInputElement)aSender);
 
-			if ((Keyboard.Modifiers == ModifierKeys.None)&&(aE.LeftButton == MouseButtonState.Pressed))
+			if ((Keyboard.Modifiers == ModifierKeys.None) && (aE.LeftButton == MouseButtonState.Pressed))
 			{
 				mViewmodel.SelectEntity(viewportPoint, 30);
 
 				if (null != mViewmodel.SelectedEntity)
+				{
+					var entityViewportPoint = mViewmodel.Viewport.ToViewport(mViewmodel.SelectedEntity.Position);
+
+					mViewmodel.Viewport.DragIndicator = new DragIndicator
+														{
+															Start = new Vector(entityViewportPoint.X, entityViewportPoint.Y),
+															End = new Vector(entityViewportPoint.X, entityViewportPoint.Y)
+														};
 					return;
+				}
 			}
 
 			mReferencePosition = mViewmodel.Viewport.ToWorld(viewportPoint);
+			mViewmodel.Viewport.DragIndicator = new DragIndicator
+												{
+													Start = new Vector(viewportPoint.X, viewportPoint.Y),
+													End = new Vector(viewportPoint.X, viewportPoint.Y)
+												};
+		}
+
+		private void OnWorldMouseMove(object aSender, MouseEventArgs aE)
+		{
+			if (null == mViewmodel.Viewport.DragIndicator)
+				return;
+
+			var viewportPoint = aE.GetPosition((IInputElement)aSender);
+
+			mViewmodel.Viewport.DragIndicator.End = new Vector(viewportPoint.X, viewportPoint.Y);
+
+			var position = mViewmodel.Viewport.ToWorld(viewportPoint);
+
+			if (mReferencePosition.HasValue)
+			{
+				mViewmodel.Viewport.DragIndicator.Label = (aE.RightButton == MouseButtonState.Pressed)
+															  ? $"Δv={(position - mReferencePosition.Value) / mViewmodel.TimeScaleFactor}m/s"
+															  : $"v={(position - mReferencePosition.Value) / mViewmodel.TimeScaleFactor}m/s";
+
+				return;
+			}
+
+			if (null != mViewmodel.SelectedEntity)
+			{
+				mViewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
+															  ? $"Δv={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s"
+															  : $"v={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s";
+
+				return;
+			}
 		}
 
 		private void OnWorldMouseLeftButtonUp(object aSender, MouseButtonEventArgs aE)
 		{
-			if (null == mReferencePosition)
-				return;
-
-			if (Keyboard.IsKeyDown(Key.LeftAlt))
-			{
-				var rnd = new Random();
-
-				var viewportSize = mViewmodel.Viewport.BottomRight - mViewmodel.Viewport.TopLeft;
-
-				for (var i = 0; i < 100; i++)
-					mViewmodel.CreateEntity(new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + mViewmodel.Viewport.TopLeft,
-											VectorExtensions.Zero);
-
-				mViewmodel.RebuildAbsorbed = Keyboard.IsKeyDown(Key.LeftShift)
-												 ? (Action)(() => mViewmodel
-																.CreateEntity(new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + mViewmodel.Viewport.TopLeft,
-																			  VectorExtensions.Zero))
-												 : null;
-			}
-			else
-			{
-				var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
-
-				mViewmodel.CreateEntity(position, (position - mReferencePosition.Value) / 10);
-
-				mViewmodel.RebuildAbsorbed = null;
-			}
-
+			var referencePosition = mReferencePosition;
+			var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
+			
+			mViewmodel.Viewport.DragIndicator = null;
 			mReferencePosition = null;
+
+			if (null != referencePosition)
+			{
+				if (Keyboard.IsKeyDown(Key.LeftAlt))
+				{
+					mViewmodel.CreateRandomEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+					return;
+				}
+
+				mViewmodel.CreateEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
+				mViewmodel.RebuildAbsorbed = null;
+
+				return;
+			}
+
+			if (null != mViewmodel.SelectedEntity)
+			{
+				if ((position - mViewmodel.SelectedEntity.Position).Length <= mViewmodel.SelectedEntity.r)
+					return;
+
+				if (Keyboard.IsKeyDown(Key.LeftAlt))
+					mViewmodel.SelectedEntity.v += (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
+				else
+					mViewmodel.SelectedEntity.v = (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
+
+				return;
+			}
 		}
 
 		private void OnWorldRightButtonUp(object aSender, MouseButtonEventArgs aE)
 		{
-			if (null == mReferencePosition)
-				return;
+			var referencePosition = mReferencePosition;
+			var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
 
-			if (Keyboard.IsKeyDown(Key.LeftAlt))
-			{
-				var rnd = new Random();
-
-				var viewportSize = mViewmodel.Viewport.BottomRight - mViewmodel.Viewport.TopLeft;
-
-				for (var i = 0; i < 100; i++)
-					mViewmodel.CreateOrbitEntity(new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + mViewmodel.Viewport.TopLeft,
-												 VectorExtensions.Zero);
-
-				mViewmodel.RebuildAbsorbed = Keyboard.IsKeyDown(Key.LeftShift)
-												 ? (Action)(() => mViewmodel
-																.CreateOrbitEntity(new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + mViewmodel.Viewport.TopLeft,
-																				   VectorExtensions.Zero))
-												 : null;
-			}
-			else
-			{
-				var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
-
-				mViewmodel.CreateOrbitEntity(mReferencePosition.Value, (position - mReferencePosition.Value) / 100 * mViewmodel.Viewport.ScaleFactor);
-
-				mViewmodel.RebuildAbsorbed = null;
-			}
-
+			mViewmodel.Viewport.DragIndicator = null;
 			mReferencePosition = null;
+
+			if (null != referencePosition)
+			{
+				if (Keyboard.IsKeyDown(Key.LeftAlt))
+				{
+					mViewmodel.CreateRandomOrbitEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+					return;
+				}
+
+				mViewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
+				mViewmodel.RebuildAbsorbed = null;
+
+				return;
+			}
 		}
-		
+
 		private void OnWorldSizeChanged(object aSender, SizeChangedEventArgs aE)
 		{
 			var center = mViewmodel.Viewport.Center;
@@ -120,9 +156,9 @@ namespace Gravity
 
 		private void OnWorldMouseWheel(object aSender, MouseWheelEventArgs aE)
 			=> mViewmodel.Viewport.Zoom(mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender)),
-										-Math.Sign(aE.Delta) * (Keyboard.IsKeyDown(Key.LeftCtrl)
-																	? 1
-																	: 0.1));
+										-Math.Sign(aE.Delta) * (Keyboard.IsKeyDown(Key.LeftAlt)
+																	? 0.1
+																	: 1));
 
 		private void OnAutoScaleAndCenterViewportClicked(object aSender, RoutedEventArgs aE)
 			=> mViewmodel.AutoScaleAndCenterViewport();

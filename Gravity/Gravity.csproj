@@ -63,6 +63,7 @@
     <Compile Include="IEnumerableExtensions.cs" />
     <Compile Include="System\ComponentModel\INotifyPropertyChangedExtensions.cs" />
     <Compile Include="System\ComponentModel\NotifyPropertyChanged.cs" />
+    <Compile Include="Viewmodel\DragIndicator.cs" />
     <Compile Include="Win32.cs" />
     <Compile Include="WorldView.cs" />
     <Compile Include="Viewmodel\Entity.cs" />

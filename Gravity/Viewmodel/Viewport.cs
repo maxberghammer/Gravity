@@ -14,9 +14,13 @@ namespace Gravity.Viewmodel
 
 		private Vector mBottomRight = VectorExtensions.Zero;
 
+		private DragIndicator mDragIndicator;
+
 		#endregion
 
 		#region Interface
+
+		public DragIndicator DragIndicator { get => mDragIndicator; set => SetProperty(ref mDragIndicator, value); }
 
 		public Vector TopLeft
 		{
@@ -94,6 +98,9 @@ namespace Gravity.Viewmodel
 
 		public Vector ToWorld(Point aViewportPoint)
 			=> new Vector(aViewportPoint.X, aViewportPoint.Y) / ScaleFactor + TopLeft;
+
+		public Point ToViewport(Vector aWorldVector)
+			=> (Point)((aWorldVector - TopLeft) * ScaleFactor);
 
 		#endregion
 	}

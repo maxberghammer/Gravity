@@ -67,9 +67,9 @@ namespace Gravity.Viewmodel
 		public Vector v
 		{
 			get => mv;
-			private set => SetProperty(ref mv, (value.Length > 300000000)
-												   ? value.Unit() * 300000000
-												   : value);
+			set => SetProperty(ref mv, (value.Length > 300000000)
+										   ? value.Unit() * 300000000
+										   : value);
 		}
 
 		// ReSharper disable once InconsistentNaming

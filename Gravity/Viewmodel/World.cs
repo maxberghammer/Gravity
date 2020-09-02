@@ -29,6 +29,8 @@ namespace Gravity.Viewmodel
 		private double mTimeScale = 1;
 		private bool mIsObjectSelectionVisible;
 
+		private bool mIsHelpVisible;
+
 		#endregion
 
 		#region Construction
@@ -106,6 +108,50 @@ namespace Gravity.Viewmodel
 		public bool IsRunning { get => mIsRunning; set => SetProperty(ref mIsRunning, value); }
 
 		public Action RebuildAbsorbed { get; set; }
+
+		public bool IsHelpVisible { get => mIsHelpVisible; set => SetProperty(ref mIsHelpVisible, value); }
+
+		public void CreateRandomEntities(int aCount, bool aRebuildAbsorbed)
+		{
+			var rnd = new Random();
+
+			var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
+
+			for (var i = 0; i < aCount; i++)
+			{
+				var position = new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+
+				while (Entities.Any(e => (e.Position - position).Length <= (e.r + SelectedEntityPreset.r)))
+					position = new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+
+				CreateEntity(position, VectorExtensions.Zero);
+
+				RebuildAbsorbed = aRebuildAbsorbed
+									  ? (Action)(() => CreateRandomEntities(1, true))
+									  : null;
+			}
+		}
+
+		public void CreateRandomOrbitEntities(int aCount, bool aRebuildAbsorbed)
+		{
+			var rnd = new Random();
+
+			var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
+
+			for (var i = 0; i < aCount; i++)
+			{
+				var position = new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+
+				while (Entities.Any(e => (e.Position - position).Length <= (e.r + SelectedEntityPreset.r)))
+					position = new Vector(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+
+				CreateOrbitEntity(position, VectorExtensions.Zero);
+
+				RebuildAbsorbed = aRebuildAbsorbed
+									  ? (Action)(() => CreateRandomOrbitEntities(1, true))
+									  : null;
+			}
+		}
 
 		public void CreateEntity(Vector aPosition, Vector aVelocity)
 			=> Entities.Add(new Entity(aPosition,

@@ -15,176 +15,330 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
     <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-            <Grid.Resources>
+        <Grid.Resources>
+            <Style TargetType="Label">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="IsHitTestVisible" Value="False"/>
+            </Style>
+            <Style TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Width" Value="30"/>
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="FontSize" Value="20"/>
+            </Style>
+            <Style TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Width" Value="30"/>
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="FontSize" Value="20"/>
+            </Style>
+        </Grid.Resources>
+
+        <gravity:WorldView Grid.Row="0"
+                           Grid.RowSpan="3"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Background="Black"
+                           SizeChanged="OnWorldSizeChanged"
+                           MouseWheel="OnWorldMouseWheel"
+                           MouseDown="OnWorldMouseDown"
+                           MouseMove="OnWorldMouseMove"
+                           MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
+                           MouseRightButtonUp="OnWorldRightButtonUp"/>
+
+        <Line Grid.Row="0"
+              Grid.RowSpan="3"
+              Stroke="GreenYellow"
+              StrokeThickness="1"
+              IsHitTestVisible="False"
+              X1="{Binding Viewport.DragIndicator.Start.X}"
+              Y1="{Binding Viewport.DragIndicator.Start.Y}"
+              X2="{Binding Viewport.DragIndicator.End.X}"
+              Y2="{Binding Viewport.DragIndicator.End.Y}"/>
+
+        <Grid Grid.Row="0"
+              Grid.RowSpan="3"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Width="{Binding Viewport.DragIndicator.End.X}"
+              Height="{Binding Viewport.DragIndicator.End.Y}">
+            <Label Content="{Binding Viewport.DragIndicator.Label}"
+                   Foreground="GreenYellow"
+                   Background="Transparent"
+                   IsHitTestVisible="False"
+                   VerticalAlignment="Bottom"
+                   HorizontalAlignment="Right"/>
+        </Grid>
+
+        <DockPanel Grid.Row="0"
+                   HorizontalAlignment="Stretch"
+                   Margin="0,10,0,0"
+                   LastChildFill="False">
+            <Label DockPanel.Dock="Left"
+                   Content="{Binding Viewport.Scale}"
+                   ContentStringFormat="1px=10^{0}m"
+                   VerticalContentAlignment="Center"/>
+            <Button DockPanel.Dock="Left"
+                    FontFamily="WingDings"
+                    ToolTip="Sichtbereich automatisch anpassen"
+                    Content="ó"
+                    Click="OnAutoScaleAndCenterViewportClicked"/>
+            <ToggleButton DockPanel.Dock="Left"
+                          Margin="10,0,0,0"
+                          FontFamily="WingDings"
+                          Content="°"
+                          ToolTip="Automatisch zentrieren an/aus"
+                          IsChecked="{Binding AutoCenterViewport}"/>
+            <ToggleButton DockPanel.Dock="Right"
+                          ToolTip="Hilfe ein-/ausblenden"
+                          Content="?"
+                          IsChecked="{Binding IsHelpVisible, Mode=TwoWay}"/>
+            <Button DockPanel.Dock="Right"
+                    Margin="0,0,10,0"
+                    FontFamily="Wingdings 3"
+                    ToolTip="Zurücksetzen"
+                    Content="Q"
+                    Click="OnResetClicked"/>
+            <ToggleButton DockPanel.Dock="Right"
+                          Margin="0,0,10,0"
+                          FontFamily="Arial"
+                          ToolTip="Simulation starten/anhalten"
+                          Content="►"
+                          IsChecked="{Binding IsRunning, Mode=TwoWay}"/>
+        </DockPanel>
+
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center">
+            <ToggleButton ToolTip="Pfade anzeigen"
+                          Content="ꟿ"
+                          IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
+            <ToggleButton Margin="10,0,0,0"
+                          FontFamily="Wingdings 3"
+                          Content="F"
+                          ToolTip="Geschlossene Grenzen"
+                          IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
+            <ToggleButton Margin="10,0,0,0"
+                          FontFamily="Wingdings"
+                          Content="R"
+                          ToolTip="Elastische Zusammenstöße an/aus"
+                          IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
+            <ToggleButton Margin="10,0,0,0"
+                          FontFamily="Wingdings"
+                          Content="¡"
+                          ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
+                          IsChecked="{Binding IsObjectSelectionVisible, Mode=TwoWay}"/>
+        </StackPanel>
+
+        <ComboBox Grid.Row="1"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Top"
+                  Visibility="{Binding IsObjectSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                  ItemsSource="{Binding EntityPresets}"
+                  SelectedItem="{Binding SelectedEntityPreset}">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel.Resources>
+                            <Style TargetType="Label">
+                                <Setter Property="Foreground" Value="Black"/>
+                            </Style>
+                        </StackPanel.Resources>
+                        <Ellipse Width="20"
+                                 Height="20"
+                                 VerticalAlignment="Center"
+                                 Fill="{Binding Fill}"
+                                 Stroke="{Binding Stroke}"
+                                 StrokeThickness="{Binding StrokeWidth}"/>
+                        <Label Margin="10,0,0,0"
+                               Content="{Binding Name}"/>
+                        <Label Margin="10,0,0,0"
+                               Content="Radius (m):"/>
+                        <Label Content="{Binding r}"/>
+                        <Label Content="Masse (kg):"/>
+                        <Label Content="{Binding m}"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <DockPanel Grid.Row="2"
+                   HorizontalAlignment="Stretch"
+                   LastChildFill="False">
+            <DockPanel.Resources>
                 <Style TargetType="Label">
                     <Setter Property="Background" Value="Transparent"/>
                     <Setter Property="Foreground" Value="White"/>
                     <Setter Property="IsHitTestVisible" Value="False"/>
                 </Style>
-                <Style TargetType="Button">
-                    <Setter Property="Background" Value="Transparent"/>
+            </DockPanel.Resources>
+            <Label DockPanel.Dock="Left"
+                   Content="{Binding CpuUtilizationInPercent}"
+                   ContentStringFormat="CPU={0}%"/>
+            <Slider DockPanel.Dock="Right"
+                    Width="100"
+                    IsSnapToTickEnabled="True"
+                    Minimum="0"
+                    Maximum="10"
+                    TickFrequency="1"
+                    TickPlacement="Both"
+                    Value="{Binding TimeScale}"/>
+            <Label DockPanel.Dock="Right"
+                   Content="{Binding RuntimeInSeconds}"
+                   ContentStringFormat="t={0}"/>
+            <Label DockPanel.Dock="Right"
+                   Content="{Binding EntityCount}"
+                   ContentStringFormat=" {0} Objekte"/>
+        </DockPanel>
+
+        <Grid Grid.Row="2"
+              HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="1"
+                   Content="{Binding SelectedEntity.v}"
+                   ContentStringFormat="v={0}m/s"/>
+            <Label Grid.Column="2"
+                   Content="{Binding SelectedEntity.m}"
+                   ContentStringFormat="m={0}kg"/>
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Grid.RowSpan="3"
+              Margin="50"
+              Visibility="{Binding IsHelpVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.Resources>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Padding" Value="10"/>
+                    <Setter Property="Background" Value="#80FFFFFF"/>
                     <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Padding" Value="0"/>
-                    <Setter Property="Width" Value="30"/>
-                    <Setter Property="Height" Value="30"/>
-                    <Setter Property="FontSize" Value="20"/>
                 </Style>
-                <Style TargetType="ToggleButton">
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Padding" Value="0"/>
-                    <Setter Property="Width" Value="30"/>
-                    <Setter Property="Height" Value="30"/>
-                    <Setter Property="FontSize" Value="20"/>
+                <Style x:Key="H1" TargetType="Span">
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </Style>
+                <Style x:Key="H2" TargetType="Span">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </Style>
+                <Style x:Key="Standard" TargetType="Span">
+                    <Setter Property="Foreground" Value="#80FFFFFF"/>
                 </Style>
             </Grid.Resources>
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Top">
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit linker Maustaste</Underline>
+                </Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mit linker Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">Erzeugt ein neues Objekt</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Alt+Mit linker Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">Erzeugt 100 neue Objekte an zufälligen Positionen</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Shift+Alt+Mit linker Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">
+                    Erzeugt 100 neue Objekte an zufälligen Positionen. Sind elastische
+                    <LineBreak/>
+                    Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.
+                </Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mit linker Maustaste ziehen: </Span>
+                <Span Style="{StaticResource Standard}">Erzeugt ein neues Objekt mit gegebener Geschwindigkeit</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Objekt mit linker Maustaste anklicken: </Span>
+                <Span Style="{StaticResource Standard}">Wählt das Objekt aus</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Objekt mit linker Maustaste ziehen: </Span>
+                <Span Style="{StaticResource Standard}">Setzt die Geschwindigkeit des Objektes neu</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Shift+Objekt mit linker Maustaste ziehen: </Span>
+                <Span Style="{StaticResource Standard}">Beschleunigt das Objekt</Span>
+            </TextBlock>
 
-            <gravity:WorldView Grid.Row="0" 
-                               Grid.RowSpan="3"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Stretch"
-                               Background="Black"
-                               SizeChanged="OnWorldSizeChanged"
-                               MouseWheel="OnWorldMouseWheel"
-                               MouseDown="OnWorldMouseDown"
-                               MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                               MouseRightButtonUp="OnWorldRightButtonUp"/>
-            <DockPanel Grid.Row="0"
-                       HorizontalAlignment="Stretch"
-                       Margin="0,10,0,0"
-                       LastChildFill="False">
-                <Label DockPanel.Dock="Left"
-                       Content="{Binding Viewport.Scale}"
-                       ContentStringFormat="1px=10^{0}m"
-                       VerticalContentAlignment="Center"/>
-                <Button DockPanel.Dock="Left"
-                        FontFamily="WingDings"
-                        ToolTip="Sichtbereich automatisch anpassen"
-                        Content="ó"
-                        Click="OnAutoScaleAndCenterViewportClicked"/>
-                <ToggleButton DockPanel.Dock="Left"
-                              Margin="10,0,0,0"
-                              FontFamily="WingDings"
-                              Content="°"
-                              ToolTip="Automatisch zentrieren an/aus"
-                              IsChecked="{Binding AutoCenterViewport}"/>
-                <Button DockPanel.Dock="Right"
-                        FontFamily="Wingdings 3"
-                        ToolTip="Zurücksetzen"
-                        Content="Q"
-                        Click="OnResetClicked"/>
-                <ToggleButton DockPanel.Dock="Right"
-                              Margin="0,0,10,0"
-                              FontFamily="Arial"
-                              ToolTip="Simulation starten/anhalten"
-                              Content="►"
-                              IsChecked="{Binding IsRunning, Mode=TwoWay}"/>
-            </DockPanel>
+            <TextBlock HorizontalAlignment="Center"
+                       VerticalAlignment="Top">
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit dem Mausrad</Underline>
+                </Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mausrad nach vorne drehen: </Span>
+                <Span Style="{StaticResource Standard}">Vergrößert den Bildausschnitt grob</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Alt+Mausrad nach vorne drehen: </Span>
+                <Span Style="{StaticResource Standard}">Vergrößert den Bildausschnitt fein</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mausrad nach hinten drehen: </Span>
+                <Span Style="{StaticResource Standard}">Verkleinert den Bildausschnitt grob</Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Alt+Mausrad nach hinten drehen: </Span>
+                <Span Style="{StaticResource Standard}">Verkleinert den Bildausschnitt fein</Span>
+            </TextBlock>
 
-            <StackPanel Grid.Row="0"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Center">
-                <ToggleButton ToolTip="Pfade anzeigen"
-                              Content="ꟿ"
-                              IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
-                <ToggleButton Margin="10,0,0,0" 
-                              FontFamily="Wingdings 3"
-                              Content="F"
-                              ToolTip="Geschlossene Grenzen"
-                              IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
-                <ToggleButton Margin="10,0,0,0" 
-                              FontFamily="Wingdings"
-                              Content="R"
-                              ToolTip="Elastische Zusammenstöße an/aus" 
-                              IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
-                <ToggleButton Margin="10,0,0,0"
-                              FontFamily="Wingdings"
-                              Content="¡"
-                              ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
-                              IsChecked="{Binding IsObjectSelectionVisible, Mode=TwoWay}"/>
-            </StackPanel>
-
-            <ComboBox Grid.Row="1"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Top"
-                      Visibility="{Binding IsObjectSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
-                      ItemsSource="{Binding EntityPresets}"
-                      SelectedItem="{Binding SelectedEntityPreset}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <StackPanel.Resources>
-                                <Style TargetType="Label">
-                                    <Setter Property="Foreground" Value="Black"/>
-                                </Style>
-                            </StackPanel.Resources>
-                            <Ellipse Width="20"
-                                     Height="20"
-                                     VerticalAlignment="Center"
-                                     Fill="{Binding Fill}"
-                                     Stroke="{Binding Stroke}"
-                                     StrokeThickness="{Binding StrokeWidth}"/>
-                            <Label Margin="10,0,0,0"
-                                   Content="{Binding Name}"/>
-                            <Label Margin="10,0,0,0"
-                                   Content="Radius (m):"/>
-                            <Label Content="{Binding r}"/>
-                            <Label Content="Masse (kg):"/>
-                            <Label Content="{Binding m}"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-
-            <DockPanel Grid.Row="2"
-                       HorizontalAlignment="Stretch"
-                       LastChildFill="False">
-                <DockPanel.Resources>
-                    <Style TargetType="Label">
-                        <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="Foreground" Value="White"/>
-                        <Setter Property="IsHitTestVisible" Value="False"/>
-                    </Style>
-                </DockPanel.Resources>
-                <Label DockPanel.Dock="Left"
-                       Content="{Binding CpuUtilizationInPercent}"
-                       ContentStringFormat="CPU={0}%"/>
-                <Slider DockPanel.Dock="Right"
-                        Width="100"
-                        IsSnapToTickEnabled="True"
-                        Minimum="0"
-                        Maximum="10"
-                        TickFrequency="1"
-                        TickPlacement="Both"
-                        Value="{Binding TimeScale}"/>
-                <Label DockPanel.Dock="Right"
-                       Content="{Binding RuntimeInSeconds}"
-                       ContentStringFormat="t={0}"/>
-                <Label DockPanel.Dock="Right"
-                       Content="{Binding EntityCount}"
-                       ContentStringFormat=" {0} Objekte"/>
-            </DockPanel>
-
-            <Grid Grid.Row="2" 
-                  HorizontalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="1"
-                       Content="{Binding SelectedEntity.v}"
-                       ContentStringFormat="v={0}m/s"/>
-                <Label Grid.Column="2"
-                       Content="{Binding SelectedEntity.m}"
-                       ContentStringFormat="m={0}kg"/>
-            </Grid>
+            <TextBlock HorizontalAlignment="Right"
+                       VerticalAlignment="Top">
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit rechter Maustaste</Underline>
+                </Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mit rechter Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">
+                    Erzeugt ein neues Objekt, das sich in einer stabilen Umlaufbahn um das
+                    <LineBreak/>
+                    momentan ausgewählte Objekt bewegt. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt
+                    <LineBreak/>
+                    gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.
+                </Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Alt+Mit rechter Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">
+                    Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer
+                    <LineBreak/>
+                    stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die
+                    <LineBreak/>
+                    Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind.
+                </Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Shift+Alt+Mit rechter Maustaste klicken: </Span>
+                <Span Style="{StaticResource Standard}">
+                    Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer
+                    <LineBreak/>
+                    stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die
+                    <LineBreak/>
+                    Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind.
+                    <LineBreak/>
+                    Sind elastische Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.
+                </Span>
+                <LineBreak/>
+                <Span Style="{StaticResource H2}">Mit rechter Maustaste ziehen: </Span>
+                <Span Style="{StaticResource Standard}">
+                    Erzeugt ein neues Objekt, das sich in einer mehr oder weniger stabilen
+                    <LineBreak/>
+                    Umlaufbahn um das momentan ausgewählte Objekt bewegt. Ausgehend von einer stabilen Umlaufbahn wird die
+                    <LineBreak/>
+                    gezogene Geschwindigkeit dazuaddiert. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt
+                    <LineBreak/>
+                    gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.
+                </Span>
+            </TextBlock>
         </Grid>
+    </Grid>
 </Window>
