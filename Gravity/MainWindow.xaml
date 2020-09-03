@@ -89,28 +89,33 @@
                    Content="{Binding Viewport.Scale}"
                    ContentStringFormat="1px=10^{0}m"
                    VerticalContentAlignment="Center"/>
-            <Button DockPanel.Dock="Left"
+            <Button Name="mBtnAutoScaleAndCenterViewport" 
+                    DockPanel.Dock="Left"
                     FontFamily="WingDings"
                     ToolTip="Sichtbereich automatisch anpassen"
                     Content="ó"
                     Click="OnAutoScaleAndCenterViewportClicked"/>
-            <ToggleButton DockPanel.Dock="Left"
+            <ToggleButton Name="mBtnAutoCenterViewportOnOff" 
+                          DockPanel.Dock="Left"
                           Margin="10,0,0,0"
                           FontFamily="WingDings"
                           Content="°"
                           ToolTip="Automatisch zentrieren an/aus"
                           IsChecked="{Binding AutoCenterViewport}"/>
-            <ToggleButton DockPanel.Dock="Right"
+            <ToggleButton Name="mBtnShowHelpOnOff" 
+                          DockPanel.Dock="Right"
                           ToolTip="Hilfe ein-/ausblenden"
                           Content="?"
                           IsChecked="{Binding IsHelpVisible, Mode=TwoWay}"/>
-            <Button DockPanel.Dock="Right"
+            <Button Name="mBtnReset" 
+                    DockPanel.Dock="Right"
                     Margin="0,0,10,0"
                     FontFamily="Wingdings 3"
                     ToolTip="Zurücksetzen"
                     Content="Q"
                     Click="OnResetClicked"/>
-            <ToggleButton DockPanel.Dock="Right"
+            <ToggleButton Name="mBtnSimulationOnOff" 
+                          DockPanel.Dock="Right"
                           Margin="0,0,10,0"
                           FontFamily="Arial"
                           ToolTip="Simulation starten/anhalten"
@@ -121,32 +126,37 @@
         <StackPanel Grid.Row="0"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center">
-            <ToggleButton ToolTip="Pfade anzeigen"
+            <ToggleButton Name="mBtnShowPathsOnOff" 
+                          ToolTip="Pfade anzeigen"
                           Content="ꟿ"
                           IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
-            <ToggleButton Margin="10,0,0,0"
+            <ToggleButton Name="mBtnClosedBoundariesOnOff" 
+                          Margin="10,0,0,0"
                           FontFamily="Wingdings 3"
                           Content="F"
                           ToolTip="Geschlossene Grenzen"
                           IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
-            <ToggleButton Margin="10,0,0,0"
+            <ToggleButton Name="mBtnElasticCollisionsOnOff" 
+                          Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="R"
                           ToolTip="Elastische Zusammenstöße an/aus"
                           IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
-            <ToggleButton Margin="10,0,0,0"
+            <ToggleButton Name="mBtnShowEntityPresetSelectionOnOff" 
+                          Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="¡"
                           ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
-                          IsChecked="{Binding IsObjectSelectionVisible, Mode=TwoWay}"/>
+                          IsChecked="{Binding IsEntityPresetSelectionVisible, Mode=TwoWay}"/>
         </StackPanel>
 
         <ComboBox Grid.Row="1"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
-                  Visibility="{Binding IsObjectSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                  Visibility="{Binding IsEntityPresetSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                   ItemsSource="{Binding EntityPresets}"
-                  SelectedItem="{Binding SelectedEntityPreset}">
+                  SelectedItem="{Binding SelectedEntityPreset}"
+                  SelectionChanged="OnEntityPresetSelectionChanged">
             <ComboBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
@@ -186,7 +196,9 @@
             <Label DockPanel.Dock="Left"
                    Content="{Binding CpuUtilizationInPercent}"
                    ContentStringFormat="CPU={0}%"/>
-            <Slider DockPanel.Dock="Right"
+            <Slider Name="mSldTimeScale" 
+                    DockPanel.Dock="Right"
+                    ToolTip="Zeit-Skalierung"
                     Width="100"
                     IsSnapToTickEnabled="True"
                     Minimum="0"
@@ -222,122 +234,154 @@
               Grid.RowSpan="3"
               Margin="50"
               Visibility="{Binding IsHelpVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             <Grid.Resources>
                 <Style TargetType="TextBlock">
+                    <Setter Property="Margin" Value="10"/>
                     <Setter Property="Padding" Value="10"/>
-                    <Setter Property="Background" Value="#80FFFFFF"/>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalAlignment" Value="Top"/>
+                    <Setter Property="TextAlignment" Value="Justify"/>
+                    <Setter Property="TextWrapping" Value="Wrap"/>
+                    <Setter Property="Background" Value="#20FFFFFF"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Style>
                 <Style x:Key="H1" TargetType="Span">
                     <Setter Property="FontSize" Value="14"/>
                     <Setter Property="FontWeight" Value="Bold"/>
                 </Style>
-                <Style x:Key="H2" TargetType="Span">
+                <Style x:Key="H2" TargetType="Run">
                     <Setter Property="FontWeight" Value="Bold"/>
                 </Style>
-                <Style x:Key="Standard" TargetType="Span">
+                <Style x:Key="Standard" TargetType="Run">
                     <Setter Property="Foreground" Value="#80FFFFFF"/>
                 </Style>
             </Grid.Resources>
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Top">
-                <Span Style="{StaticResource H1}">
-                    <Underline>Aktionen mit linker Maustaste</Underline>
-                </Span>
+            <TextBlock Grid.Column="0"
+                       Grid.Row="0">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen am linken oberen Rand der Oberfläche</Underline></Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Mit linker Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">Erzeugt ein neues Objekt</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnAutoScaleAndCenterViewport, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Passt die Größe der Darstellung so an, dass sich alle Objekte im Sichtbereich befinden.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Alt+Mit linker Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">Erzeugt 100 neue Objekte an zufälligen Positionen</Span>
-                <LineBreak/>
-                <Span Style="{StaticResource H2}">Shift+Alt+Mit linker Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">
-                    Erzeugt 100 neue Objekte an zufälligen Positionen. Sind elastische
-                    <LineBreak/>
-                    Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.
-                </Span>
-                <LineBreak/>
-                <Span Style="{StaticResource H2}">Mit linker Maustaste ziehen: </Span>
-                <Span Style="{StaticResource Standard}">Erzeugt ein neues Objekt mit gegebener Geschwindigkeit</Span>
-                <LineBreak/>
-                <Span Style="{StaticResource H2}">Objekt mit linker Maustaste anklicken: </Span>
-                <Span Style="{StaticResource Standard}">Wählt das Objekt aus</Span>
-                <LineBreak/>
-                <Span Style="{StaticResource H2}">Objekt mit linker Maustaste ziehen: </Span>
-                <Span Style="{StaticResource Standard}">Setzt die Geschwindigkeit des Objektes neu</Span>
-                <LineBreak/>
-                <Span Style="{StaticResource H2}">Shift+Objekt mit linker Maustaste ziehen: </Span>
-                <Span Style="{StaticResource Standard}">Beschleunigt das Objekt</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnAutoCenterViewportOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Aktiviert/Deaktiviert das daurhafte automatische Ausrichten des Sichtbereiches auf den Mittelpunkt aller Objekte.</Run>
             </TextBlock>
 
-            <TextBlock HorizontalAlignment="Center"
-                       VerticalAlignment="Top">
-                <Span Style="{StaticResource H1}">
-                    <Underline>Aktionen mit dem Mausrad</Underline>
-                </Span>
+            <TextBlock Grid.Column="1"
+                       Grid.Row="0">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen am mittleren oberen Rand der Oberfläche</Underline></Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Mausrad nach vorne drehen: </Span>
-                <Span Style="{StaticResource Standard}">Vergrößert den Bildausschnitt grob</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowPathsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Zeigt die Bewegungspfade der simulierten Objekte an oder blendet sie aus. Dabei wird aus Gründen der Performance nicht der gesamte Pfad angezeigt, sondern nur ein Teil.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Alt+Mausrad nach vorne drehen: </Span>
-                <Span Style="{StaticResource Standard}">Vergrößert den Bildausschnitt fein</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnClosedBoundariesOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Steuert, ob die simulierten Objekte am Rand des Sichtbereichs abprallen sollen, oder nicht.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Mausrad nach hinten drehen: </Span>
-                <Span Style="{StaticResource Standard}">Verkleinert den Bildausschnitt grob</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnElasticCollisionsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Steuert, ob die Objekte aneinander abprallen sollen, wenn sie sich berühren, oder ob sie verschmelzen sollen. Dabei absorbiert stets das Objekt mit der größeren Masse dasjenige mit der geringeren.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Alt+Mausrad nach hinten drehen: </Span>
-                <Span Style="{StaticResource Standard}">Verkleinert den Bildausschnitt fein</Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Zeigt die Auswahl für den zu erzeugenden Objekttyp an oder blendet sie aus.</Run>
             </TextBlock>
 
-            <TextBlock HorizontalAlignment="Right"
-                       VerticalAlignment="Top">
-                <Span Style="{StaticResource H1}">
-                    <Underline>Aktionen mit rechter Maustaste</Underline>
-                </Span>
+            <TextBlock Grid.Column="2"
+                       Grid.Row="0">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen am rechten oberen Rand der Oberfläche</Underline></Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Mit rechter Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">
-                    Erzeugt ein neues Objekt, das sich in einer stabilen Umlaufbahn um das
-                    <LineBreak/>
-                    momentan ausgewählte Objekt bewegt. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt
-                    <LineBreak/>
-                    gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.
-                </Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnSimulationOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Startet die Simulation oder hält sie an.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Alt+Mit rechter Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">
-                    Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer
-                    <LineBreak/>
-                    stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die
-                    <LineBreak/>
-                    Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind.
-                </Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnReset, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Entfernt alle Objekte und setzt die Simulation auf den Anfang zurück.</Run>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Shift+Alt+Mit rechter Maustaste klicken: </Span>
-                <Span Style="{StaticResource Standard}">
-                    Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer
-                    <LineBreak/>
-                    stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die
-                    <LineBreak/>
-                    Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind.
-                    <LineBreak/>
-                    Sind elastische Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.
-                </Span>
+                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowHelpOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Zeigt diese Hilfe an oder blendet sie aus.</Run>
+            </TextBlock>
+
+            <TextBlock Grid.Column="0" 
+                       Grid.Row="1">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen mit linker Maustaste</Underline></Span>
                 <LineBreak/>
-                <Span Style="{StaticResource H2}">Mit rechter Maustaste ziehen: </Span>
-                <Span Style="{StaticResource Standard}">
-                    Erzeugt ein neues Objekt, das sich in einer mehr oder weniger stabilen
-                    <LineBreak/>
-                    Umlaufbahn um das momentan ausgewählte Objekt bewegt. Ausgehend von einer stabilen Umlaufbahn wird die
-                    <LineBreak/>
-                    gezogene Geschwindigkeit dazuaddiert. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt
-                    <LineBreak/>
-                    gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.
-                </Span>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mit linker Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt ein neues Objekt.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Alt+Mit linker Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt 100 neue Objekte an zufälligen Positionen.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Shift+Alt+Mit linker Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt 100 neue Objekte an zufälligen Positionen. Sind elastische Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mit linker Maustaste ziehen: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt ein neues Objekt mit gegebener Geschwindigkeit.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Objekt mit linker Maustaste anklicken: </Run>
+                <Run Style="{StaticResource Standard}">Wählt das Objekt aus.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Objekt mit linker Maustaste ziehen: </Run>
+                <Run Style="{StaticResource Standard}">Setzt die Geschwindigkeit des Objektes neu.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Shift+Objekt mit linker Maustaste ziehen: </Run>
+                <Run Style="{StaticResource Standard}">Beschleunigt das Objekt.</Run>
+            </TextBlock>
+
+            <TextBlock Grid.Column="1"
+                       Grid.Row="1">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen mit dem Mausrad</Underline></Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mausrad nach vorne drehen: </Run>
+                <Run Style="{StaticResource Standard}">Vergrößert den Sichtbereich grob.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Alt+Mausrad nach vorne drehen: </Run>
+                <Run Style="{StaticResource Standard}">Vergrößert den Sichtbereich fein.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mausrad nach hinten drehen: </Run>
+                <Run Style="{StaticResource Standard}">Verkleinert den Sichtbereich grob.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Alt+Mausrad nach hinten drehen: </Run>
+                <Run Style="{StaticResource Standard}">Verkleinert den Sichtbereich fein.</Run>
+            </TextBlock>
+
+            <TextBlock Grid.Column="2"
+                       Grid.Row="1">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen mit rechter Maustaste</Underline></Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mit rechter Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt ein neues Objekt, das sich in einer stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegt. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Alt+Mit rechter Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Shift+Alt+Mit rechter Maustaste klicken: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt an zufälligen Positionen 100 neue Objekte, die sich in einer stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegen. Ist kein Objekt ausgewählt, werden die Umlaufbahnen um diejenigen Objekte gewählt, deren Gravitation an den entsprechenden Positionen am stärksten sind. Sind elastische Zusammenstöße ausgeschaltet, wird für jedes absorbierte Objekt automatisch ein neues erzeugt.</Run>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}">Mit rechter Maustaste ziehen: </Run>
+                <Run Style="{StaticResource Standard}">Erzeugt ein neues Objekt, das sich in einer mehr oder weniger stabilen Umlaufbahn um das momentan ausgewählte Objekt bewegt. Ausgehend von einer stabilen Umlaufbahn wird die gezogene Geschwindigkeit dazuaddiert. Ist kein Objekt ausgewählt, wird die Umlaufbahn um dasjenige Objekt gewählt, dessen Gravitation an der Position des Mauszeigers am stärksten ist.</Run>
+            </TextBlock>
+
+            <TextBlock Grid.Column="2"
+                       Grid.Row="2">
+                <Span Style="{StaticResource H1}"><Underline>Aktionen am rechten unteren Rand der Oberfläche</Underline></Span>
+                <LineBreak/>
+                <LineBreak/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mSldTimeScale, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource Standard}">Steuert die zeitliche Genauigkeit der Simulation. Kleinere Werte (links) bedeuten höhere Genauigkeit bei geringerer Simulationsgeschwindigkeit, größere Werte (rechts) bedeuten geringere Genauigkeit bei höherer Simulationsgeschwindigkeit. Geringere Werte eignen sich besser für kleine Größenmaßstäbe, höhere für größere Größenmaßstäbe.</Run>
             </TextBlock>
         </Grid>
     </Grid>

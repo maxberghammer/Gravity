@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -23,12 +24,11 @@ namespace Gravity.Viewmodel
 		private bool mAutoCenterViewport;
 		private Entity mSelectedEntity;
 		private bool mShowPath = true;
-		private DateTime? mLastUpdateTime;
+		private TimeSpan? mLastUpdateTime;
 		private bool mIsRunning = true;
 		private int mCpuUtilizationInPercent;
 		private double mTimeScale = 1;
-		private bool mIsObjectSelectionVisible;
-
+		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
 
 		#endregion
@@ -47,6 +47,7 @@ namespace Gravity.Viewmodel
 			Win32.EnumDisplaySettings(null, 0, ref d);
 
 			mDisplayFrequency = d.dmDisplayFrequency;
+			mStopwatch.Start();
 
 			Application.Current.Dispatcher.InvokeAsync(async () => await SimulateAsync(), DispatcherPriority.Background);
 		}
@@ -86,7 +87,7 @@ namespace Gravity.Viewmodel
 
 		public bool ElasticCollisions { get => mElasticCollisions; set => SetProperty(ref mElasticCollisions, value); }
 
-		public bool IsObjectSelectionVisible { get => mIsObjectSelectionVisible; set => SetProperty(ref mIsObjectSelectionVisible, value); }
+		public bool IsEntityPresetSelectionVisible { get => mIsEntityPresetSelectionVisible; set => SetProperty(ref mIsEntityPresetSelectionVisible, value); }
 
 		public bool ClosedBoundaries { get => mClosedBoundaries; set => SetProperty(ref mClosedBoundaries, value); }
 
@@ -226,12 +227,16 @@ namespace Gravity.Viewmodel
 
 		#endregion
 
+		private readonly Stopwatch mStopwatch= new Stopwatch();
+
 		#region Implementation
 
 		private async Task SimulateAsync()
 		{
-			var start = DateTime.Now;
-			var deltaTime = mLastUpdateTime.HasValue ? TimeSpan.FromSeconds((start - mLastUpdateTime.Value).TotalSeconds * TimeScaleFactor) : TimeSpan.Zero;
+			var start = mStopwatch.Elapsed;
+			var deltaTime = mLastUpdateTime.HasValue 
+				? TimeSpan.FromSeconds((start - mLastUpdateTime.Value).TotalSeconds * TimeScaleFactor) 
+				: TimeSpan.Zero;
 
 			mLastUpdateTime = start;
 
@@ -245,7 +250,7 @@ namespace Gravity.Viewmodel
 				RuntimeInSeconds += deltaTime;
 			}
 
-			CpuUtilizationInPercent = (int)Math.Round((DateTime.Now - start).TotalSeconds * mDisplayFrequency * 100.0d);
+			CpuUtilizationInPercent = (int)Math.Round((mStopwatch.Elapsed - start).TotalSeconds * mDisplayFrequency * 100.0d);
 
 			Updated?.Invoke(this, EventArgs.Empty);
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Gravity.Viewmodel;
 
@@ -78,8 +79,6 @@ namespace Gravity
 				mViewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
 															  ? $"Δv={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s"
 															  : $"v={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s";
-
-				return;
 			}
 		}
 
@@ -87,7 +86,7 @@ namespace Gravity
 		{
 			var referencePosition = mReferencePosition;
 			var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
-			
+
 			mViewmodel.Viewport.DragIndicator = null;
 			mReferencePosition = null;
 
@@ -114,8 +113,6 @@ namespace Gravity
 					mViewmodel.SelectedEntity.v += (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
 				else
 					mViewmodel.SelectedEntity.v = (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
-
-				return;
 			}
 		}
 
@@ -137,8 +134,6 @@ namespace Gravity
 
 				mViewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
 				mViewmodel.RebuildAbsorbed = null;
-
-				return;
 			}
 		}
 
@@ -162,6 +157,11 @@ namespace Gravity
 
 		private void OnAutoScaleAndCenterViewportClicked(object aSender, RoutedEventArgs aE)
 			=> mViewmodel.AutoScaleAndCenterViewport();
+
+		private void OnEntityPresetSelectionChanged(object aSender, SelectionChangedEventArgs aE)
+		{
+			mViewmodel.IsEntityPresetSelectionVisible = false;
+		}
 
 		#endregion
 	}
