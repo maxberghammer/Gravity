@@ -8,14 +8,14 @@ namespace Gravity.Viewmodel
 		#region Construction
 
 		// ReSharper disable InconsistentNaming
-		public EntityPreset(string aName, double am, double ar, Brush aFill)
+		public EntityPreset(string aName, double am, double ar, SolidColorBrush aFill, Guid aId)
 			// ReSharper restore InconsistentNaming
-			: this(aName, am, ar, aFill, null, 0)
+			: this(aName, am, ar, aFill, null, 0, aId)
 		{
 		}
 
 		// ReSharper disable InconsistentNaming
-		public EntityPreset(string aName, double am, double ar, Brush aFill, Brush aStroke, double aStrokeWidth)
+		public EntityPreset(string aName, double am, double ar, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth, Guid aId)
 			// ReSharper restore InconsistentNaming
 		{
 			Name = aName;
@@ -24,10 +24,11 @@ namespace Gravity.Viewmodel
 			Fill = aFill;
 			Stroke = aStroke;
 			StrokeWidth = aStrokeWidth;
+			Id = aId;
 		}
 
-		public static EntityPreset FromDensity(string aName, double aDensity, double ar, Brush aFill, Brush aStroke, double aStrokeWidth)
-			=> new EntityPreset(aName, 4.0d / 3.0d * Math.Pow(ar, 3) * Math.PI * aDensity, ar, aFill, aStroke, aStrokeWidth);
+		public static EntityPreset FromDensity(string aName, double aDensity, double ar, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth, Guid aId)
+			=> new EntityPreset(aName, 4.0d / 3.0d * Math.Pow(ar, 3) * Math.PI * aDensity, ar, aFill, aStroke, aStrokeWidth, aId);
 
 		#endregion
 
@@ -41,11 +42,13 @@ namespace Gravity.Viewmodel
 		// ReSharper disable once InconsistentNaming
 		public double r { get; }
 
-		public Brush Fill { get; }
+		public SolidColorBrush Fill { get; }
 
-		public Brush Stroke { get; }
+		public SolidColorBrush Stroke { get; }
 
 		public double StrokeWidth { get; }
+
+		public Guid Id { get; }
 
 		#endregion
 	}

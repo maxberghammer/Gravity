@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -13,10 +15,84 @@ namespace Gravity.Viewmodel
 {
 	internal class World : NotifyPropertyChanged
 	{
+		#region Internal types
+
+		private class State
+		{
+			#region Internal types
+
+			public class ViewportState
+			{
+				#region Interface
+
+				public Vector TopLeft { get; set; }
+
+				public Vector BottomRight { get; set; }
+
+				public double Scale { get; set; }
+
+				#endregion
+			}
+
+			public class EntityState
+			{
+				#region Interface
+
+				public string FillColor { get; set; }
+
+				public string StrokeColor { get; set; }
+
+				public double StrokeWidth { get; set; }
+
+				public Vector Position { get; set; }
+
+				// ReSharper disable once InconsistentNaming
+				public Vector v { get; set; }
+
+				// ReSharper disable once InconsistentNaming
+				public double r { get; set; }
+
+				public double m { get; set; }
+
+				#endregion
+			}
+
+			#endregion
+
+			#region Interface
+
+			public ViewportState Viewport { get; set; }
+
+			public double TimeScale { get; set; }
+
+			public bool ElasticCollisions { get; set; }
+
+			public bool ClosedBoundaries { get; set; }
+
+			public bool ShowPath { get; set; }
+
+			public bool AutoCenterViewport { get; set; }
+
+			public Guid SelectedEntityPresetId { get; set; }
+
+			public Guid? RespawnerId { get; set; }
+
+			public EntityState[] Entities { get; set; }
+
+			#endregion
+		}
+
+		#endregion
+
 		#region Fields
 
 		public static readonly double G = Math.Pow(6.67430d, -11.0);
+		private static readonly Guid mRandomRespawnerId = new Guid("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
+		private static readonly Guid mRandomOrbittingRespawnerId = new Guid("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 		private readonly int mDisplayFrequency;
+		private readonly Stopwatch mStopwatch = new Stopwatch();
+		private readonly Dictionary<Guid, Action> mRespawnersById = new Dictionary<Guid, Action>();
+
 		private EntityPreset mSelectedEntityPreset;
 		private bool mElasticCollisions = true;
 		private bool mClosedBoundaries = true;
@@ -38,6 +114,9 @@ namespace Gravity.Viewmodel
 		public World()
 		{
 			SelectedEntityPreset = EntityPresets.First();
+
+			mRespawnersById[mRandomRespawnerId] = () => CreateRandomEntities(1, true);
+			mRespawnersById[mRandomOrbittingRespawnerId] = () => CreateRandomOrbitEntities(1, true);
 
 			Entities.CollectionChanged += (sender, args) => RaisePropertyChanged(nameof(EntityCount));
 			Viewport.PropertyChanged += (sender, args) => Updated?.Invoke(this, EventArgs.Empty);
@@ -65,20 +144,21 @@ namespace Gravity.Viewmodel
 
 		public EntityPreset[] EntityPresets { get; } =
 			{
-				EntityPreset.FromDensity("Eisenkugel klein", 7874, 10, Brushes.DarkGray, Brushes.White, 2.0d),
-				EntityPreset.FromDensity("Eisenkugel mittel", 7874, 20, Brushes.DarkGray, Brushes.White, 2.0d),
-				EntityPreset.FromDensity("Eisenkugel groß", 7874, 100, Brushes.DarkGray, Brushes.White, 2.0d),
+				EntityPreset.FromDensity("Eisenkugel klein", 7874, 10, Brushes.DarkGray, Brushes.White, 2.0d, new Guid("C53FA0C5-AB12-43F7-9548-C098D5C44ADF")),
+				EntityPreset.FromDensity("Eisenkugel mittel", 7874, 20, Brushes.DarkGray, Brushes.White, 2.0d,
+										 new Guid("CB30E40F-FB49-4688-94D1-3F1FB5C3F813")),
+				EntityPreset.FromDensity("Eisenkugel groß", 7874, 100, Brushes.DarkGray, Brushes.White, 2.0d, new Guid("03F7274E-B6C5-46E8-B8F8-03C969C79B49")),
 
-				new EntityPreset("Mittelschwer+Klein", 100000000000, 20, Brushes.Green),
-				new EntityPreset("Leicht+Groß", 1000000000, 100, Brushes.Red),
-				new EntityPreset("Schwer+Groß", 1000000000000, 100, Brushes.Yellow),
-				new EntityPreset("Schwer+Klein", 1000000000000, 10, Brushes.Black, Brushes.White, 2.0d),
-				new EntityPreset("Leicht+Klein", 1000, 20, Brushes.Blue),
+				new EntityPreset("Mittelschwer+Klein", 100000000000, 20, Brushes.Green, new Guid("98E60B8E-4461-4895-9107-A1FF5C9B9D64")),
+				new EntityPreset("Leicht+Groß", 1000000000, 100, Brushes.Red, new Guid("B6BBB8AC-109C-4CA1-96E1-976EABED256E")),
+				new EntityPreset("Schwer+Groß", 1000000000000, 100, Brushes.Yellow, new Guid("4F2D1D6B-0ED2-405E-8617-1B5073425F95")),
+				new EntityPreset("Schwer+Klein", 1000000000000, 10, Brushes.Black, Brushes.White, 2.0d, new Guid("0514F35B-029F-4E91-8071-81FD31C570E0")),
+				new EntityPreset("Leicht+Klein", 1000, 20, Brushes.Blue, new Guid("90424708-FFF6-4BD1-ADAF-6A534BBBACAA")),
 				//new EntityPreset("Mini schwarzes Loch", 13466353096409057727806678973.0d, 20, Brushes.Black, Brushes.White, 2.0d),
 
-				new EntityPreset("Sonne", 1.9884E30d, 696342000.0d, Brushes.Yellow),
-				new EntityPreset("Erde", 5.9724E24d, 12756270.0d / 2, Brushes.Blue),
-				new EntityPreset("Mond", 7.346E22d, 3474000.0d / 2, Brushes.DarkGray)
+				new EntityPreset("Sonne", 1.9884E30d, 696342000.0d, Brushes.Yellow, new Guid("30584A17-00EE-4B85-ACEB-EFCAF2606468")),
+				new EntityPreset("Erde", 5.9724E24d, 12756270.0d / 2, Brushes.Blue, new Guid("3E9965AB-3A11-414A-A455-50527F254036")),
+				new EntityPreset("Mond", 7.346E22d, 3474000.0d / 2, Brushes.DarkGray, new Guid("71A1DD4C-5B87-405C-8033-B033B46A5237"))
 			};
 
 		public ObservableCollection<Entity> Entities { get; } = new ObservableCollection<Entity>();
@@ -108,7 +188,7 @@ namespace Gravity.Viewmodel
 
 		public bool IsRunning { get => mIsRunning; set => SetProperty(ref mIsRunning, value); }
 
-		public Action RebuildAbsorbed { get; set; }
+		public Guid? CurrentRespawnerId { get; set; }
 
 		public bool IsHelpVisible { get => mIsHelpVisible; set => SetProperty(ref mIsHelpVisible, value); }
 
@@ -127,9 +207,9 @@ namespace Gravity.Viewmodel
 
 				CreateEntity(position, VectorExtensions.Zero);
 
-				RebuildAbsorbed = aRebuildAbsorbed
-									  ? (Action)(() => CreateRandomEntities(1, true))
-									  : null;
+				CurrentRespawnerId = aRebuildAbsorbed
+										 ? mRandomRespawnerId
+										 : (Guid?)null;
 			}
 		}
 
@@ -148,9 +228,9 @@ namespace Gravity.Viewmodel
 
 				CreateOrbitEntity(position, VectorExtensions.Zero);
 
-				RebuildAbsorbed = aRebuildAbsorbed
-									  ? (Action)(() => CreateRandomOrbitEntities(1, true))
-									  : null;
+				CurrentRespawnerId = aRebuildAbsorbed
+									  ? mRandomOrbittingRespawnerId
+									  : (Guid?)null;
 			}
 		}
 
@@ -225,18 +305,103 @@ namespace Gravity.Viewmodel
 			Viewport.BottomRight = viewportSize / 2;
 		}
 
-		#endregion
+		public async Task SaveAsync(string aFilePath)
+		{
+			var state = new State
+						{
+							Viewport = new State.ViewportState
+									   {
+										   TopLeft = Viewport.TopLeft,
+										   BottomRight = Viewport.BottomRight,
+										   Scale = Viewport.Scale
+									   },
+							AutoCenterViewport = AutoCenterViewport,
+							ClosedBoundaries = ClosedBoundaries,
+							ElasticCollisions = ElasticCollisions,
+							ShowPath = ShowPath,
+							TimeScale = TimeScale,
+							SelectedEntityPresetId = SelectedEntityPreset.Id,
+							RespawnerId = CurrentRespawnerId,
+							Entities = Entities.Select(e => new State.EntityState
+															{
+																m = e.m,
+																Position = e.Position,
+																v = e.v,
+																r = e.r,
+																StrokeWidth = e.StrokeWidth,
+																FillColor = e.Fill
+																			 ?.Color
+																			 .ToString(),
+																StrokeColor = e.Stroke
+																			   ?.Color
+																			   .ToString()
+															})
+											   .ToArray()
+						};
 
-		private readonly Stopwatch mStopwatch= new Stopwatch();
+			await using var swr = File.CreateText(aFilePath);
+			await JsonSerializer.SerializeAsync(swr.BaseStream, state);
+		}
+
+		public async Task OpenAsync(string aFilePath)
+		{
+			using var srd = File.OpenText(aFilePath);
+
+			var state = await JsonSerializer.DeserializeAsync<State>(srd.BaseStream);
+
+			Reset();
+
+			Viewport.TopLeft = state.Viewport.TopLeft;
+			Viewport.BottomRight = state.Viewport.BottomRight;
+			Viewport.Scale = state.Viewport.Scale;
+			AutoCenterViewport = state.AutoCenterViewport;
+			ClosedBoundaries = state.ClosedBoundaries;
+			ElasticCollisions = state.ElasticCollisions;
+			SelectedEntityPreset = EntityPresets.First(p => p.Id == state.SelectedEntityPresetId);
+			CurrentRespawnerId = state.RespawnerId;
+			ShowPath = state.ShowPath;
+			TimeScale = state.TimeScale;
+
+			if (null == state.Entities)
+				return;
+
+			var brushesByColor = new Dictionary<string, SolidColorBrush>();
+
+			SolidColorBrush CreateBrush(string aColor)
+			{
+				if (string.IsNullOrEmpty(aColor))
+					return null;
+
+				if (brushesByColor.TryGetValue(aColor, out var brush))
+					return brush;
+
+				brush = brushesByColor[aColor] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(aColor));
+				brush.Freeze();
+
+				return brush;
+			}
+
+			foreach (var entity in state.Entities)
+				Entities.Add(new Entity(entity.Position,
+										entity.r,
+										entity.m,
+										entity.v,
+										this,
+										CreateBrush(entity.FillColor),
+										CreateBrush(entity.StrokeColor),
+										entity.StrokeWidth));
+		}
+
+		#endregion
 
 		#region Implementation
 
 		private async Task SimulateAsync()
 		{
 			var start = mStopwatch.Elapsed;
-			var deltaTime = mLastUpdateTime.HasValue 
-				? TimeSpan.FromSeconds((start - mLastUpdateTime.Value).TotalSeconds * TimeScaleFactor) 
-				: TimeSpan.Zero;
+			var deltaTime = mLastUpdateTime.HasValue
+								? TimeSpan.FromSeconds((start - mLastUpdateTime.Value).TotalSeconds * TimeScaleFactor)
+								: TimeSpan.Zero;
 
 			mLastUpdateTime = start;
 
@@ -271,12 +436,19 @@ namespace Gravity.Viewmodel
 			await ApplyPhysicsAsync(entities.Where(e => !e.IsAbsorbed)
 											.ToArray());
 
+			var respawner = CurrentRespawnerId.HasValue
+								? mRespawnersById[CurrentRespawnerId.Value]
+								: () => { };
+
 			// Absorbierte Objekte entfernen
 			foreach (var entityToDelete in entities.Where(e => e.IsAbsorbed).ToArray())
 			{
 				Entities.Remove(entityToDelete);
 
-				RebuildAbsorbed?.Invoke();
+				if (!CurrentRespawnerId.HasValue)
+					continue;
+
+				respawner();
 			}
 		}
 

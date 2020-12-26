@@ -31,7 +31,7 @@ namespace Gravity.Viewmodel
 		#region Construction
 
 		// ReSharper disable InconsistentNaming
-		public Entity(Vector aPosition, double ar, double am, Vector av, World aWorld, Brush aFill, Brush aStroke, double aStrokeWidth)
+		public Entity(Vector aPosition, double ar, double am, Vector av, World aWorld, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth)
 			// ReSharper restore InconsistentNaming
 		{
 			World = aWorld;
@@ -49,13 +49,13 @@ namespace Gravity.Viewmodel
 
 		#region Interface
 
-		public int Id { get; private set; }
+		public int Id { get; }
 
 		public bool IsAbsorbed { get; private set; }
 
-		public Brush Fill { get; }
+		public SolidColorBrush Fill { get; }
 
-		public Brush Stroke { get; }
+		public SolidColorBrush Stroke { get; }
 
 		public double StrokeWidth { get; }
 
@@ -159,21 +159,32 @@ namespace Gravity.Viewmodel
 
 				var temp = dist / (dist * dist);
 
+				// Masse Objekt 1
+				var m1 = m;
+				// Masse Objekt 2
+				var m2 = aOther.m;
+				// Geschwindigkeitsvektor Objekt 1
+				var v1 = v;
+				// Geschwindigkeitsvektor Objekt 2
+				var v2 = aOther.v;
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 1
-				var vn1 = temp * (dist * v);
-				// Geschwindigkeitsvektor auf der Berührungstangente Objekt 1
-				var ve1 = v - vn1;
+				var vn1 = temp * (dist * v1);
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 2
-				var vn2 = temp * (dist * aOther.v);
+				var vn2 = temp * (dist * v2);
+				// Geschwindigkeitsvektor auf der Berührungstangente Objekt 1
+				var vt1 = v1 - vn1;
 				// Geschwindigkeitsvektor auf der Berührungstangente Objekt 2
-				var ve2 = aOther.v - vn2;
+				var vt2 = v2 - vn2;
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 1 so korrigieren, dass die Objekt-Massen mit einfließen
-				var un1 = (m * vn1 + aOther.m * (2 * vn2 - vn1)) / (m + aOther.m);
+				var un1 = (m1 * vn1 + m2 * (2 * vn2 - vn1)) / (m1 + m2);
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 2 so korrigieren, dass die Objekt-Massen mit einfließen
-				var un2 = (aOther.m * vn2 + m * (2 * vn1 - vn2)) / (m + aOther.m);
+				var un2 = (m2 * vn2 + m1 * (2 * vn1 - vn2)) / (m1 + m2);
 
-				mvToSet = un1 + ve1;
-				aOther.mvToSet = un2 + ve2;
+				mvToSet = un1 + vt1;
+				aOther.mvToSet = un2 + vt2;
+
+				//Debug.Assert(p+aOther.p==(mvToSet*m)+(aOther.mvToSet*aOther.m));
+				//Debug.Assert(Ekin+aOther.Ekin== 0.5d*(m * mvToSet.Value.LengthSquared + aOther.m * aOther.mvToSet.Value.LengthSquared));
 				
 				return;
 			}

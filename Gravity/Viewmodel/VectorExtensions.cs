@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 
 namespace Gravity.Viewmodel
 {
@@ -17,6 +18,9 @@ namespace Gravity.Viewmodel
 
 		public static Vector Norm(this Vector aThis)
 			=> new Vector(aThis.Y, -aThis.X);
+
+		public static Vector Round(this Vector aThis, int aDecimals)
+			=> new Vector(Math.Round(aThis.X, aDecimals), Math.Round(aThis.Y, aDecimals));
 
 		#endregion
 	}

@@ -3,12 +3,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Gravity.Viewmodel;
+using Microsoft.Win32;
 
 namespace Gravity
 {
 	public partial class MainWindow
 	{
 		#region Fields
+
+		private const string mStateFileExtension = "grv";
 
 		private static Vector? mReferencePosition;
 
@@ -75,11 +78,9 @@ namespace Gravity
 			}
 
 			if (null != mViewmodel.SelectedEntity)
-			{
 				mViewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
 															  ? $"Δv={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s"
 															  : $"v={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s";
-			}
 		}
 
 		private void OnWorldMouseLeftButtonUp(object aSender, MouseButtonEventArgs aE)
@@ -99,7 +100,7 @@ namespace Gravity
 				}
 
 				mViewmodel.CreateEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
-				mViewmodel.RebuildAbsorbed = null;
+				mViewmodel.CurrentRespawnerId = null;
 
 				return;
 			}
@@ -133,7 +134,7 @@ namespace Gravity
 				}
 
 				mViewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
-				mViewmodel.RebuildAbsorbed = null;
+				mViewmodel.CurrentRespawnerId = null;
 			}
 		}
 
@@ -161,6 +162,36 @@ namespace Gravity
 		private void OnEntityPresetSelectionChanged(object aSender, SelectionChangedEventArgs aE)
 		{
 			mViewmodel.IsEntityPresetSelectionVisible = false;
+		}
+
+		private async void OnSaveClicked(object aSender, RoutedEventArgs aE)
+		{
+			var dlg = new SaveFileDialog
+					  {
+						  DefaultExt = mStateFileExtension,
+						  Filter = $"Gravity Files | *.{mStateFileExtension}"
+					  };
+			var dlgResult = dlg.ShowDialog(this);
+
+			if (!dlgResult.Value)
+				return;
+
+			await mViewmodel.SaveAsync(dlg.FileName);
+		}
+
+		private async void OnOpenClicked(object aSender, RoutedEventArgs aE)
+		{
+			var dlg = new OpenFileDialog
+					  {
+						  DefaultExt = mStateFileExtension,
+						  Filter = $"Gravity Files | *.{mStateFileExtension}"
+					  };
+			var dlgResult = dlg.ShowDialog(this);
+
+			if (!dlgResult.Value)
+				return;
+
+			await mViewmodel.OpenAsync(dlg.FileName);
 		}
 
 		#endregion

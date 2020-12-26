@@ -107,6 +107,18 @@
                           ToolTip="Hilfe ein-/ausblenden"
                           Content="?"
                           IsChecked="{Binding IsHelpVisible, Mode=TwoWay}"/>
+            <Button DockPanel.Dock="Right"
+                    Margin="0,0,10,0"
+                    FontFamily="Wingdings"
+                    ToolTip="Speichern"
+                    Content="&lt;"
+                    Click="OnSaveClicked"/>
+            <Button DockPanel.Dock="Right"
+                    Margin="0,0,10,0"
+                    FontFamily="Wingdings"
+                    ToolTip="Öffnen"
+                    Content="1"
+                    Click="OnOpenClicked"/>
             <Button Name="mBtnReset" 
                     DockPanel.Dock="Right"
                     Margin="0,0,10,0"
