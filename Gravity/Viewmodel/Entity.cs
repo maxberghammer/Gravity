@@ -15,8 +15,8 @@ namespace Gravity.Viewmodel
 		private static int mMaxId;
 
 		// ReSharper disable once InconsistentNaming
-		private Vector? maToAdd;
-
+		private Vector mg = VectorExtensions.Zero;
+		
 		// ReSharper disable once InconsistentNaming
 		private Vector? mvToSet;
 
@@ -95,10 +95,9 @@ namespace Gravity.Viewmodel
 
 			mvToSet = null;
 
-			if (null != maToAdd)
-				v += maToAdd.Value * aDeltaTime.TotalSeconds;
+			v -= World.G * mg * aDeltaTime.TotalSeconds;
 
-			maToAdd = null;
+			mg = VectorExtensions.Zero;
 
 			Position += v * aDeltaTime.TotalSeconds;
 
@@ -111,20 +110,19 @@ namespace Gravity.Viewmodel
 			if (IsAbsorbed)
 				return;
 
-			var g = VectorExtensions.Zero;
-
 			foreach (var other in aOthers.Where(e => !e.IsAbsorbed))
 			{
 				// Kollision behandeln
 				HandleCollision(other, World.ElasticCollisions);
+
+				if (IsAbsorbed)
+					return;
 				
 				var dist = Position - other.Position;
 
 				// Gravitationsbeschleunigung integrieren
-				g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
+				mg += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
 			}
-
-			maToAdd = -World.G * g;
 		}
 
 		#endregion

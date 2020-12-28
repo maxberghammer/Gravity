@@ -192,7 +192,7 @@ namespace Gravity.Viewmodel
 
 		public bool IsHelpVisible { get => mIsHelpVisible; set => SetProperty(ref mIsHelpVisible, value); }
 
-		public void CreateRandomEntities(int aCount, bool aRebuildAbsorbed)
+		public void CreateRandomEntities(int aCount, bool aEnableRespawn)
 		{
 			var rnd = new Random();
 
@@ -207,13 +207,13 @@ namespace Gravity.Viewmodel
 
 				CreateEntity(position, VectorExtensions.Zero);
 
-				CurrentRespawnerId = aRebuildAbsorbed
+				CurrentRespawnerId = aEnableRespawn
 										 ? mRandomRespawnerId
 										 : (Guid?)null;
 			}
 		}
 
-		public void CreateRandomOrbitEntities(int aCount, bool aRebuildAbsorbed)
+		public void CreateRandomOrbitEntities(int aCount, bool aEnableRespawn)
 		{
 			var rnd = new Random();
 
@@ -228,7 +228,7 @@ namespace Gravity.Viewmodel
 
 				CreateOrbitEntity(position, VectorExtensions.Zero);
 
-				CurrentRespawnerId = aRebuildAbsorbed
+				CurrentRespawnerId = aEnableRespawn
 									  ? mRandomOrbittingRespawnerId
 									  : (Guid?)null;
 			}
@@ -298,6 +298,7 @@ namespace Gravity.Viewmodel
 		{
 			Entities.Clear();
 			RuntimeInSeconds = TimeSpan.Zero;
+			SelectedEntity = null;
 
 			var viewportSize = Viewport.Size;
 
