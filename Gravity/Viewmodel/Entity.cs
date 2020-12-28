@@ -104,7 +104,7 @@ namespace Gravity.Viewmodel
 			if (World.ClosedBoundaries)
 				HandleCollisionWithWorldBoundaries();
 		}
-
+		
 		public void ApplyPhysics(IEnumerable<Entity> aOthers)
 		{
 			if (IsAbsorbed)
@@ -121,7 +121,13 @@ namespace Gravity.Viewmodel
 				var dist = Position - other.Position;
 
 				// Gravitationsbeschleunigung integrieren
-				mg += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
+				var temp = dist / Math.Pow(dist.LengthSquared, 1.5d);
+
+				lock(this)
+					mg += other.m * temp;
+
+				lock(other)
+					other.mg -= m * temp;
 			}
 		}
 

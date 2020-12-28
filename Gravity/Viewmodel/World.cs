@@ -470,12 +470,16 @@ namespace Gravity.Viewmodel
 		}
 
 		private static async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
-			=> await Task.WhenAll(aEntities.Chunked(aEntities.Count / Environment.ProcessorCount)
-										   .Select(chunk => Task.Run(() =>
-																	 {
-																		 foreach (var entity in chunk)
-																			 entity.ApplyPhysics(aEntities.Except(entity));
-																	 })));
+		{
+			var chunkSize = aEntities.Count / Environment.ProcessorCount;
+
+			await Task.WhenAll(aEntities.Chunked(chunkSize)
+										.Select((chunk, chunkIndex) => Task.Run(() =>
+																				{
+																					for (var j = 0; j < chunk.Length; j++)
+																						chunk[j].ApplyPhysics(aEntities.Skip(chunkIndex * chunkSize + j + 1));
+																				})));
+		}
 
 		#endregion
 	}
