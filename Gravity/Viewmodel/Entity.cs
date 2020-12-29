@@ -97,8 +97,6 @@ namespace Gravity.Viewmodel
 
 			v -= World.G * mg * aDeltaTime.TotalSeconds;
 
-			mg = VectorExtensions.Zero;
-
 			Position += v * aDeltaTime.TotalSeconds;
 
 			if (World.ClosedBoundaries)
@@ -109,6 +107,8 @@ namespace Gravity.Viewmodel
 		{
 			if (IsAbsorbed)
 				return;
+
+			mg = VectorExtensions.Zero;
 
 			foreach (var other in aOthers.Where(e => !e.IsAbsorbed))
 			{
