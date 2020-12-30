@@ -8,7 +8,7 @@ using Gravity.Viewmodel;
 
 namespace Gravity.SimulationEngine
 {
-	internal class StandardSimulationEngine : SimulationEngine, ISimulationEngine
+	internal class BarnesHutSimulationEngine : SimulationEngine, ISimulationEngine
 	{
 		#region Fields
 
@@ -26,7 +26,7 @@ namespace Gravity.SimulationEngine
 		#region Implementation of ISimulationEngine
 
 		/// <inheritdoc />
-		async Task ISimulationEngine.SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
+		public async Task SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
 		{
 			// Objekte updaten
 			foreach (var entity in aEntities)
@@ -41,7 +41,7 @@ namespace Gravity.SimulationEngine
 						   ? g
 						   : (Vector?)null,
 					   aDeltaTime);
-			
+
 			// Physik anwenden
 			await ApplyPhysicsAsync(aEntities.Where(e => !e.IsAbsorbed)
 											 .ToArray());
@@ -50,61 +50,66 @@ namespace Gravity.SimulationEngine
 		#endregion
 
 		#region Implementation
-
-		private void ApplyPhysics(Entity aEntity, IEnumerable<Entity> aOthers)
-		{
-			if (aEntity.IsAbsorbed)
-				return;
-
-			var g = VectorExtensions.Zero;
-
-			foreach (var other in aOthers.Where(e => !e.IsAbsorbed))
-			{
-				// Kollision behandeln
-				var (v1, v2) = HandleCollision(aEntity, other, aEntity.World.ElasticCollisions);
-
-				if (v1.HasValue && v2.HasValue)
-				{
-					var (position1, position2) = CancelOverlap(aEntity, other);
-
-					if (position1.HasValue)
-						mPositionByEntityId[aEntity.Id] = position1.Value;
-
-					if (position2.HasValue)
-						mPositionByEntityId[other.Id] = position2.Value;
-				}
-
-				if (v1.HasValue)
-					mvByEntityId[aEntity.Id] = v1.Value;
-
-				if (v2.HasValue)
-					mvByEntityId[other.Id] = v2.Value;
-
-				if (aEntity.IsAbsorbed)
-					return;
-
-				var dist = aEntity.Position - other.Position;
-
-				// Gravitationsbeschleunigung integrieren
-				g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
-			}
-
-			mgByEntityId[aEntity.Id] = g;
-		}
-
+		
 		private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
 		{
+			var l = 0.0d;
+			var t = 0.0d;
+			var r = 0.0d;
+			var b = 0.0d;
+
+			foreach (var entity in aEntities)
+			{
+				l = Math.Min(l, entity.Position.X);
+				t = Math.Min(t, entity.Position.Y);
+				r = Math.Max(r, entity.Position.X);
+				b = Math.Max(b, entity.Position.Y);
+			}
+
+			var tree = new EntityTree(new Vector(l, t), new Vector(r, b), 1.0d);
+
+			foreach (var entity in aEntities)
+				tree.Add(entity);
+
+			await Task.Run(() => tree.ComputeMassDistribution());
+
 			mPositionByEntityId.Clear();
 			mvByEntityId.Clear();
 			mgByEntityId.Clear();
 
+			// Gravitation berechnen
 			await Task.WhenAll(aEntities.Chunked(aEntities.Count / Environment.ProcessorCount)
 										.Select(chunk => Task.Run(() =>
 																  {
 																	  foreach (var entity in chunk)
-																		  ApplyPhysics(entity, aEntities.Except(entity));
+																		  mgByEntityId[entity.Id] = tree.CalculateGravity(entity);
 																  })));
+
+			// Kollisionen behandeln
+			foreach (var (entity1, entity2) in tree.CollidedEntities)
+			{
+				var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
+
+				if (v1.HasValue && v2.HasValue)
+				{
+					var (position1, position2) = CancelOverlap(entity1, entity2);
+
+					if (position1.HasValue)
+						mPositionByEntityId[entity1.Id] = position1.Value;
+
+					if (position2.HasValue)
+						mPositionByEntityId[entity2.Id] = position2.Value;
+				}
+
+				if (v1.HasValue)
+					mvByEntityId[entity1.Id] = v1.Value;
+
+				if (v2.HasValue)
+					mvByEntityId[entity2.Id] = v2.Value;
+			}
+
 		}
+
 
 		#endregion
 	}

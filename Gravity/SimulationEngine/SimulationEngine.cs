@@ -9,11 +9,15 @@ namespace Gravity.SimulationEngine
 		#region Implementation
 
 		// ReSharper disable InconsistentNaming
-		protected static void Update(Entity aEntity, Vector? av, Vector? ag, TimeSpan aDeltaTime)
+		protected static void Update(Entity aEntity, Vector? aPosition, Vector? av, Vector? ag, TimeSpan aDeltaTime)
 			// ReSharper restore InconsistentNaming
 		{
 			if (aEntity.IsAbsorbed)
 				return;
+
+			// Bei Bedarf neue Position übernehmen
+			if (aPosition.HasValue)
+				aEntity.Position = aPosition.Value;
 
 			// Bei Bedarf neue Geschwindigkeit übernehmen
 			if (av.HasValue)
@@ -30,41 +34,33 @@ namespace Gravity.SimulationEngine
 				HandleCollisionWithWorldBoundaries(aEntity);
 		}
 
-		private static void HandleCollisionWithWorldBoundaries(Entity aEntity)
+		/// <summary>
+		///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
+		///     neuen Positionen der beiden Objekte, so dass sie sich nicht mehr überlappen.
+		/// </summary>
+		protected static (Vector? Position1, Vector? Position2) CancelOverlap(Entity aEntity1, Entity aEntity2)
 		{
-			var topLeft = aEntity.World.Viewport.TopLeft + new Vector(aEntity.r, aEntity.r);
-			var bottomRight = aEntity.World.Viewport.BottomRight - new Vector(aEntity.r, aEntity.r);
+			var dist = aEntity1.Position - aEntity2.Position;
+			var minDistAbs = (aEntity1.r + aEntity2.r);
 
-			if (aEntity.Position.X < topLeft.X)
-			{
-				aEntity.v = new Vector(-aEntity.v.X, aEntity.v.Y);
-				aEntity.Position = new Vector(topLeft.X, aEntity.Position.Y);
-			}
+			if (aEntity1.m < aEntity2.m)
+				return (aEntity2.Position + dist.Unit() * minDistAbs, null);
 
-			if (aEntity.Position.X > bottomRight.X)
-			{
-				aEntity.v = new Vector(-aEntity.v.X, aEntity.v.Y);
-				aEntity.Position = new Vector(bottomRight.X, aEntity.Position.Y);
-			}
+			if (aEntity1.m > aEntity2.m)
+				return (null, aEntity2.Position = aEntity1.Position - dist.Unit() * minDistAbs);
 
-			if (aEntity.Position.Y < topLeft.Y)
-			{
-				aEntity.v = new Vector(aEntity.v.X, -aEntity.v.Y);
-				aEntity.Position = new Vector(aEntity.Position.X, topLeft.Y);
-			}
-
-			if (aEntity.Position.Y > bottomRight.Y)
-			{
-				aEntity.v = new Vector(aEntity.v.X, -aEntity.v.Y);
-				aEntity.Position = new Vector(aEntity.Position.X, bottomRight.Y);
-			}
+			return (aEntity2.Position + (dist + dist.Unit() * minDistAbs) / 2, aEntity1.Position - (dist + dist.Unit() * minDistAbs) / 2);
 		}
 
 		/// <summary>
-		/// Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die neuen Geschwindigkeiten der beiden Objekte.
+		///     Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die
+		///     neuen Geschwindigkeiten der beiden Objekte.
 		/// </summary>
 		protected static (Vector? v1, Vector? v2) HandleCollision(Entity aEntity1, Entity aEntity2, bool aElastic)
 		{
+			if (aEntity1.IsAbsorbed || aEntity2.IsAbsorbed)
+				return (null, null);
+
 			var dist = aEntity1.Position - aEntity2.Position;
 
 			if (dist.Length >= (aEntity1.r + aEntity2.r))
@@ -72,23 +68,6 @@ namespace Gravity.SimulationEngine
 
 			if (aElastic)
 			{
-				// Position korrigieren um Überlappungen zu vermeiden
-				var corr = ((aEntity1.r + aEntity2.r) - dist.Length) * dist.Unit();
-
-				if (aEntity1.m < aEntity2.m)
-				{
-					aEntity1.Position += corr;
-				}
-				else if (aEntity1.m > aEntity2.m)
-				{
-					aEntity2.Position -= corr;
-				}
-				else
-				{
-					aEntity1.Position += corr / 2;
-					aEntity2.Position -= corr / 2;
-				}
-
 				var temp = dist / (dist * dist);
 
 				// Masse Objekt 1
@@ -129,6 +108,36 @@ namespace Gravity.SimulationEngine
 
 			aEntity1.Absorb(aEntity2);
 			return (v, null);
+		}
+
+		private static void HandleCollisionWithWorldBoundaries(Entity aEntity)
+		{
+			var topLeft = aEntity.World.Viewport.TopLeft + new Vector(aEntity.r, aEntity.r);
+			var bottomRight = aEntity.World.Viewport.BottomRight - new Vector(aEntity.r, aEntity.r);
+
+			if (aEntity.Position.X < topLeft.X)
+			{
+				aEntity.v = new Vector(-aEntity.v.X, aEntity.v.Y);
+				aEntity.Position = new Vector(topLeft.X, aEntity.Position.Y);
+			}
+
+			if (aEntity.Position.X > bottomRight.X)
+			{
+				aEntity.v = new Vector(-aEntity.v.X, aEntity.v.Y);
+				aEntity.Position = new Vector(bottomRight.X, aEntity.Position.Y);
+			}
+
+			if (aEntity.Position.Y < topLeft.Y)
+			{
+				aEntity.v = new Vector(aEntity.v.X, -aEntity.v.Y);
+				aEntity.Position = new Vector(aEntity.Position.X, topLeft.Y);
+			}
+
+			if (aEntity.Position.Y > bottomRight.Y)
+			{
+				aEntity.v = new Vector(aEntity.v.X, -aEntity.v.Y);
+				aEntity.Position = new Vector(aEntity.Position.X, bottomRight.Y);
+			}
 		}
 
 		#endregion

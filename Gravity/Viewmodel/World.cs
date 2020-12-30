@@ -107,7 +107,7 @@ namespace Gravity.Viewmodel
 		private double mTimeScale = 1;
 		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
-		private ISimulationEngine mSimulationEngine = new StandardSimulationEngine();
+		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
 
 		#endregion
 
