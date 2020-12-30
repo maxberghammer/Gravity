@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Gravity.SimulationEngine;
 
 namespace Gravity.Viewmodel
 {
@@ -106,6 +107,7 @@ namespace Gravity.Viewmodel
 		private double mTimeScale = 1;
 		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
+		private ISimulationEngine mSimulationEngine = new StandardSimulationEngine();
 
 		#endregion
 
@@ -429,22 +431,16 @@ namespace Gravity.Viewmodel
 		{
 			var entities = Entities.ToArray();
 
-			// Positionen updaten
-			foreach (var entity in entities)
-				entity.UpdatePosition(aDeltaTime);
-
-			// Physik anwenden
-			await ApplyPhysicsAsync(entities.Where(e => !e.IsAbsorbed)
-											.ToArray());
-
+			await mSimulationEngine.SimulateAsync(entities, aDeltaTime);
+			
 			var respawner = CurrentRespawnerId.HasValue
 								? mRespawnersById[CurrentRespawnerId.Value]
 								: () => { };
 
 			// Absorbierte Objekte entfernen
-			foreach (var entityToDelete in entities.Where(e => e.IsAbsorbed).ToArray())
+			foreach (var absorbedEntities in entities.Where(e => e.IsAbsorbed).ToArray())
 			{
-				Entities.Remove(entityToDelete);
+				Entities.Remove(absorbedEntities);
 
 				if (!CurrentRespawnerId.HasValue)
 					continue;
@@ -468,15 +464,7 @@ namespace Gravity.Viewmodel
 			Viewport.TopLeft = center - previousSize / 2;
 			Viewport.BottomRight = center + previousSize / 2;
 		}
-
-		private static async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
-			=> await Task.WhenAll(aEntities.Chunked(aEntities.Count / Environment.ProcessorCount)
-										   .Select(chunk => Task.Run(() =>
-																	 {
-																		 foreach (var entity in chunk)
-																			 entity.ApplyPhysics(aEntities.Except(entity));
-																	 })));
-
+		
 		#endregion
 	}
 }
