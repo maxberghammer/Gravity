@@ -28,6 +28,10 @@ namespace Gravity.SimulationEngine
 		/// <inheritdoc />
 		public async Task SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
 		{
+			// Physik anwenden
+			await ApplyPhysicsAsync(aEntities.Where(e => !e.IsAbsorbed)
+											 .ToArray());
+
 			// Objekte updaten
 			foreach (var entity in aEntities)
 				Update(entity,
@@ -41,10 +45,6 @@ namespace Gravity.SimulationEngine
 						   ? g
 						   : (Vector?)null,
 					   aDeltaTime);
-
-			// Physik anwenden
-			await ApplyPhysicsAsync(aEntities.Where(e => !e.IsAbsorbed)
-											 .ToArray());
 		}
 
 		#endregion

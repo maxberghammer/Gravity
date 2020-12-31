@@ -20,6 +20,8 @@ namespace Gravity.SimulationEngine
 			private Entity mEntity;
 			private Vector mTopLeft;
 			private Vector mBottomRight;
+			private Vector mCenterOfMass;
+			private double mMass;
 
 			#endregion
 
@@ -35,10 +37,6 @@ namespace Gravity.SimulationEngine
 			#endregion
 
 			#region Interface
-
-			public Vector CenterOfMass { get; private set; }
-
-			public double Mass { get; private set; }
 
 			public void Add(Entity aEntity)
 			{
@@ -78,23 +76,23 @@ namespace Gravity.SimulationEngine
 			{
 				if (mEntities == 1)
 				{
-					CenterOfMass = mEntity.Position;
-					Mass = mEntity.m;
+					mCenterOfMass = mEntity.Position;
+					mMass = mEntity.m;
 					return;
 				}
 
-				CenterOfMass = VectorExtensions.Zero;
-				Mass = 0;
+				mCenterOfMass = VectorExtensions.Zero;
+				mMass = 0;
 
 				foreach (var childNode in mChildNodes.Where(n => null != n))
 				{
 					childNode.ComputeMassDistribution();
 
-					Mass += childNode.Mass;
-					CenterOfMass += childNode.Mass * childNode.CenterOfMass;
+					mMass += childNode.mMass;
+					mCenterOfMass += childNode.mMass * childNode.mCenterOfMass;
 				}
 
-				CenterOfMass /= Mass;
+				mCenterOfMass /= mMass;
 			}
 
 			public Vector CalculateGravity(Entity aEntity)
@@ -109,7 +107,9 @@ namespace Gravity.SimulationEngine
 					if (dist.Length < aEntity.r + mEntity.r)
 					{
 						lock (mTree.CollidedEntities)
+						{
 							mTree.CollidedEntities.Add(Tuple.Create(mEntity, aEntity));
+						}
 
 						dist = dist.Unit() * (aEntity.r + mEntity.r);
 					}
@@ -118,11 +118,11 @@ namespace Gravity.SimulationEngine
 				}
 				else
 				{
-					var dist = aEntity.Position - CenterOfMass;
+					var dist = aEntity.Position - mCenterOfMass;
 					var nodeSize = mBottomRight - mTopLeft;
 
 					if (nodeSize.Length / dist.Length < mTree.mTheta)
-						return Mass * dist / Math.Pow(dist.LengthSquared, 1.5d);
+						return mMass * dist / Math.Pow(dist.LengthSquared, 1.5d);
 
 					var ret = VectorExtensions.Zero;
 
@@ -149,24 +149,14 @@ namespace Gravity.SimulationEngine
 			{
 				var size = mBottomRight - mTopLeft;
 
-				switch (aChildNodeIndex)
+				return aChildNodeIndex switch
 				{
-					case 0:
-						return new EntityNode(mTopLeft,
-											  mTopLeft + size / 2, mTree);
-					case 1:
-						return new EntityNode(new Vector(mTopLeft.X + size.X / 2, mTopLeft.Y),
-											  new Vector(mBottomRight.X, mTopLeft.Y + size.Y / 2), mTree);
-					case 2:
-						return new EntityNode(new Vector(mTopLeft.X, mTopLeft.Y + size.Y / 2),
-											  new Vector(mTopLeft.X + size.X / 2, mBottomRight.Y),
-											  mTree);
-					case 3:
-						return new EntityNode(mTopLeft + size / 2,
-											  mBottomRight, mTree);
-				}
-
-				throw new ArgumentOutOfRangeException(nameof(aChildNodeIndex));
+					0 => new EntityNode(mTopLeft, mTopLeft + size / 2, mTree),
+					1 => new EntityNode(new Vector(mTopLeft.X + size.X / 2, mTopLeft.Y), new Vector(mBottomRight.X, mTopLeft.Y + size.Y / 2), mTree),
+					2 => new EntityNode(new Vector(mTopLeft.X, mTopLeft.Y + size.Y / 2), new Vector(mTopLeft.X + size.X / 2, mBottomRight.Y), mTree),
+					3 => new EntityNode(mTopLeft + size / 2, mBottomRight, mTree),
+					_ => throw new ArgumentOutOfRangeException(nameof(aChildNodeIndex))
+				};
 			}
 
 			private int GetChildNodeIndex(Vector aPosition)
@@ -191,7 +181,6 @@ namespace Gravity.SimulationEngine
 		#region Fields
 
 		private readonly double mTheta;
-
 		private readonly EntityNode mRootNode;
 
 		#endregion

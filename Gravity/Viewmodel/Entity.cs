@@ -36,6 +36,16 @@ namespace Gravity.Viewmodel
 			Id = mMaxId++;
 		}
 
+		public Entity(Entity aOther)
+		{
+			World = aOther.World;
+			Position = aOther.Position;
+			v = aOther.v;
+			r = aOther.r;
+			m = aOther.m;
+			Id = aOther.Id;
+		}
+
 		#endregion
 
 		#region Interface
