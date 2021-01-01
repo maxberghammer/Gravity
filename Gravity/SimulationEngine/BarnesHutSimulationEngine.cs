@@ -124,34 +124,34 @@ namespace Gravity.SimulationEngine
 															   a4ByEntityId[entity.Id]);
 			}
 
-			var entitiesById = aEntities.ToDictionary(e => e.Id);
+			//var entitiesById = aEntities.ToDictionary(e => e.Id);
 
-			foreach (var collidedEntityIds in k1collidedEntityIds.Union(k2collidedEntityIds)
-													 .Union(k3collidedEntityIds)
-													 .Union(k4collidedEntityIds))
-			{
-				var entity1 = entitiesById[collidedEntityIds.Item1];
-				var entity2 = entitiesById[collidedEntityIds.Item2];
+			//foreach (var collidedEntityIds in k1collidedEntityIds.Union(k2collidedEntityIds)
+			//										 .Union(k3collidedEntityIds)
+			//										 .Union(k4collidedEntityIds))
+			//{
+			//	var entity1 = entitiesById[collidedEntityIds.Item1];
+			//	var entity2 = entitiesById[collidedEntityIds.Item2];
 
-				var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
+			//	var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
 
-				if (v1.HasValue && v2.HasValue)
-				{
-					var (position1, position2) = CancelOverlap(entity1, entity2);
+			//	if (v1.HasValue && v2.HasValue)
+			//	{
+			//		var (position1, position2) = CancelOverlap(entity1, entity2);
 
-					if (position1.HasValue)
-						entity1.Position = position1.Value;
+			//		if (position1.HasValue)
+			//			entity1.Position = position1.Value;
 
-					if (position2.HasValue)
-						entity2.Position = position2.Value;
-				}
+			//		if (position2.HasValue)
+			//			entity2.Position = position2.Value;
+			//	}
 
-				if (v1.HasValue)
-					entity1.v = v1.Value;
+			//	if (v1.HasValue)
+			//		entity1.v = v1.Value;
 
-				if (v2.HasValue)
-					entity2.v = v2.Value;
-			}
+			//	if (v2.HasValue)
+			//		entity2.v = v2.Value;
+			//}
 		}
 
 		#endregion
