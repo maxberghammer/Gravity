@@ -26,7 +26,7 @@ namespace Gravity.SimulationEngine
 		#region Implementation of ISimulationEngine
 
 		/// <inheritdoc />
-		public async Task SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
+		async Task ISimulationEngine.SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
 		{
 			// Physik anwenden
 			await ApplyPhysicsAsync(aEntities.Where(e => !e.IsAbsorbed)
