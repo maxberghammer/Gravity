@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -92,6 +93,7 @@ namespace Gravity.Viewmodel
 		private static readonly Guid mRandomOrbittingRespawnerId = new Guid("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 		private readonly int mDisplayFrequency;
 		private readonly Stopwatch mStopwatch = new Stopwatch();
+		private readonly DispatcherTimer mTimer = new DispatcherTimer(DispatcherPriority.Background);
 		private readonly Dictionary<Guid, Action> mRespawnersById = new Dictionary<Guid, Action>();
 
 		private EntityPreset mSelectedEntityPreset;
@@ -101,14 +103,14 @@ namespace Gravity.Viewmodel
 		private bool mAutoCenterViewport;
 		private Entity mSelectedEntity;
 		private bool mShowPath = true;
-		private TimeSpan? mLastUpdateTime;
 		private bool mIsRunning = true;
 		private int mCpuUtilizationInPercent;
 		private double mTimeScale = 1;
 		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
+		private int mIsSimulating;
 		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
-
+		
 		#endregion
 
 		#region Construction
@@ -130,7 +132,9 @@ namespace Gravity.Viewmodel
 			mDisplayFrequency = d.dmDisplayFrequency;
 			mStopwatch.Start();
 
-			Application.Current.Dispatcher.InvokeAsync(async () => await SimulateAsync(), DispatcherPriority.Background);
+			mTimer.Tick += async (s, a) => await SimulateAsync();
+			mTimer.Interval = TimeSpan.FromSeconds(1.0d / mDisplayFrequency);
+			mTimer.Start();
 		}
 
 		#endregion
@@ -270,7 +274,9 @@ namespace Gravity.Viewmodel
 		{
 			var pos = Viewport.ToWorld(aViewportPoint);
 
-			SelectedEntity = Entities.FirstOrDefault(e => (e.Position - pos).Length <= (e.r + aViewportSearchRadius / Viewport.ScaleFactor));
+			SelectedEntity = Entities.Where(e => (e.Position - pos).Length <= (e.r + aViewportSearchRadius / Viewport.ScaleFactor))
+									 .OrderBy(e => (e.Position - pos).Length - (e.r + aViewportSearchRadius / Viewport.ScaleFactor))
+									 .FirstOrDefault();
 		}
 
 		public void AutoScaleAndCenterViewport()
@@ -401,12 +407,11 @@ namespace Gravity.Viewmodel
 
 		private async Task SimulateAsync()
 		{
-			var start = mStopwatch.Elapsed;
-			var deltaTime = mLastUpdateTime.HasValue
-								? TimeSpan.FromSeconds((start - mLastUpdateTime.Value).TotalSeconds * TimeScaleFactor)
-								: TimeSpan.Zero;
+			if (1 == Interlocked.CompareExchange(ref mIsSimulating, 1, 0))
+				return;
 
-			mLastUpdateTime = start;
+			var start = mStopwatch.Elapsed;
+			var deltaTime = TimeSpan.FromSeconds(1.0d / mDisplayFrequency * TimeScaleFactor);
 
 			if (IsRunning)
 			{
@@ -422,9 +427,7 @@ namespace Gravity.Viewmodel
 
 			Updated?.Invoke(this, EventArgs.Empty);
 
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-			Application.Current.Dispatcher.InvokeAsync(async () => await SimulateAsync(), DispatcherPriority.Background);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+			mIsSimulating = 0;
 		}
 
 		private async Task UpdateAllEntitiesAsync(TimeSpan aDeltaTime)

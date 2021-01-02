@@ -107,7 +107,6 @@ namespace Gravity.SimulationEngine
 				if (v2.HasValue)
 					mvByEntityId[entity2.Id] = v2.Value;
 			}
-
 		}
 
 

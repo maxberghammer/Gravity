@@ -12,6 +12,7 @@ namespace Gravity
 		#region Fields
 
 		private const string mStateFileExtension = "grv";
+		private const int mViewportSelectionSearchRadius = 30;
 
 		private static Vector? mReferencePosition;
 
@@ -34,7 +35,7 @@ namespace Gravity
 
 			if ((Keyboard.Modifiers == ModifierKeys.None) && (aE.LeftButton == MouseButtonState.Pressed))
 			{
-				mViewmodel.SelectEntity(viewportPoint, 30);
+				mViewmodel.SelectEntity(viewportPoint, mViewportSelectionSearchRadius);
 
 				if (null != mViewmodel.SelectedEntity)
 				{
@@ -107,7 +108,8 @@ namespace Gravity
 
 			if (null != mViewmodel.SelectedEntity)
 			{
-				if ((position - mViewmodel.SelectedEntity.Position).Length <= mViewmodel.SelectedEntity.r)
+				if ((position - mViewmodel.SelectedEntity.Position).Length <=
+					(mViewmodel.SelectedEntity.r + mViewportSelectionSearchRadius / mViewmodel.Viewport.ScaleFactor))
 					return;
 
 				if (Keyboard.IsKeyDown(Key.LeftAlt))
