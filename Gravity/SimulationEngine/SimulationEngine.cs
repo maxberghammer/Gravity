@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Windows;
 using Gravity.Viewmodel;
 
@@ -91,10 +92,17 @@ namespace Gravity.SimulationEngine
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 2 so korrigieren, dass die Objekt-Massen mit einfließen
 				var un2 = (m2 * vn2 + m1 * (2 * vn1 - vn2)) / (m1 + m2);
 
-				//Debug.Assert(p+aOther.p==(mvToSet*m)+(aOther.mvToSet*aOther.m));
-				//Debug.Assert(Ekin+aOther.Ekin== 0.5d*(m * mvToSet.Value.LengthSquared + aOther.m * aOther.mvToSet.Value.LengthSquared));
+				v1 = un1 + vt1;
+				v2 = un2 + vt2;
 
-				return (un1 + vt1, un2 + vt2);
+				//var p1 = aEntity1.p.Length + aEntity2.p.Length;
+				//var p2 = (v1 * aEntity1.m).Length + (v2 * aEntity2.m).Length;
+				//Debug.Assert(p1 == p2);
+				//var e1 = aEntity1.Ekin + aEntity2.Ekin;
+				//var e2 = 0.5d * (v1.LengthSquared * aEntity1.m) + 0.5d * (v2.LengthSquared * aEntity2.m);
+				//Debug.Assert(e1 == e2);
+				
+				return (v1, v2);
 			}
 
 			// Vereinigung behandeln

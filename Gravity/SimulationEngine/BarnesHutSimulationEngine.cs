@@ -8,7 +8,7 @@ using Gravity.Viewmodel;
 
 namespace Gravity.SimulationEngine
 {
-	internal class BarnesHutSimulationEngine : SimulationEngine, ISimulationEngine
+	internal class BarnesHutSimulationEngine : SimulationEngine, ISimulationEngine, ISimulationEngine2
 	{
 		#region Fields
 
@@ -49,8 +49,70 @@ namespace Gravity.SimulationEngine
 
 		#endregion
 
+		#region Implementation of ISimulationEngine2
+
+		async Task<SimulationResult[]> ISimulationEngine2.ProcessAsync(SimulationState[] aStates)
+		{
+			var ret = new SimulationResult[aStates.Length];
+			var l = 0.0d;
+			var t = 0.0d;
+			var r = 0.0d;
+			var b = 0.0d;
+
+			foreach (var state in aStates)
+			{
+				l = Math.Min(l, state.Position.X);
+				t = Math.Min(t, state.Position.Y);
+				r = Math.Max(r, state.Position.X);
+				b = Math.Max(b, state.Position.Y);
+			}
+
+			var tree = new SimulationStateTree(new Vector(l, t), new Vector(r, b), 1.0d);
+
+			foreach (var state in aStates)
+				tree.Add(state);
+
+			await Task.Run(() => tree.ComputeMassDistribution());
+
+			// Gravitation berechnen
+			var chunkSize = aStates.Length / Environment.ProcessorCount;
+			await Task.WhenAll(aStates.Chunked(chunkSize)
+									  .Select((chunk, i) => Task.Run(() =>
+																	 {
+																		 for (var j = 0; j < chunk.Length; j++)
+																			 ret[i * chunkSize + j] = new SimulationResult(chunk[j].v, tree.CalculateGravity(chunk[j]));
+																	 })));
+
+			// Kollisionen behandeln
+			//foreach (var (entity1, entity2) in tree.CollidedEntities)
+			//{
+			//	var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
+
+			//	if (v1.HasValue && v2.HasValue)
+			//	{
+			//		var (position1, position2) = CancelOverlap(entity1, entity2);
+
+			//		if (position1.HasValue)
+			//			mPositionByEntityId[entity1.Id] = position1.Value;
+
+			//		if (position2.HasValue)
+			//			mPositionByEntityId[entity2.Id] = position2.Value;
+			//	}
+
+			//	if (v1.HasValue)
+			//		mvByEntityId[entity1.Id] = v1.Value;
+
+			//	if (v2.HasValue)
+			//		mvByEntityId[entity2.Id] = v2.Value;
+			//}
+
+			return ret;
+		}
+
+		#endregion
+
 		#region Implementation
-		
+
 		private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
 		{
 			var l = 0.0d;
@@ -108,7 +170,6 @@ namespace Gravity.SimulationEngine
 					mvByEntityId[entity2.Id] = v2.Value;
 			}
 		}
-
 
 		#endregion
 	}

@@ -8,4 +8,9 @@ namespace Gravity.SimulationEngine
 	{
 		Task SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime);
 	}
+
+	internal interface ISimulationEngine2
+	{
+		Task<SimulationResult[]> ProcessAsync(SimulationState[] aStates);
+	}
 }

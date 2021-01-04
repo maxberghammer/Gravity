@@ -109,7 +109,7 @@ namespace Gravity.Viewmodel
 		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
 		private int mIsSimulating;
-		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
+		private readonly ISimulationEngine2 mSimulationEngine = new BarnesHutSimulationEngine();
 		
 		#endregion
 
@@ -434,7 +434,8 @@ namespace Gravity.Viewmodel
 		{
 			var entities = Entities.ToArray();
 
-			await mSimulationEngine.SimulateAsync(entities, aDeltaTime);
+			//await mSimulationEngine.SimulateAsync(entities, aDeltaTime);
+			await RungeKutta4.ProcessAsync(mSimulationEngine, entities, aDeltaTime);
 			
 			var respawner = CurrentRespawnerId.HasValue
 								? mRespawnersById[CurrentRespawnerId.Value]
