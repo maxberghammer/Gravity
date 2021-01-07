@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Gravity.SimulationEngine.Integrators;
 using Gravity.Viewmodel;
 
 namespace Gravity.SimulationEngine
@@ -12,14 +12,7 @@ namespace Gravity.SimulationEngine
 	{
 		#region Fields
 
-		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mPositionByEntityId = new ConcurrentDictionary<int, Vector>();
-
-		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mvByEntityId = new ConcurrentDictionary<int, Vector>();
-
-		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mgByEntityId = new ConcurrentDictionary<int, Vector>();
+		private readonly IIntegrator mIntegrator = new NullIntegrator();
 
 		#endregion
 
@@ -28,30 +21,49 @@ namespace Gravity.SimulationEngine
 		/// <inheritdoc />
 		async Task ISimulationEngine.SimulateAsync(Entity[] aEntities, TimeSpan aDeltaTime)
 		{
-			// Physik anwenden
-			await ApplyPhysicsAsync(aEntities.Where(e => !e.IsAbsorbed)
-											 .ToArray());
+			// Physik anwenden und integrieren
+			var collisions = await mIntegrator.IntegrateAsync(aEntities, aDeltaTime, async entities => await ApplyPhysicsAsync(entities));
 
-			// Objekte updaten
+			// Kollisionen behandeln
+			if (collisions.Any())
+			{
+				var entitiesById = aEntities.ToDictionary(e => e.Id);
+
+				foreach (var (entity1, entity2) in collisions.Select(t => Tuple.Create(entitiesById[Math.Min(t.Item1, t.Item2)],
+																					   entitiesById[Math.Max(t.Item1, t.Item2)]))
+															 .Distinct())
+				{
+					var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
+
+					if (v1.HasValue && v2.HasValue)
+					{
+						var (position1, position2) = CancelOverlap(entity1, entity2);
+
+						if (position1.HasValue)
+							entity1.Position = position1.Value;
+
+						if (position2.HasValue)
+							entity2.Position = position2.Value;
+					}
+
+					if (v1.HasValue)
+						entity1.v = v1.Value;
+
+					if (v2.HasValue)
+						entity2.v = v2.Value;
+				}
+			}
+
 			foreach (var entity in aEntities)
-				Update(entity,
-					   mPositionByEntityId.TryGetValue(entity.Id, out var position)
-						   ? position
-						   : (Vector?)null,
-					   mvByEntityId.TryGetValue(entity.Id, out var v)
-						   ? v
-						   : (Vector?)null,
-					   mgByEntityId.TryGetValue(entity.Id, out var g)
-						   ? g
-						   : (Vector?)null,
-					   aDeltaTime);
+				if (entity.World.ClosedBoundaries)
+					HandleCollisionWithWorldBoundaries(entity);
 		}
 
 		#endregion
 
 		#region Implementation
-		
-		private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
+
+		private async Task<Tuple<int, int>[]> ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
 		{
 			var l = 0.0d;
 			var t = 0.0d;
@@ -73,42 +85,19 @@ namespace Gravity.SimulationEngine
 
 			await Task.Run(() => tree.ComputeMassDistribution());
 
-			mPositionByEntityId.Clear();
-			mvByEntityId.Clear();
-			mgByEntityId.Clear();
-
 			// Gravitation berechnen
 			await Task.WhenAll(aEntities.Chunked(aEntities.Count / Environment.ProcessorCount)
 										.Select(chunk => Task.Run(() =>
 																  {
 																	  foreach (var entity in chunk)
-																		  mgByEntityId[entity.Id] = tree.CalculateGravity(entity);
+																		  entity.a = tree.CalculateGravity(entity);
 																  })));
 
-			// Kollisionen behandeln
-			foreach (var (entity1, entity2) in tree.CollidedEntities)
-			{
-				var (v1, v2) = HandleCollision(entity1, entity2, entity1.World.ElasticCollisions);
 
-				if (v1.HasValue && v2.HasValue)
-				{
-					var (position1, position2) = CancelOverlap(entity1, entity2);
-
-					if (position1.HasValue)
-						mPositionByEntityId[entity1.Id] = position1.Value;
-
-					if (position2.HasValue)
-						mPositionByEntityId[entity2.Id] = position2.Value;
-				}
-
-				if (v1.HasValue)
-					mvByEntityId[entity1.Id] = v1.Value;
-
-				if (v2.HasValue)
-					mvByEntityId[entity2.Id] = v2.Value;
-			}
+			return tree.CollidedEntities
+					   .Select(c => Tuple.Create(c.Item1.Id, c.Item2.Id))
+					   .ToArray();
 		}
-
 
 		#endregion
 	}

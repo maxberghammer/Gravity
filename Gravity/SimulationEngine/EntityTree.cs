@@ -106,15 +106,13 @@ namespace Gravity.SimulationEngine
 
 					if (dist.Length < aEntity.r + mEntity.r)
 					{
-						lock (mTree.CollidedEntities)
-						{
+						lock (mTree.CollidedEntities) 
 							mTree.CollidedEntities.Add(Tuple.Create(mEntity, aEntity));
-						}
 
 						dist = dist.Unit() * (aEntity.r + mEntity.r);
 					}
 
-					return mEntity.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
+					return -World.G * mEntity.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
 				}
 				else
 				{
@@ -122,7 +120,7 @@ namespace Gravity.SimulationEngine
 					var nodeSize = mBottomRight - mTopLeft;
 
 					if (nodeSize.Length / dist.Length < mTree.mTheta)
-						return mMass * dist / Math.Pow(dist.LengthSquared, 1.5d);
+						return -World.G * mMass * dist / Math.Pow(dist.LengthSquared, 1.5d);
 
 					var ret = VectorExtensions.Zero;
 

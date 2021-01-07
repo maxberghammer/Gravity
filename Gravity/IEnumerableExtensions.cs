@@ -8,7 +8,7 @@ namespace Gravity
 	{
 		#region Interface
 
-		public static IEnumerable<IReadOnlyCollection<T>> Chunked<T>(this IEnumerable<T> aEnumerable, int aChunkSize)
+		public static IEnumerable<T[]> Chunked<T>(this IEnumerable<T> aEnumerable, int aChunkSize)
 		{
 			var ret = new List<T>(aChunkSize);
 

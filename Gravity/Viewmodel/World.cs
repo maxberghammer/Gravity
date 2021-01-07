@@ -54,6 +54,7 @@ namespace Gravity.Viewmodel
 				// ReSharper disable once InconsistentNaming
 				public double r { get; set; }
 
+				// ReSharper disable once InconsistentNaming
 				public double m { get; set; }
 
 				#endregion
@@ -93,7 +94,7 @@ namespace Gravity.Viewmodel
 		private static readonly Guid mRandomOrbittingRespawnerId = new Guid("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 		private readonly int mDisplayFrequency;
 		private readonly Stopwatch mStopwatch = new Stopwatch();
-		private readonly DispatcherTimer mTimer = new DispatcherTimer(DispatcherPriority.Background);
+		private readonly DispatcherTimer mTimer = new DispatcherTimer(DispatcherPriority.Render);
 		private readonly Dictionary<Guid, Action> mRespawnersById = new Dictionary<Guid, Action>();
 
 		private EntityPreset mSelectedEntityPreset;
@@ -245,6 +246,7 @@ namespace Gravity.Viewmodel
 									   SelectedEntityPreset.r,
 									   SelectedEntityPreset.m,
 									   aVelocity,
+									   VectorExtensions.Zero,
 									   this, SelectedEntityPreset.Fill, SelectedEntityPreset.Stroke, SelectedEntityPreset.StrokeWidth));
 
 		public void CreateOrbitEntity(Vector aPosition, Vector aVelocity)
@@ -395,6 +397,7 @@ namespace Gravity.Viewmodel
 										entity.r,
 										entity.m,
 										entity.v,
+										VectorExtensions.Zero,
 										this,
 										CreateBrush(entity.FillColor),
 										CreateBrush(entity.StrokeColor),

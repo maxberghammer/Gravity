@@ -17,10 +17,7 @@ namespace Gravity.SimulationEngine
 
 		// ReSharper disable once InconsistentNaming
 		private readonly ConcurrentDictionary<int, Vector> mvByEntityId = new ConcurrentDictionary<int, Vector>();
-
-		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mgByEntityId = new ConcurrentDictionary<int, Vector>();
-
+		
 		#endregion
 
 		#region Implementation of ISimulationEngine
@@ -41,9 +38,6 @@ namespace Gravity.SimulationEngine
 					   mvByEntityId.TryGetValue(entity.Id, out var v)
 						   ? v
 						   : (Vector?)null,
-					   mgByEntityId.TryGetValue(entity.Id, out var g)
-						   ? g
-						   : (Vector?)null,
 					   aDeltaTime);
 		}
 
@@ -55,6 +49,8 @@ namespace Gravity.SimulationEngine
 		{
 			if (aEntity.IsAbsorbed)
 				return;
+
+			aEntity.a = VectorExtensions.Zero;
 
 			var g = VectorExtensions.Zero;
 
@@ -89,14 +85,13 @@ namespace Gravity.SimulationEngine
 				g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
 			}
 
-			mgByEntityId[aEntity.Id] = g;
+			aEntity.a = -World.G * g; 
 		}
 
 		private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)
 		{
 			mPositionByEntityId.Clear();
 			mvByEntityId.Clear();
-			mgByEntityId.Clear();
 
 			await Task.WhenAll(aEntities.Chunked(aEntities.Count / Environment.ProcessorCount)
 										.Select(chunk => Task.Run(() =>
@@ -104,6 +99,31 @@ namespace Gravity.SimulationEngine
 																	  foreach (var entity in chunk)
 																		  ApplyPhysics(entity, aEntities.Except(entity));
 																  })));
+		}
+
+		// ReSharper disable InconsistentNaming
+		private static void Update(Entity aEntity, Vector? aPosition, Vector? av, TimeSpan aDeltaTime)
+			// ReSharper restore InconsistentNaming
+		{
+			if (aEntity.IsAbsorbed)
+				return;
+
+			// Bei Bedarf neue Position übernehmen
+			if (aPosition.HasValue)
+				aEntity.Position = aPosition.Value;
+
+			// Position aktualisieren
+			aEntity.Position += aEntity.v * aDeltaTime.TotalSeconds;
+
+			// Bei Bedarf neue Geschwindigkeit übernehmen
+			if (av.HasValue)
+				aEntity.v = av.Value;
+
+			// Geschwindigkeit aktualisieren
+			aEntity.v += aEntity.a * aDeltaTime.TotalSeconds;
+
+			if (aEntity.World.ClosedBoundaries)
+				HandleCollisionWithWorldBoundaries(aEntity);
 		}
 
 		#endregion

@@ -17,12 +17,15 @@ namespace Gravity.Viewmodel
 		// ReSharper disable once InconsistentNaming
 		private double mm;
 
+		// ReSharper disable once InconsistentNaming
+		private Vector ma;
+
 		#endregion
 
 		#region Construction
 
 		// ReSharper disable InconsistentNaming
-		public Entity(Vector aPosition, double ar, double am, Vector av, World aWorld, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth)
+		public Entity(Vector aPosition, double ar, double am, Vector av, Vector aa, World aWorld, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth)
 			// ReSharper restore InconsistentNaming
 		{
 			World = aWorld;
@@ -33,6 +36,7 @@ namespace Gravity.Viewmodel
 			StrokeWidth = aStrokeWidth;
 			r = ar;
 			m = am;
+			a = aa;
 			Id = mMaxId++;
 		}
 
@@ -43,6 +47,7 @@ namespace Gravity.Viewmodel
 			v = aOther.v;
 			r = aOther.r;
 			m = aOther.m;
+			a = aOther.a;
 			Id = aOther.Id;
 		}
 
@@ -72,6 +77,9 @@ namespace Gravity.Viewmodel
 										   ? value.Unit() * 300000000
 										   : value);
 		}
+
+		// ReSharper disable once InconsistentNaming
+		public Vector a { get => ma; set => SetProperty(ref ma, value); }
 
 		// ReSharper disable once InconsistentNaming
 		public double r { get; private set; }

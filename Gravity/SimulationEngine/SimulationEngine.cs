@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Windows;
 using Gravity.Viewmodel;
 
@@ -7,32 +8,6 @@ namespace Gravity.SimulationEngine
 	internal class SimulationEngine
 	{
 		#region Implementation
-
-		// ReSharper disable InconsistentNaming
-		protected static void Update(Entity aEntity, Vector? aPosition, Vector? av, Vector? ag, TimeSpan aDeltaTime)
-			// ReSharper restore InconsistentNaming
-		{
-			if (aEntity.IsAbsorbed)
-				return;
-
-			// Bei Bedarf neue Position übernehmen
-			if (aPosition.HasValue)
-				aEntity.Position = aPosition.Value;
-
-			// Bei Bedarf neue Geschwindigkeit übernehmen
-			if (av.HasValue)
-				aEntity.v = av.Value;
-
-			// Bei Bedarf Gravitationsbeschleunigung anwenden
-			if (ag.HasValue)
-				aEntity.v -= World.G * ag.Value * aDeltaTime.TotalSeconds;
-
-			// Position aktualisieren
-			aEntity.Position += aEntity.v * aDeltaTime.TotalSeconds;
-
-			if (aEntity.World.ClosedBoundaries)
-				HandleCollisionWithWorldBoundaries(aEntity);
-		}
 
 		/// <summary>
 		///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
@@ -91,10 +66,13 @@ namespace Gravity.SimulationEngine
 				// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 2 so korrigieren, dass die Objekt-Massen mit einfließen
 				var un2 = (m2 * vn2 + m1 * (2 * vn1 - vn2)) / (m1 + m2);
 
-				//Debug.Assert(p+aOther.p==(mvToSet*m)+(aOther.mvToSet*aOther.m));
-				//Debug.Assert(Ekin+aOther.Ekin== 0.5d*(m * mvToSet.Value.LengthSquared + aOther.m * aOther.mvToSet.Value.LengthSquared));
+				v1 = un1 + vt1;
+				v2 = un2 + vt2;
 
-				return (un1 + vt1, un2 + vt2);
+				//Debug.Assert(aEntity1.p.Length+aEntity2.p.Length==(v1*aEntity1.m).Length+(v2*aEntity2.m).Length);
+				//Debug.Assert(aEntity1.Ekin+aEntity2.Ekin== 0.5d*(aEntity1.m * v1.LengthSquared + aEntity2.m * v2.LengthSquared));
+
+				return (v1, v2);
 			}
 
 			// Vereinigung behandeln
@@ -110,7 +88,7 @@ namespace Gravity.SimulationEngine
 			return (v, null);
 		}
 
-		private static void HandleCollisionWithWorldBoundaries(Entity aEntity)
+		protected static void HandleCollisionWithWorldBoundaries(Entity aEntity)
 		{
 			var topLeft = aEntity.World.Viewport.TopLeft + new Vector(aEntity.r, aEntity.r);
 			var bottomRight = aEntity.World.Viewport.BottomRight - new Vector(aEntity.r, aEntity.r);
