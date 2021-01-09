@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewmodel="clr-namespace:Gravity.Viewmodel"
-        xmlns:gravity="clr-namespace:Gravity"
+        xmlns:view="clr-namespace:Gravity.View"
         mc:Ignorable="d"
         Title="Gravity"
-        WindowState="Maximized">
+        WindowState="Maximized"
+        Background="Black">
     <Window.DataContext>
         <viewmodel:World x:Name="mViewmodel"/>
     </Window.DataContext>
@@ -45,17 +46,27 @@
             </Style>
         </Grid.Resources>
 
-        <gravity:WorldView Grid.Row="0"
-                           Grid.RowSpan="3"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Stretch"
-                           Background="Black"
-                           SizeChanged="OnWorldSizeChanged"
-                           MouseWheel="OnWorldMouseWheel"
-                           MouseDown="OnWorldMouseDown"
-                           MouseMove="OnWorldMouseMove"
-                           MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                           MouseRightButtonUp="OnWorldRightButtonUp"/>
+        <!--<view:WpfWorldView Grid.Row="0"
+                              Grid.RowSpan="3"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="Black"
+                              SizeChanged="OnWorldSizeChanged"
+                              MouseWheel="OnWorldMouseWheel"
+                              MouseDown="OnWorldMouseDown"
+                              MouseMove="OnWorldMouseMove"
+                              MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
+                              MouseRightButtonUp="OnWorldRightButtonUp"/>-->
+        <view:OpenGlWorldView Grid.Row="0"
+                              Grid.RowSpan="3"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              SizeChanged="OnWorldSizeChanged"
+                              MouseWheel="OnWorldMouseWheel"
+                              MouseDown="OnWorldMouseDown"
+                              MouseMove="OnWorldMouseMove"
+                              MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
+                              MouseRightButtonUp="OnWorldRightButtonUp" />
 
         <Line Grid.Row="0"
               Grid.RowSpan="3"
@@ -89,20 +100,20 @@
                    Content="{Binding Viewport.Scale}"
                    ContentStringFormat="1px=10^{0}m"
                    VerticalContentAlignment="Center"/>
-            <Button Name="mBtnAutoScaleAndCenterViewport" 
+            <Button Name="mBtnAutoScaleAndCenterViewport"
                     DockPanel.Dock="Left"
                     FontFamily="WingDings"
                     ToolTip="Sichtbereich automatisch anpassen"
                     Content="ó"
                     Click="OnAutoScaleAndCenterViewportClicked"/>
-            <ToggleButton Name="mBtnAutoCenterViewportOnOff" 
+            <ToggleButton Name="mBtnAutoCenterViewportOnOff"
                           DockPanel.Dock="Left"
                           Margin="10,0,0,0"
                           FontFamily="WingDings"
                           Content="°"
                           ToolTip="Automatisch zentrieren an/aus"
                           IsChecked="{Binding AutoCenterViewport}"/>
-            <ToggleButton Name="mBtnShowHelpOnOff" 
+            <ToggleButton Name="mBtnShowHelpOnOff"
                           DockPanel.Dock="Right"
                           ToolTip="Hilfe ein-/ausblenden"
                           Content="?"
@@ -119,14 +130,14 @@
                     ToolTip="Öffnen"
                     Content="1"
                     Click="OnOpenClicked"/>
-            <Button Name="mBtnReset" 
+            <Button Name="mBtnReset"
                     DockPanel.Dock="Right"
                     Margin="0,0,10,0"
                     FontFamily="Wingdings 3"
                     ToolTip="Zurücksetzen"
                     Content="Q"
                     Click="OnResetClicked"/>
-            <ToggleButton Name="mBtnSimulationOnOff" 
+            <ToggleButton Name="mBtnSimulationOnOff"
                           DockPanel.Dock="Right"
                           Margin="0,0,10,0"
                           FontFamily="Arial"
@@ -138,23 +149,23 @@
         <StackPanel Grid.Row="0"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center">
-            <ToggleButton Name="mBtnShowPathsOnOff" 
+            <ToggleButton Name="mBtnShowPathsOnOff"
                           ToolTip="Pfade anzeigen"
                           Content="ꟿ"
                           IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
-            <ToggleButton Name="mBtnClosedBoundariesOnOff" 
+            <ToggleButton Name="mBtnClosedBoundariesOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings 3"
                           Content="F"
                           ToolTip="Geschlossene Grenzen"
                           IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
-            <ToggleButton Name="mBtnElasticCollisionsOnOff" 
+            <ToggleButton Name="mBtnElasticCollisionsOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="R"
                           ToolTip="Elastische Zusammenstöße an/aus"
                           IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
-            <ToggleButton Name="mBtnShowEntityPresetSelectionOnOff" 
+            <ToggleButton Name="mBtnShowEntityPresetSelectionOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="¡"
@@ -197,7 +208,8 @@
 
         <DockPanel Grid.Row="2"
                    HorizontalAlignment="Stretch"
-                   LastChildFill="False">
+                   LastChildFill="False"
+                   Margin="0,0,0,10" >
             <DockPanel.Resources>
                 <Style TargetType="Label">
                     <Setter Property="Background" Value="Transparent"/>
@@ -205,10 +217,10 @@
                     <Setter Property="IsHitTestVisible" Value="False"/>
                 </Style>
             </DockPanel.Resources>
-            <Label DockPanel.Dock="Left"
-                   Content="{Binding CpuUtilizationInPercent}"
+            <Label Name="mLblCpuUtilizationInPercent" 
+                   DockPanel.Dock="Left"
                    ContentStringFormat="CPU={0}%"/>
-            <Slider Name="mSldTimeScale" 
+            <Slider Name="mSldTimeScale"
                     DockPanel.Dock="Right"
                     ToolTip="Zeit-Skalierung"
                     Width="100"
@@ -218,8 +230,8 @@
                     TickFrequency="1"
                     TickPlacement="Both"
                     Value="{Binding TimeScale}"/>
-            <Label DockPanel.Dock="Right"
-                   Content="{Binding RuntimeInSeconds}"
+            <Label Name="mLblRuntimeInSeconds" 
+                   DockPanel.Dock="Right"
                    ContentStringFormat="t={0}"/>
             <Label DockPanel.Dock="Right"
                    Content="{Binding EntityCount}"
@@ -234,11 +246,11 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Label Grid.Column="1"
-                   Content="{Binding SelectedEntity.v}"
+            <Label Name="mLblSelectedEntityv"
+                   Grid.Column="1"
                    ContentStringFormat="v={0}m/s"/>
-            <Label Grid.Column="2"
-                   Content="{Binding SelectedEntity.m}"
+            <Label Name="mLblSelectedEntitym" 
+                   Grid.Column="2"
                    ContentStringFormat="m={0}kg"/>
         </Grid>
 
@@ -280,52 +292,69 @@
             </Grid.Resources>
             <TextBlock Grid.Column="0"
                        Grid.Row="0">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen am linken oberen Rand der Oberfläche</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen am linken oberen Rand der Oberfläche</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnAutoScaleAndCenterViewport, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnAutoScaleAndCenterViewport, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Passt die Größe der Darstellung so an, dass sich alle Objekte im Sichtbereich befinden.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnAutoCenterViewportOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnAutoCenterViewportOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Aktiviert/Deaktiviert das daurhafte automatische Ausrichten des Sichtbereiches auf den Mittelpunkt aller Objekte.</Run>
             </TextBlock>
 
             <TextBlock Grid.Column="1"
                        Grid.Row="0">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen am mittleren oberen Rand der Oberfläche</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen am mittleren oberen Rand der Oberfläche</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowPathsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnShowPathsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt die Bewegungspfade der simulierten Objekte an oder blendet sie aus. Dabei wird aus Gründen der Performance nicht der gesamte Pfad angezeigt, sondern nur ein Teil.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnClosedBoundariesOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnClosedBoundariesOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Steuert, ob die simulierten Objekte am Rand des Sichtbereichs abprallen sollen, oder nicht.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnElasticCollisionsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnElasticCollisionsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Steuert, ob die Objekte aneinander abprallen sollen, wenn sie sich berühren, oder ob sie verschmelzen sollen. Dabei absorbiert stets das Objekt mit der größeren Masse dasjenige mit der geringeren.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt die Auswahl für den zu erzeugenden Objekttyp an oder blendet sie aus.</Run>
             </TextBlock>
 
             <TextBlock Grid.Column="2"
                        Grid.Row="0">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen am rechten oberen Rand der Oberfläche</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen am rechten oberen Rand der Oberfläche</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnSimulationOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnSimulationOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Startet die Simulation oder hält sie an.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnReset, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnReset, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Entfernt alle Objekte und setzt die Simulation auf den Anfang zurück.</Run>
                 <LineBreak/>
-                <Run Style="{StaticResource H2}" Text="{Binding ElementName=mBtnShowHelpOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                <Run Style="{StaticResource H2}"
+                     Text="{Binding ElementName=mBtnShowHelpOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt diese Hilfe an oder blendet sie aus.</Run>
             </TextBlock>
 
-            <TextBlock Grid.Column="0" 
+            <TextBlock Grid.Column="0"
                        Grid.Row="1">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen mit linker Maustaste</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit linker Maustaste</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}">Mit linker Maustaste klicken: </Run>
@@ -352,7 +381,9 @@
 
             <TextBlock Grid.Column="1"
                        Grid.Row="1">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen mit dem Mausrad</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit dem Mausrad</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}">Mausrad nach vorne drehen: </Run>
@@ -370,7 +401,9 @@
 
             <TextBlock Grid.Column="2"
                        Grid.Row="1">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen mit rechter Maustaste</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen mit rechter Maustaste</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}">Mit rechter Maustaste klicken: </Run>
@@ -388,7 +421,9 @@
 
             <TextBlock Grid.Column="2"
                        Grid.Row="2">
-                <Span Style="{StaticResource H1}"><Underline>Aktionen am rechten unteren Rand der Oberfläche</Underline></Span>
+                <Span Style="{StaticResource H1}">
+                    <Underline>Aktionen am rechten unteren Rand der Oberfläche</Underline>
+                </Span>
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"

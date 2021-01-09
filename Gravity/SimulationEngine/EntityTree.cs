@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using Gravity.Viewmodel;
@@ -49,6 +50,12 @@ namespace Gravity.SimulationEngine
 					}
 					case 1:
 					{
+						if ((aEntity.Position - mEntity.Position).Length <= (aEntity.r + mEntity.r))
+						{
+							mTree.CollidedEntities.Add(Tuple.Create(aEntity, mEntity));
+							return;
+						}
+
 						var childNode = GetOrCreateChildNode(mEntity.Position);
 
 						childNode.Add(mEntity);
@@ -108,6 +115,9 @@ namespace Gravity.SimulationEngine
 					{
 						lock (mTree.CollidedEntities) 
 							mTree.CollidedEntities.Add(Tuple.Create(mEntity, aEntity));
+
+						if(dist.LengthSquared==0.0d)
+							return VectorExtensions.Zero;
 
 						dist = dist.Unit() * (aEntity.r + mEntity.r);
 					}

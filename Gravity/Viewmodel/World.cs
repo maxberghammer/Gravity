@@ -92,26 +92,24 @@ namespace Gravity.Viewmodel
 		public static readonly double G = Math.Pow(6.67430d, -11.0);
 		private static readonly Guid mRandomRespawnerId = new Guid("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
 		private static readonly Guid mRandomOrbittingRespawnerId = new Guid("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
-		private readonly int mDisplayFrequency;
+
 		private readonly Stopwatch mStopwatch = new Stopwatch();
 		private readonly DispatcherTimer mTimer = new DispatcherTimer(DispatcherPriority.Render);
 		private readonly Dictionary<Guid, Action> mRespawnersById = new Dictionary<Guid, Action>();
+		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
 
 		private EntityPreset mSelectedEntityPreset;
 		private bool mElasticCollisions = true;
 		private bool mClosedBoundaries = true;
-		private TimeSpan mRuntimeInSeconds;
 		private bool mAutoCenterViewport;
 		private Entity mSelectedEntity;
 		private bool mShowPath = true;
 		private bool mIsRunning = true;
-		private int mCpuUtilizationInPercent;
 		private double mTimeScale = 1;
 		private bool mIsEntityPresetSelectionVisible;
 		private bool mIsHelpVisible;
 		private int mIsSimulating;
-		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
-		
+
 		#endregion
 
 		#region Construction
@@ -130,11 +128,11 @@ namespace Gravity.Viewmodel
 
 			Win32.EnumDisplaySettings(null, 0, ref d);
 
-			mDisplayFrequency = d.dmDisplayFrequency;
+			DisplayFrequency = d.dmDisplayFrequency;
 			mStopwatch.Start();
 
 			mTimer.Tick += async (s, a) => await SimulateAsync();
-			mTimer.Interval = TimeSpan.FromSeconds(1.0d / mDisplayFrequency);
+			mTimer.Interval = TimeSpan.FromSeconds(1.0d / DisplayFrequency);
 			mTimer.Start();
 		}
 
@@ -143,6 +141,8 @@ namespace Gravity.Viewmodel
 		#region Interface
 
 		public event EventHandler Updated;
+
+		public int DisplayFrequency { get; }
 
 		public double TimeScale { get => mTimeScale; set => SetProperty(ref mTimeScale, value); }
 
@@ -182,9 +182,9 @@ namespace Gravity.Viewmodel
 
 		public Viewport Viewport { get; } = new Viewport();
 
-		public TimeSpan RuntimeInSeconds { get => mRuntimeInSeconds; set => SetProperty(ref mRuntimeInSeconds, value); }
+		public TimeSpan RuntimeInSeconds { get; private set; }
 
-		public int CpuUtilizationInPercent { get => mCpuUtilizationInPercent; set => SetProperty(ref mCpuUtilizationInPercent, value); }
+		public int CpuUtilizationInPercent { get; private set; }
 
 		public int EntityCount
 			=> Entities.Count;
@@ -236,8 +236,8 @@ namespace Gravity.Viewmodel
 				CreateOrbitEntity(position, VectorExtensions.Zero);
 
 				CurrentRespawnerId = aEnableRespawn
-									  ? mRandomOrbittingRespawnerId
-									  : (Guid?)null;
+										 ? mRandomOrbittingRespawnerId
+										 : (Guid?)null;
 			}
 		}
 
@@ -414,7 +414,7 @@ namespace Gravity.Viewmodel
 				return;
 
 			var start = mStopwatch.Elapsed;
-			var deltaTime = TimeSpan.FromSeconds(1.0d / mDisplayFrequency * TimeScaleFactor);
+			var deltaTime = TimeSpan.FromSeconds(1.0d / DisplayFrequency * TimeScaleFactor);
 
 			if (IsRunning)
 			{
@@ -426,7 +426,7 @@ namespace Gravity.Viewmodel
 				RuntimeInSeconds += deltaTime;
 			}
 
-			CpuUtilizationInPercent = (int)Math.Round((mStopwatch.Elapsed - start).TotalSeconds * mDisplayFrequency * 100.0d);
+			CpuUtilizationInPercent = (int)Math.Round((mStopwatch.Elapsed - start).TotalSeconds * DisplayFrequency * 100.0d);
 
 			Updated?.Invoke(this, EventArgs.Empty);
 
@@ -435,10 +435,13 @@ namespace Gravity.Viewmodel
 
 		private async Task UpdateAllEntitiesAsync(TimeSpan aDeltaTime)
 		{
+			if (!Entities.Any())
+				return;
+
 			var entities = Entities.ToArray();
 
 			await mSimulationEngine.SimulateAsync(entities, aDeltaTime);
-			
+
 			var respawner = CurrentRespawnerId.HasValue
 								? mRespawnersById[CurrentRespawnerId.Value]
 								: () => { };
@@ -470,7 +473,7 @@ namespace Gravity.Viewmodel
 			Viewport.TopLeft = center - previousSize / 2;
 			Viewport.BottomRight = center + previousSize / 2;
 		}
-		
+
 		#endregion
 	}
 }

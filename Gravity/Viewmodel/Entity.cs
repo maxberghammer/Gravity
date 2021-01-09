@@ -5,21 +5,12 @@ using System.Windows.Media;
 
 namespace Gravity.Viewmodel
 {
-	internal class Entity : NotifyPropertyChanged
+	internal class Entity
 	{
 		#region Fields
 
 		private static int mMaxId;
-
-		// ReSharper disable once InconsistentNaming
-		private Vector mv;
-
-		// ReSharper disable once InconsistentNaming
-		private double mm;
-
-		// ReSharper disable once InconsistentNaming
-		private Vector ma;
-
+		
 		#endregion
 
 		#region Construction
@@ -70,22 +61,16 @@ namespace Gravity.Viewmodel
 		public Vector Position { get; set; }
 
 		// ReSharper disable once InconsistentNaming
-		public Vector v
-		{
-			get => mv;
-			set => SetProperty(ref mv, (value.Length > 300000000)
-										   ? value.Unit() * 300000000
-										   : value);
-		}
-
+		public Vector v { get; set; }
+		
 		// ReSharper disable once InconsistentNaming
-		public Vector a { get => ma; set => SetProperty(ref ma, value); }
+		public Vector a { get; set; }
 
 		// ReSharper disable once InconsistentNaming
 		public double r { get; private set; }
 
 		// ReSharper disable once InconsistentNaming
-		public double m { get => mm; private set => SetProperty(ref mm, value); }
+		public double m { get; set; }
 
 		// ReSharper disable once InconsistentNaming
 		public Vector p

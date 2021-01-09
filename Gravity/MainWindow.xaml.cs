@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Gravity.Viewmodel;
 using Microsoft.Win32;
 
@@ -15,6 +16,7 @@ namespace Gravity
 		private const int mViewportSelectionSearchRadius = 30;
 
 		private static Vector? mReferencePosition;
+		private readonly DispatcherTimer mUiUpdateTimer;
 
 		#endregion
 
@@ -23,11 +25,31 @@ namespace Gravity
 		public MainWindow()
 		{
 			InitializeComponent();
+
+			mUiUpdateTimer = new DispatcherTimer(DispatcherPriority.Render)
+							 {
+								 Interval = TimeSpan.FromSeconds(1.0d / mViewmodel.DisplayFrequency),
+								 IsEnabled = true
+							 };
+
+			mUiUpdateTimer.Tick += OnUpdateUi;
 		}
 
 		#endregion
 
 		#region Implementation
+
+		private void OnUpdateUi(object aSender, EventArgs aE)
+		{
+			mLblSelectedEntitym.Visibility = mLblSelectedEntityv.Visibility = (null != mViewmodel.SelectedEntity)
+																				  ? Visibility.Visible
+																				  : Visibility.Collapsed;
+			mLblSelectedEntityv.Content = mViewmodel.SelectedEntity?.v;
+			mLblSelectedEntitym.Content = mViewmodel.SelectedEntity?.m;
+			mLblCpuUtilizationInPercent.Content = mViewmodel.CpuUtilizationInPercent;
+			mLblRuntimeInSeconds.Content = mViewmodel.RuntimeInSeconds;
+		}
+
 
 		private void OnWorldMouseDown(object aSender, MouseButtonEventArgs aE)
 		{

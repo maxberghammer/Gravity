@@ -5,17 +5,15 @@ using System.Windows;
 using System.Windows.Media;
 using Gravity.Viewmodel;
 
-//using Vector = Gravity.Viewmodel.Vector;
-
-namespace Gravity
+namespace Gravity.View
 {
-	internal class WorldView : FrameworkElement
+	internal class WpfWorldView : FrameworkElement
 	{
 		#region Fields
 
 		public static readonly DependencyProperty BackgroundProperty = DependencyProperty.Register("Background",
 																								   typeof(Brush),
-																								   typeof(WorldView),
+																								   typeof(WpfWorldView),
 																								   new PropertyMetadata(default(Brush)));
 
 		private readonly Dictionary<int, List<Vector>> mPathsByEntityId = new Dictionary<int, List<Vector>>();
@@ -24,7 +22,7 @@ namespace Gravity
 
 		#region Construction
 
-		public WorldView()
+		public WpfWorldView()
 			=> DataContextChanged += OnDataContextChanged;
 
 		#endregion

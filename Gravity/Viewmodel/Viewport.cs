@@ -10,10 +10,6 @@ namespace Gravity.Viewmodel
 
 		private double mScale;
 
-		private Vector mTopLeft = VectorExtensions.Zero;
-
-		private Vector mBottomRight = VectorExtensions.Zero;
-
 		private DragIndicator mDragIndicator;
 
 		#endregion
@@ -22,32 +18,10 @@ namespace Gravity.Viewmodel
 
 		public DragIndicator DragIndicator { get => mDragIndicator; set => SetProperty(ref mDragIndicator, value); }
 
-		public Vector TopLeft
-		{
-			get => mTopLeft;
-			set
-			{
-				if (SetProperty(ref mTopLeft, value))
-				{
-					RaiseOtherPropertyChanged(nameof(Center));
-					RaiseOtherPropertyChanged(nameof(Size));
-				}
-			}
-		}
-
-		public Vector BottomRight
-		{
-			get => mBottomRight;
-			set
-			{
-				if (SetProperty(ref mBottomRight, value))
-				{
-					RaiseOtherPropertyChanged(nameof(Center));
-					RaiseOtherPropertyChanged(nameof(Size));
-				}
-			}
-		}
-
+		public Vector TopLeft { get; set; }
+		
+		public Vector BottomRight { get; set; }
+		
 		public Vector Center
 			=> Size / 2 + TopLeft;
 
