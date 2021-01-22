@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +16,11 @@ namespace Gravity.SimulationEngine
 		#region Fields
 
 		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mPositionByEntityId = new ConcurrentDictionary<int, Vector>();
+		private readonly ConcurrentDictionary<int, Vector> mPositionByEntityId = new();
 
 		// ReSharper disable once InconsistentNaming
-		private readonly ConcurrentDictionary<int, Vector> mvByEntityId = new ConcurrentDictionary<int, Vector>();
-		
+		private readonly ConcurrentDictionary<int, Vector> mvByEntityId = new();
+
 		#endregion
 
 		#region Implementation of ISimulationEngine
@@ -85,7 +88,7 @@ namespace Gravity.SimulationEngine
 				g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
 			}
 
-			aEntity.a = -World.G * g; 
+			aEntity.a = -World.G * g;
 		}
 
 		private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> aEntities)

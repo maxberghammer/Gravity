@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -16,7 +19,7 @@ namespace Gravity.View
 																								   typeof(WpfWorldView),
 																								   new PropertyMetadata(default(Brush)));
 
-		private readonly Dictionary<int, List<Vector>> mPathsByEntityId = new Dictionary<int, List<Vector>>();
+		private readonly Dictionary<int, List<Vector>> mPathsByEntityId = new();
 
 		#endregion
 
@@ -54,7 +57,7 @@ namespace Gravity.View
 			if (null == Viewmodel)
 				return;
 
-			Viewmodel.Updated += (sender, args) => Dispatcher.Invoke(InvalidateVisual);
+			Viewmodel.Updated += (_, _) => Dispatcher.Invoke(InvalidateVisual);
 		}
 
 		private Geometry CreatePathGeometry()
@@ -71,22 +74,7 @@ namespace Gravity.View
 					mPathsByEntityId[entity.Id] = path = new List<Vector>(new[] {entity.Position});
 
 				var lastPathPosition = path.Last();
-
-				//if (path.Count > 1)
-				//{
-				//	var referencePathPosition = path[path.Count - 2];
-				//	var dir = (lastPathPosition - referencePathPosition).Unit();
-				//	var dist = (entity.Position - lastPathPosition).Length;
-				//	var extrapolatedPosition = lastPathPosition + (dir * dist);
-
-				//	if ((extrapolatedPosition - entity.Position).Length >= 0.25d / Viewmodel.Viewport.ScaleFactor)
-				//		path.Add(entity.Position);
-				//	else
-				//		path[path.Count - 1] = extrapolatedPosition;
-
-				//	continue;
-				//}
-
+				
 				if ((entity.Position - lastPathPosition).Length >= 1.0d / Viewmodel.Viewport.ScaleFactor)
 					path.Add(entity.Position);
 			}
@@ -133,11 +121,11 @@ namespace Gravity.View
 
 			if (Viewmodel.Entities.Any())
 			{
-				dc.PushTransform(new ScaleTransform(Viewmodel.Viewport.ScaleFactor, 
+				dc.PushTransform(new ScaleTransform(Viewmodel.Viewport.ScaleFactor,
 													Viewmodel.Viewport.ScaleFactor,
-													0, 
+													0,
 													0));
-				dc.PushTransform(new TranslateTransform(-Viewmodel.Viewport.TopLeft.X, 
+				dc.PushTransform(new TranslateTransform(-Viewmodel.Viewport.TopLeft.X,
 														-Viewmodel.Viewport.TopLeft.Y));
 
 				var path = CreatePathGeometry();

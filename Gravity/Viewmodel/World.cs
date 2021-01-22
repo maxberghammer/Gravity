@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -56,7 +59,7 @@ namespace Gravity.Viewmodel
 				// ReSharper disable once InconsistentNaming
 				[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
 				public double r { get; init; }
-				
+
 				// ReSharper disable once InconsistentNaming
 				[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
 				public double m { get; init; }
@@ -393,7 +396,8 @@ namespace Gravity.Viewmodel
 				if (brushesByColor.TryGetValue(aColor, out var brush))
 					return brush;
 
-				brush = brushesByColor[aColor] = new((Color)ColorConverter.ConvertFromString(aColor));
+				// ReSharper disable once PossibleNullReferenceException
+				brush = brushesByColor[aColor] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(aColor));
 				brush.Freeze();
 
 				return brush;

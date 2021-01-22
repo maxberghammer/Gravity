@@ -1,5 +1,10 @@
-﻿using System.Runtime.InteropServices;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
 
+using System.Runtime.InteropServices;
+
+// ReSharper disable UnusedMember.Local
+// ReSharper disable InconsistentNaming
 namespace Gravity
 {
 	internal static class Win32

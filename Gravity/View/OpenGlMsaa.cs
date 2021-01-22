@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -12,6 +15,7 @@ namespace Gravity.View
 	{
 		#region Internal types
 
+		// ReSharper disable once InconsistentNaming
 		private class OpenGLHandles : IDisposable
 		{
 			#region Fields
@@ -131,7 +135,7 @@ namespace Gravity.View
 												  new FrameworkPropertyMetadata(8,
 																				FrameworkPropertyMetadataOptions.AffectsRender));
 
-		private static readonly Dictionary<OpenGLControl, OpenGLHandles> mOpenGlHandlesByOpenGlControl = new Dictionary<OpenGLControl, OpenGLHandles>();
+		private static readonly Dictionary<OpenGLControl, OpenGLHandles> mOpenGlHandlesByOpenGlControl = new();
 
 		#endregion
 
@@ -155,6 +159,7 @@ namespace Gravity.View
 				CreateMultisampledFbo(aOpenGlControl);
 		}
 
+		// ReSharper disable once UnusedMember.Global
 		public static bool GetIsEnabled(OpenGLControl aOpenGlControl)
 			=> (bool)aOpenGlControl.GetValue(IsEnabledProperty);
 
@@ -229,7 +234,7 @@ namespace Gravity.View
 
 			aOpenGlControl.OpenGL.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, 0);
 		}
-		
+
 		private static void OnOpenGlControlResized(object aSender, OpenGLRoutedEventArgs aArgs)
 		{
 			var sender = (OpenGLControl)aSender;

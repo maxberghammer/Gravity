@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
 using System.Linq;
 
-namespace Gravity
+// ReSharper disable once CheckNamespace
+namespace System.Collections.Generic
 {
 	// ReSharper disable once InconsistentNaming
 	internal static class IEnumerableExtensions

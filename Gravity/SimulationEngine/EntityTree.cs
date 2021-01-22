@@ -1,6 +1,8 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using Gravity.Viewmodel;
@@ -113,10 +115,12 @@ namespace Gravity.SimulationEngine
 
 					if (dist.Length < aEntity.r + mEntity.r)
 					{
-						lock (mTree.CollidedEntities) 
+						lock (mTree.CollidedEntities)
+						{
 							mTree.CollidedEntities.Add(Tuple.Create(mEntity, aEntity));
+						}
 
-						if(dist.LengthSquared==0.0d)
+						if (dist.LengthSquared == 0.0d)
 							return VectorExtensions.Zero;
 
 						dist = dist.Unit() * (aEntity.r + mEntity.r);
@@ -205,7 +209,7 @@ namespace Gravity.SimulationEngine
 
 		#region Interface
 
-		public List<Tuple<Entity, Entity>> CollidedEntities { get; } = new List<Tuple<Entity, Entity>>();
+		public List<Tuple<Entity, Entity>> CollidedEntities { get; } = new();
 
 		public void ComputeMassDistribution()
 			=> mRootNode.ComputeMassDistribution();

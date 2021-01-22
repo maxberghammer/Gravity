@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.ComponentModel;
 using System.Windows;
 
@@ -19,9 +22,9 @@ namespace Gravity.Viewmodel
 		public DragIndicator DragIndicator { get => mDragIndicator; set => SetProperty(ref mDragIndicator, value); }
 
 		public Vector TopLeft { get; set; }
-		
+
 		public Vector BottomRight { get; set; }
-		
+
 		public Vector Center
 			=> Size / 2 + TopLeft;
 
@@ -45,6 +48,7 @@ namespace Gravity.Viewmodel
 		public double ScaleFactor
 			=> 1 / Math.Pow(10, Scale);
 
+		// ReSharper disable once UnusedMember.Global
 		public void CenterTo(Entity aEntity)
 		{
 			var size = BottomRight - TopLeft;

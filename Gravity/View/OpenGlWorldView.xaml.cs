@@ -1,9 +1,9 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Windows;
-using System.Windows.Media;
 using Gravity.Viewmodel;
 using SharpGL;
 using SharpGL.Enumerations;
@@ -11,12 +11,13 @@ using SharpGL.WPF;
 
 namespace Gravity.View
 {
-	/// <summary>
-	///     Interaction logic for OpenGlWorldView.xaml
-	/// </summary>
 	public partial class OpenGlWorldView
 	{
-		private readonly Dictionary<int, List<Vector>> mPathsByEntityId = new Dictionary<int, List<Vector>>();
+		#region Fields
+
+		private readonly Dictionary<int, List<Vector>> mPathsByEntityId = new();
+
+		#endregion
 
 		#region Construction
 
@@ -36,7 +37,7 @@ namespace Gravity.View
 
 		private World Viewmodel
 			=> (World)DataContext;
-		
+
 		private void RenderPaths()
 		{
 			var entityIds = new HashSet<int>(Viewmodel.Entities.Select(e => e.Id));
@@ -107,13 +108,13 @@ namespace Gravity.View
 			gl.Enable(OpenGL.GL_LIGHT0);
 			gl.Enable(OpenGL.GL_COLOR_MATERIAL);
 			gl.Enable(OpenGL.GL_CULL_FACE);
-			
-			float[] globalAmbient = {0.5f, 0.5f, 0.5f, 1.0f};
+
+			//float[] globalAmbient = {0.5f, 0.5f, 0.5f, 1.0f};
 			float[] light0Pos = {0.0f, 0.0f, 200.0f, 0.0f};
 			float[] light0Ambient = {0.2f, 0.2f, 0.2f, 1.0f};
 			float[] light0Diffuse = {0.3f, 0.3f, 0.3f, 1.0f};
 			float[] light0Specular = {0.8f, 0.8f, 0.8f, 1.0f};
-			float[] lmodelAmbient = {0.2f, 0.2f, 0.2f, 1.0f};
+			//float[] lmodelAmbient = {0.2f, 0.2f, 0.2f, 1.0f};
 
 			//gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, lmodelAmbient);
 			//gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, globalAmbient);
@@ -162,7 +163,7 @@ namespace Gravity.View
 			{
 				gl.PushMatrix();
 				gl.Translate(entity.Position.X, entity.Position.Y, 0.0d);
-				
+
 				// Fill
 				gl.CullFace(OpenGL.GL_FRONT);
 				gl.Color(entity.Fill.Color.ScR, entity.Fill.Color.ScG, entity.Fill.Color.ScB);
@@ -199,7 +200,7 @@ namespace Gravity.View
 			if (null == Viewmodel)
 				return;
 
-			Viewmodel.Updated += (sender, args) => Dispatcher.Invoke(() => mOpenGlControl.DoRender());
+			Viewmodel.Updated += (_, _) => Dispatcher.Invoke(() => mOpenGlControl.DoRender());
 		}
 
 		#endregion

@@ -1,5 +1,6 @@
-﻿using System;
-using System.Diagnostics;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
 using System.Windows;
 using Gravity.Viewmodel;
 

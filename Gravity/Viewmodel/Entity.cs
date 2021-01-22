@@ -1,5 +1,7 @@
-﻿using System;
-using System.ComponentModel;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Windows;
 using System.Windows.Media;
 
@@ -10,13 +12,14 @@ namespace Gravity.Viewmodel
 		#region Fields
 
 		private static int mMaxId;
-		
+
 		#endregion
 
 		#region Construction
 
 		// ReSharper disable InconsistentNaming
-		public Entity(Vector aPosition, double ar, double am, Vector av, Vector aa, World aWorld, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth)
+		public Entity(Vector aPosition, double ar, double am, Vector av, Vector aa, World aWorld, SolidColorBrush aFill, SolidColorBrush aStroke,
+					  double aStrokeWidth)
 			// ReSharper restore InconsistentNaming
 		{
 			World = aWorld;
@@ -62,13 +65,13 @@ namespace Gravity.Viewmodel
 
 		// ReSharper disable once InconsistentNaming
 		public Vector v { get; set; }
-		
+
 		// ReSharper disable once InconsistentNaming
 		public Vector a { get; set; }
 
 		// ReSharper disable once InconsistentNaming
 		public double r { get; private set; }
-
+		
 		// ReSharper disable once InconsistentNaming
 		public double m { get; set; }
 
@@ -76,6 +79,7 @@ namespace Gravity.Viewmodel
 		public Vector p
 			=> m * v;
 
+		// ReSharper disable once UnusedMember.Global
 		public double Ekin
 			=> 0.5d * m * v.LengthSquared;
 

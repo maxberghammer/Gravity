@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Windows.Media;
 
 namespace Gravity.Viewmodel
@@ -27,9 +30,6 @@ namespace Gravity.Viewmodel
 			Id = aId;
 		}
 
-		public static EntityPreset FromDensity(string aName, double aDensity, double ar, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth, Guid aId)
-			=> new EntityPreset(aName, 4.0d / 3.0d * Math.Pow(ar, 3) * Math.PI * aDensity, ar, aFill, aStroke, aStrokeWidth, aId);
-
 		#endregion
 
 		#region Interface
@@ -49,6 +49,11 @@ namespace Gravity.Viewmodel
 		public double StrokeWidth { get; }
 
 		public Guid Id { get; }
+
+		// ReSharper disable once InconsistentNaming
+		public static EntityPreset FromDensity(string aName, double aDensity, double ar, SolidColorBrush aFill, SolidColorBrush aStroke, double aStrokeWidth,
+											   Guid aId)
+			=> new(aName, 4.0d / 3.0d * Math.Pow(ar, 3) * Math.PI * aDensity, ar, aFill, aStroke, aStrokeWidth, aId);
 
 		#endregion
 	}

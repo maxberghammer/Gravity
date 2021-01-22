@@ -66,30 +66,60 @@
                               MouseDown="OnWorldMouseDown"
                               MouseMove="OnWorldMouseMove"
                               MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                              MouseRightButtonUp="OnWorldRightButtonUp" />
-
-        <Line Grid.Row="0"
-              Grid.RowSpan="3"
-              Stroke="GreenYellow"
-              StrokeThickness="1"
-              IsHitTestVisible="False"
-              X1="{Binding Viewport.DragIndicator.Start.X}"
-              Y1="{Binding Viewport.DragIndicator.Start.Y}"
-              X2="{Binding Viewport.DragIndicator.End.X}"
-              Y2="{Binding Viewport.DragIndicator.End.Y}"/>
+                              MouseRightButtonUp="OnWorldRightButtonUp"/>
 
         <Grid Grid.Row="0"
-              Grid.RowSpan="3"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Top"
-              Width="{Binding Viewport.DragIndicator.End.X}"
-              Height="{Binding Viewport.DragIndicator.End.Y}">
-            <Label Content="{Binding Viewport.DragIndicator.Label}"
+              Grid.RowSpan="3">
+            <Line Stroke="GreenYellow"
+                  StrokeThickness="1"
+                  StrokeDashArray="5 5"
+                  IsHitTestVisible="False"
+                  X1="{Binding Viewport.DragIndicator.Start.X}"
+                  Y1="{Binding Viewport.DragIndicator.Start.Y}"
+                  X2="{Binding Viewport.DragIndicator.End.X}"
+                  Y2="{Binding Viewport.DragIndicator.End.Y}"/>
+
+            <Ellipse HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     Width="{Binding Viewport.DragIndicator.Diameter}"
+                     Height="{Binding Viewport.DragIndicator.Diameter}"
+                     Stroke="GreenYellow"
+                     StrokeThickness="1"
+                     IsHitTestVisible="False">
+                <Ellipse.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform X="{Binding Viewport.DragIndicator.Start.X}"
+                                            Y="{Binding Viewport.DragIndicator.Start.Y}"/>
+                        <TranslateTransform X="{Binding Viewport.DragIndicator.EntityTranslate}"
+                                            Y="{Binding Viewport.DragIndicator.EntityTranslate}"/>
+                    </TransformGroup>
+                </Ellipse.RenderTransform>
+            </Ellipse>
+
+            <Ellipse HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     Width="{Binding Viewport.DragIndicator.Diameter}"
+                     Height="{Binding Viewport.DragIndicator.Diameter}"
+                     Stroke="GreenYellow"
+                     StrokeThickness="1"
+                     StrokeDashArray="5 5"
+                     IsHitTestVisible="False">
+                <Ellipse.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform X="{Binding Viewport.DragIndicator.End.X}"
+                                            Y="{Binding Viewport.DragIndicator.End.Y}"/>
+                        <TranslateTransform X="{Binding Viewport.DragIndicator.EntityTranslate}"
+                                            Y="{Binding Viewport.DragIndicator.EntityTranslate}"/>
+                    </TransformGroup>
+                </Ellipse.RenderTransform>
+            </Ellipse>
+
+            <Label HorizontalAlignment="Center"
+                   VerticalAlignment="Bottom"
+                   Content="{Binding Viewport.DragIndicator.Label}"
                    Foreground="GreenYellow"
                    Background="Transparent"
-                   IsHitTestVisible="False"
-                   VerticalAlignment="Bottom"
-                   HorizontalAlignment="Right"/>
+                   IsHitTestVisible="False"/>
         </Grid>
 
         <DockPanel Grid.Row="0"
@@ -209,7 +239,7 @@
         <DockPanel Grid.Row="2"
                    HorizontalAlignment="Stretch"
                    LastChildFill="False"
-                   Margin="0,0,0,10" >
+                   Margin="0,0,0,10">
             <DockPanel.Resources>
                 <Style TargetType="Label">
                     <Setter Property="Background" Value="Transparent"/>
@@ -217,7 +247,7 @@
                     <Setter Property="IsHitTestVisible" Value="False"/>
                 </Style>
             </DockPanel.Resources>
-            <Label Name="mLblCpuUtilizationInPercent" 
+            <Label Name="mLblCpuUtilizationInPercent"
                    DockPanel.Dock="Left"
                    ContentStringFormat="CPU={0}%"/>
             <Slider Name="mSldTimeScale"
@@ -230,7 +260,7 @@
                     TickFrequency="1"
                     TickPlacement="Both"
                     Value="{Binding TimeScale}"/>
-            <Label Name="mLblRuntimeInSeconds" 
+            <Label Name="mLblRuntimeInSeconds"
                    DockPanel.Dock="Right"
                    ContentStringFormat="t={0}"/>
             <Label DockPanel.Dock="Right"
@@ -249,7 +279,7 @@
             <Label Name="mLblSelectedEntityv"
                    Grid.Column="1"
                    ContentStringFormat="v={0}m/s"/>
-            <Label Name="mLblSelectedEntitym" 
+            <Label Name="mLblSelectedEntitym"
                    Grid.Column="2"
                    ContentStringFormat="m={0}kg"/>
         </Grid>

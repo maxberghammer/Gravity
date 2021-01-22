@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Erstellt am: 22.01.2021
+// Erstellt von: Max Berghammer
+
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,6 +19,7 @@ namespace Gravity
 		private const int mViewportSelectionSearchRadius = 30;
 
 		private static Vector? mReferencePosition;
+		// ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
 		private readonly DispatcherTimer mUiUpdateTimer;
 
 		#endregion
@@ -50,10 +54,14 @@ namespace Gravity
 			mLblRuntimeInSeconds.Content = mViewmodel.RuntimeInSeconds;
 		}
 
+		private bool mWasRunning;
 
 		private void OnWorldMouseDown(object aSender, MouseButtonEventArgs aE)
 		{
 			var viewportPoint = aE.GetPosition((IInputElement)aSender);
+
+			mWasRunning = mViewmodel.IsRunning;
+			mViewmodel.IsRunning = false;
 
 			if ((Keyboard.Modifiers == ModifierKeys.None) && (aE.LeftButton == MouseButtonState.Pressed))
 			{
@@ -66,7 +74,8 @@ namespace Gravity
 					mViewmodel.Viewport.DragIndicator = new DragIndicator
 														{
 															Start = new Vector(entityViewportPoint.X, entityViewportPoint.Y),
-															End = new Vector(entityViewportPoint.X, entityViewportPoint.Y)
+															End = new Vector(entityViewportPoint.X, entityViewportPoint.Y),
+															Diameter = (mViewmodel.SelectedEntity.r + mViewmodel.SelectedEntity.StrokeWidth) * 2 * mViewmodel.Viewport.ScaleFactor
 														};
 					return;
 				}
@@ -76,7 +85,8 @@ namespace Gravity
 			mViewmodel.Viewport.DragIndicator = new DragIndicator
 												{
 													Start = new Vector(viewportPoint.X, viewportPoint.Y),
-													End = new Vector(viewportPoint.X, viewportPoint.Y)
+													End = new Vector(viewportPoint.X, viewportPoint.Y),
+													Diameter = (mViewmodel.SelectedEntityPreset.r + mViewmodel.SelectedEntityPreset.StrokeWidth) * 2 * mViewmodel.Viewport.ScaleFactor
 												};
 		}
 
@@ -108,6 +118,8 @@ namespace Gravity
 
 		private void OnWorldMouseLeftButtonUp(object aSender, MouseButtonEventArgs aE)
 		{
+			mViewmodel.IsRunning = mWasRunning;
+
 			var referencePosition = mReferencePosition;
 			var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
 
@@ -143,6 +155,8 @@ namespace Gravity
 
 		private void OnWorldRightButtonUp(object aSender, MouseButtonEventArgs aE)
 		{
+			mViewmodel.IsRunning = mWasRunning;
+
 			var referencePosition = mReferencePosition;
 			var position = mViewmodel.Viewport.ToWorld(aE.GetPosition((IInputElement)aSender));
 
