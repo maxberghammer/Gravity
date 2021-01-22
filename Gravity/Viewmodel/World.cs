@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -27,11 +28,11 @@ namespace Gravity.Viewmodel
 			{
 				#region Interface
 
-				public Vector TopLeft { get; set; }
+				public Vector TopLeft { get; init; }
 
-				public Vector BottomRight { get; set; }
+				public Vector BottomRight { get; init; }
 
-				public double Scale { get; set; }
+				public double Scale { get; init; }
 
 				#endregion
 			}
@@ -40,22 +41,25 @@ namespace Gravity.Viewmodel
 			{
 				#region Interface
 
-				public string FillColor { get; set; }
+				public string FillColor { get; init; }
 
-				public string StrokeColor { get; set; }
+				public string StrokeColor { get; init; }
 
-				public double StrokeWidth { get; set; }
+				public double StrokeWidth { get; init; }
 
-				public Vector Position { get; set; }
-
-				// ReSharper disable once InconsistentNaming
-				public Vector v { get; set; }
+				public Vector Position { get; init; }
 
 				// ReSharper disable once InconsistentNaming
-				public double r { get; set; }
+				[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+				public Vector v { get; init; }
 
 				// ReSharper disable once InconsistentNaming
-				public double m { get; set; }
+				[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+				public double r { get; init; }
+				
+				// ReSharper disable once InconsistentNaming
+				[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+				public double m { get; init; }
 
 				#endregion
 			}
@@ -64,23 +68,23 @@ namespace Gravity.Viewmodel
 
 			#region Interface
 
-			public ViewportState Viewport { get; set; }
+			public ViewportState Viewport { get; init; }
 
-			public double TimeScale { get; set; }
+			public double TimeScale { get; init; }
 
-			public bool ElasticCollisions { get; set; }
+			public bool ElasticCollisions { get; init; }
 
-			public bool ClosedBoundaries { get; set; }
+			public bool ClosedBoundaries { get; init; }
 
-			public bool ShowPath { get; set; }
+			public bool ShowPath { get; init; }
 
-			public bool AutoCenterViewport { get; set; }
+			public bool AutoCenterViewport { get; init; }
 
-			public Guid SelectedEntityPresetId { get; set; }
+			public Guid SelectedEntityPresetId { get; init; }
 
-			public Guid? RespawnerId { get; set; }
+			public Guid? RespawnerId { get; init; }
 
-			public EntityState[] Entities { get; set; }
+			public EntityState[] Entities { get; init; }
 
 			#endregion
 		}
@@ -90,12 +94,12 @@ namespace Gravity.Viewmodel
 		#region Fields
 
 		public static readonly double G = Math.Pow(6.67430d, -11.0);
-		private static readonly Guid mRandomRespawnerId = new Guid("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
-		private static readonly Guid mRandomOrbittingRespawnerId = new Guid("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
+		private static readonly Guid mRandomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
+		private static readonly Guid mRandomOrbittingRespawnerId = new("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 
-		private readonly Stopwatch mStopwatch = new Stopwatch();
-		private readonly DispatcherTimer mTimer = new DispatcherTimer(DispatcherPriority.Render);
-		private readonly Dictionary<Guid, Action> mRespawnersById = new Dictionary<Guid, Action>();
+		private readonly Stopwatch mStopwatch = new();
+		private readonly DispatcherTimer mTimer = new(DispatcherPriority.Render);
+		private readonly Dictionary<Guid, Action> mRespawnersById = new();
 		private readonly ISimulationEngine mSimulationEngine = new BarnesHutSimulationEngine();
 
 		private EntityPreset mSelectedEntityPreset;
@@ -121,8 +125,8 @@ namespace Gravity.Viewmodel
 			mRespawnersById[mRandomRespawnerId] = () => CreateRandomEntities(1, true);
 			mRespawnersById[mRandomOrbittingRespawnerId] = () => CreateRandomOrbitEntities(1, true);
 
-			Entities.CollectionChanged += (sender, args) => RaisePropertyChanged(nameof(EntityCount));
-			Viewport.PropertyChanged += (sender, args) => Updated?.Invoke(this, EventArgs.Empty);
+			Entities.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(EntityCount));
+			Viewport.PropertyChanged += (_, _) => Updated?.Invoke(this, EventArgs.Empty);
 
 			var d = new Win32.DEVMODE();
 
@@ -131,7 +135,7 @@ namespace Gravity.Viewmodel
 			DisplayFrequency = d.dmDisplayFrequency;
 			mStopwatch.Start();
 
-			mTimer.Tick += async (s, a) => await SimulateAsync();
+			mTimer.Tick += async (_, _) => await SimulateAsync();
 			mTimer.Interval = TimeSpan.FromSeconds(1.0d / DisplayFrequency);
 			mTimer.Start();
 		}
@@ -156,19 +160,19 @@ namespace Gravity.Viewmodel
 										 new Guid("CB30E40F-FB49-4688-94D1-3F1FB5C3F813")),
 				EntityPreset.FromDensity("Eisenkugel groß", 7874, 100, Brushes.DarkGray, Brushes.White, 2.0d, new Guid("03F7274E-B6C5-46E8-B8F8-03C969C79B49")),
 
-				new EntityPreset("Mittelschwer+Klein", 100000000000, 20, Brushes.Green, new Guid("98E60B8E-4461-4895-9107-A1FF5C9B9D64")),
-				new EntityPreset("Leicht+Groß", 1000000000, 100, Brushes.Red, new Guid("B6BBB8AC-109C-4CA1-96E1-976EABED256E")),
-				new EntityPreset("Schwer+Groß", 1000000000000, 100, Brushes.Yellow, new Guid("4F2D1D6B-0ED2-405E-8617-1B5073425F95")),
-				new EntityPreset("Schwer+Klein", 1000000000000, 10, Brushes.Black, Brushes.White, 2.0d, new Guid("0514F35B-029F-4E91-8071-81FD31C570E0")),
-				new EntityPreset("Leicht+Klein", 1000, 20, Brushes.Blue, new Guid("90424708-FFF6-4BD1-ADAF-6A534BBBACAA")),
+				new("Mittelschwer+Klein", 100000000000, 20, Brushes.Green, new Guid("98E60B8E-4461-4895-9107-A1FF5C9B9D64")),
+				new("Leicht+Groß", 1000000000, 100, Brushes.Red, new Guid("B6BBB8AC-109C-4CA1-96E1-976EABED256E")),
+				new("Schwer+Groß", 1000000000000, 100, Brushes.Yellow, new Guid("4F2D1D6B-0ED2-405E-8617-1B5073425F95")),
+				new("Schwer+Klein", 1000000000000, 10, Brushes.Black, Brushes.White, 2.0d, new Guid("0514F35B-029F-4E91-8071-81FD31C570E0")),
+				new("Leicht+Klein", 1000, 20, Brushes.Blue, new Guid("90424708-FFF6-4BD1-ADAF-6A534BBBACAA")),
 				//new EntityPreset("Mini schwarzes Loch", 13466353096409057727806678973.0d, 20, Brushes.Black, Brushes.White, 2.0d),
 
-				new EntityPreset("Sonne", 1.9884E30d, 696342000.0d, Brushes.Yellow, new Guid("30584A17-00EE-4B85-ACEB-EFCAF2606468")),
-				new EntityPreset("Erde", 5.9724E24d, 12756270.0d / 2, Brushes.Blue, new Guid("3E9965AB-3A11-414A-A455-50527F254036")),
-				new EntityPreset("Mond", 7.346E22d, 3474000.0d / 2, Brushes.DarkGray, new Guid("71A1DD4C-5B87-405C-8033-B033B46A5237"))
+				new("Sonne", 1.9884E30d, 696342000.0d, Brushes.Yellow, new Guid("30584A17-00EE-4B85-ACEB-EFCAF2606468")),
+				new("Erde", 5.9724E24d, 12756270.0d / 2, Brushes.Blue, new Guid("3E9965AB-3A11-414A-A455-50527F254036")),
+				new("Mond", 7.346E22d, 3474000.0d / 2, Brushes.DarkGray, new Guid("71A1DD4C-5B87-405C-8033-B033B46A5237"))
 			};
 
-		public ObservableCollection<Entity> Entities { get; } = new ObservableCollection<Entity>();
+		public ObservableCollection<Entity> Entities { get; } = new();
 
 		public EntityPreset SelectedEntityPreset { get => mSelectedEntityPreset; set => SetProperty(ref mSelectedEntityPreset, value); }
 
@@ -180,7 +184,7 @@ namespace Gravity.Viewmodel
 
 		public bool ShowPath { get => mShowPath; set => SetProperty(ref mShowPath, value); }
 
-		public Viewport Viewport { get; } = new Viewport();
+		public Viewport Viewport { get; } = new();
 
 		public TimeSpan RuntimeInSeconds { get; private set; }
 
@@ -362,6 +366,9 @@ namespace Gravity.Viewmodel
 
 			Reset();
 
+			if (null == state)
+				return;
+
 			Viewport.TopLeft = state.Viewport.TopLeft;
 			Viewport.BottomRight = state.Viewport.BottomRight;
 			Viewport.Scale = state.Viewport.Scale;
@@ -386,7 +393,7 @@ namespace Gravity.Viewmodel
 				if (brushesByColor.TryGetValue(aColor, out var brush))
 					return brush;
 
-				brush = brushesByColor[aColor] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(aColor));
+				brush = brushesByColor[aColor] = new((Color)ColorConverter.ConvertFromString(aColor));
 				brush.Freeze();
 
 				return brush;

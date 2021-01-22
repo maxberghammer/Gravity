@@ -107,12 +107,7 @@ namespace Gravity.View
 			gl.Enable(OpenGL.GL_LIGHT0);
 			gl.Enable(OpenGL.GL_COLOR_MATERIAL);
 			gl.Enable(OpenGL.GL_CULL_FACE);
-			gl.Enable(OpenGL.GL_LINE_SMOOTH);
-			gl.Enable(OpenGL.GL_BLEND);
 			
-			gl.Hint(HintTarget.LineSmooth, HintMode.Nicest);
-			gl.BlendFunc(BlendingSourceFactor.SourceAlpha, BlendingDestinationFactor.OneMinusSourceAlpha);
-
 			float[] globalAmbient = {0.5f, 0.5f, 0.5f, 1.0f};
 			float[] light0Pos = {0.0f, 0.0f, 200.0f, 0.0f};
 			float[] light0Ambient = {0.2f, 0.2f, 0.2f, 1.0f};
@@ -120,8 +115,8 @@ namespace Gravity.View
 			float[] light0Specular = {0.8f, 0.8f, 0.8f, 1.0f};
 			float[] lmodelAmbient = {0.2f, 0.2f, 0.2f, 1.0f};
 
-			gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, lmodelAmbient);
-			gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, globalAmbient);
+			//gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, lmodelAmbient);
+			//gl.LightModel(OpenGL.GL_LIGHT_MODEL_AMBIENT, globalAmbient);
 			gl.Light(OpenGL.GL_LIGHT0, OpenGL.GL_POSITION, light0Pos);
 			gl.Light(OpenGL.GL_LIGHT0, OpenGL.GL_AMBIENT, light0Ambient);
 			gl.Light(OpenGL.GL_LIGHT0, OpenGL.GL_DIFFUSE, light0Diffuse);
@@ -143,6 +138,8 @@ namespace Gravity.View
 
 		private void OnOpenGlDraw(object aSender, OpenGLRoutedEventArgs aArgs)
 		{
+			using var x = OpenGlMsaa.Use(mOpenGlControl);
+
 			var gl = aArgs.OpenGL;
 
 			gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT | OpenGL.GL_DEPTH_BUFFER_BIT);
@@ -160,26 +157,31 @@ namespace Gravity.View
 
 			var q = gl.NewQuadric();
 			gl.QuadricNormals(q, OpenGL.GLU_SMOOTH);
+
 			foreach (var entity in Viewmodel.Entities)
 			{
 				gl.PushMatrix();
 				gl.Translate(entity.Position.X, entity.Position.Y, 0.0d);
-				gl.Color(entity.Fill.Color.ScR, entity.Fill.Color.ScG, entity.Fill.Color.ScB);
+				
+				// Fill
 				gl.CullFace(OpenGL.GL_FRONT);
+				gl.Color(entity.Fill.Color.ScR, entity.Fill.Color.ScG, entity.Fill.Color.ScB);
 				gl.Sphere(q, entity.r, 32, 32);
 
-				if (null != entity.Stroke && 0 < entity.StrokeWidth)
-				{
-					gl.Color(entity.Stroke.Color.ScR, entity.Stroke.Color.ScG, entity.Stroke.Color.ScB);
-					gl.CullFace(OpenGL.GL_BACK);
-					gl.Sphere(q, entity.r + entity.StrokeWidth, 32, 32);
-				}
-
+				// Selektionsrahmen
 				if (ReferenceEquals(entity, Viewmodel.SelectedEntity))
 				{
 					gl.CullFace(OpenGL.GL_BACK);
 					gl.Color(1.0, 1.0, 0.0);
 					gl.Sphere(q, (entity.r + entity.StrokeWidth) * 1.1, 32, 32);
+				}
+
+				// Stroke
+				if (null != entity.Stroke && 0 < entity.StrokeWidth)
+				{
+					gl.CullFace(OpenGL.GL_BACK);
+					gl.Color(entity.Stroke.Color.ScR, entity.Stroke.Color.ScG, entity.Stroke.Color.ScB);
+					gl.Sphere(q, entity.r + entity.StrokeWidth, 32, 32);
 				}
 
 				gl.PopMatrix();
