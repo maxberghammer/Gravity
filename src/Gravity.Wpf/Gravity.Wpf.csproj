@@ -5,6 +5,12 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\Wellenlib\src\Wellenlib.Windows\Wellenlib.Windows.csproj" />
+	  <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="HelixToolkit.SharpDX.Core.Wpf" Version="2.14.0" />
+		<PackageReference Include="SharpGL.WPF" Version="3.1.1" />
 	</ItemGroup>
 
 </Project>
