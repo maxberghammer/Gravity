@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/.msbuild/">
+    <File Path="../.gitignore" />
+    <File Path="../.gitmodules" />
+    <File Path="../Directory.Build.props" />
+  </Folder>
+  <Folder Name="/.options/">
+    <File Path="../.gitignore" />
+    <File Path="../.gitmodules" />
+  </Folder>
+  <Folder Name="/Wellenlib/">
+    <Project Path="../Wellenlib/src/Wellenlib.Console/Wellenlib.Console.csproj" />
+    <Project Path="../Wellenlib/src/Wellenlib.Windows/Wellenlib.Windows.csproj" />
+    <Project Path="../Wellenlib/src/Wellenlib/Wellenlib.csproj" />
+  </Folder>
+  <Folder Name="/Wellenlib/.msbuild/">
+    <File Path="../Wellenlib/Directory.Build.props" />
+  </Folder>
+  <Folder Name="/Wellenlib/.options/">
+    <File Path="../Wellenlib/.git" />
+    <File Path="../Wellenlib/.gitignore" />
+  </Folder>
+  <Project Path="Gravity.SimulationEngine/Gravity.SimulationEngine.csproj" />
+  <Project Path="Gravity.Wpf/Gravity.Wpf.csproj" Id="53f64170-9ed7-4f3a-8369-6f566744eebf" />
+</Solution>

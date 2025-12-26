@@ -1,0 +1,3 @@
+[submodule "Wellenlib"]
+	path = Wellenlib
+	url = https://github.com/maxberghammer/Wellenlib.git

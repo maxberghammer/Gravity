@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Wpf Projekt-Einstellungen -->
+	<Import Project="$(WpfProjectSettingsFilePath)" />
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\Wellenlib\src\Wellenlib.Windows\Wellenlib.Windows.csproj" />
+	</ItemGroup>
+
+</Project>
