@@ -58,7 +58,7 @@
                               MouseMove="OnWorldMouseMove"
                               MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
                               MouseRightButtonUp="OnWorldRightButtonUp"/>-->
-		<view:OpenGlWorldView Grid.Row="0"
+		<!--<view:OpenGlWorldView Grid.Row="0"
                               Grid.RowSpan="3"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"
@@ -67,8 +67,8 @@
                               MouseDown="OnWorldMouseDown"
                               MouseMove="OnWorldMouseMove"
                               MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                              MouseRightButtonUp="OnWorldRightButtonUp"/>
-		<!--<view:Direct3dWorldView Grid.Row="0"
+                              MouseRightButtonUp="OnWorldRightButtonUp"/>-->
+		<view:Direct3dWorldView Grid.Row="0"
                                 Grid.RowSpan="3"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
@@ -77,7 +77,7 @@
                                 MouseDown="OnWorldMouseDown"
                                 MouseMove="OnWorldMouseMove"
                                 MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                                MouseRightButtonUp="OnWorldRightButtonUp"/>-->
+                                MouseRightButtonUp="OnWorldRightButtonUp"/>
 
 		<Grid Grid.Row="0"
               Grid.RowSpan="3">
