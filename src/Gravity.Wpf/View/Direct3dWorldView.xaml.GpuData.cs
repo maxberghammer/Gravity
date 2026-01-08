@@ -21,12 +21,15 @@ public partial class Direct3dWorldView
 		private float _pad;
 	}
 
+	// Ortho-ähnliche Kamera: Welt -> Screen (TopLeft, Scale) -> NDC (ScreenSize)
 	[StructLayout(LayoutKind.Sequential)]
-	struct CameraCB
+	private struct CameraCB
 	{
-		public Vector2 ViewCenter;
-		public float ViewScale;
-		public float Aspect;
+		public Vector2 TopLeft; // 8
+		public Vector2 ScreenSize; // 8 -> 16
+		public float Scale; // 4 -> 20
+		private float _pad0; // 4 -> 24
+		private Vector2 _pad1; // 8 -> 32 (gesamt)
 	}
 
 	#endregion

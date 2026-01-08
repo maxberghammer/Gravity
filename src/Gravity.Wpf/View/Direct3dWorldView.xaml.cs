@@ -17,9 +17,7 @@ using Vortice.DXGI;
 using Vortice.Mathematics;
 using Vortice.Wpf;
 using MapFlags = Vortice.Direct3D11.MapFlags;
-using Rect = System.Windows.Rect;
 using Size = System.Windows.Size;
-using Viewport = Vortice.Mathematics.Viewport;
 
 namespace Gravity.Wpf.View;
 
@@ -40,6 +38,12 @@ public partial class Direct3dWorldView
 	private ID3D11VertexShader? _vs;
 	private ID3D11ShaderResourceView? _entitySrv;
 	private ID3D11RasterizerState? _rs;
+	private readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<System.Numerics.Vector2>> _pathsByEntityId = new();
+	private ID3D11Buffer? _pathVb;
+	private ID3D11InputLayout? _inputLayoutPath;
+	private ID3D11VertexShader? _vsPath;
+	private ID3D11PixelShader? _psPath;
+	private const int _maxPathSegments = 10_000;
 
 	#endregion
 
@@ -70,84 +74,123 @@ public partial class Direct3dWorldView
 							
 							cbuffer Camera : register(b0)
 							{
-							    float2 ViewCenter;
-							    float ViewScale;
-							    float Aspect;
+							    float2 TopLeft;     // Welt
+							    float2 ScreenSize;  // DIU (ActualWidth, ActualHeight)
+							    float  Scale;       // Zoom
+							    float  _pad0;
+							    float2 _pad1;
 							};
 							
-
 							struct VSIn
 							{
 							    float2 Pos : POSITION;
-							    uint InstanceID : SV_InstanceID;
+							    uint   InstanceID : SV_InstanceID;
 							};
-
+							
 							struct VSOut
 							{
 							    float4 Pos : SV_POSITION;
-							    float2 UV : TEXCOORD;
-							    float Radius : RADIUS;
-							    float Stroke : STROKE;
-							    float3 Fill : FILL;
+							    float2 UV  : TEXCOORD;
+							    float  Radius : RADIUS;
+							    float  Stroke : STROKE;
+							    float3 Fill   : FILL;
 							    float3 StrokeCol : STROKECOL;
-							    uint Flags : FLAGS;
+							    uint   Flags  : FLAGS;
 							};
-
+							
 							VSOut VS(VSIn i)
 							{
 							    EntityGpu e = Entities[i.InstanceID];
 							
 							    VSOut o;
 							
+							    // Weltposition des Pixels (Kreis-Quad)
 							    float2 world = e.Position + i.Pos * (e.Radius + e.StrokeWidth);
 							
-							    float2 view = (world - ViewCenter) / ViewScale;
+							    // Welt -> Screen (oben links ist (0,0))
+							    float2 screen = (world - TopLeft) * Scale;
 							
-							    // Aspect-Korrektur
-							    // view.x /= Aspect;
-							    
-							    // Aspect-Korrektur: X mit (Höhe/Breite) multiplizieren
-								view.x *= Aspect;
+							    // Screen -> NDC (Ortho wie in OpenGL: gl.Ortho(0,w,h,0,...))
+							    float2 ndc;
+							    ndc.x = screen.x * (2.0 / ScreenSize.x) - 1.0;
+							    ndc.y = 1.0 - screen.y * (2.0 / ScreenSize.y);
 							
-							    o.Pos = float4(view, 0, 1);
-							    o.UV = i.Pos;
+							    o.Pos = float4(ndc, 0, 1);
+							    o.UV  = i.Pos;
 							    o.Radius = e.Radius;
 							    o.Stroke = e.StrokeWidth;
-							    o.Fill = e.FillColor;
+							    o.Fill   = e.FillColor;
 							    o.StrokeCol = e.StrokeColor;
-							    o.Flags = e.Flags;
+							    o.Flags  = e.Flags;
 							
 							    return o;
 							}
 							
-
 							float4 PS(VSOut i) : SV_Target
 							{
 							    float d = dot(i.UV, i.UV);
-								if (d > 1) discard;
-								
-								float z = sqrt(1 - d);
-								float3 n = normalize(float3(i.UV, z));
-								float3 light = normalize(float3(0.0, 0.0, 200));
-								float diff = saturate(dot(n, light));
-								
-								float inner = i.Radius / (i.Radius + i.Stroke);
-								float3 col = (d > inner * inner) ? i.StrokeCol : i.Fill;
-								
-								if ((i.Flags & 1) != 0 && d > 0.85)
-								    col = float3(1,1,0);
-								
-								return float4(col * diff, 1);
+							    if (d > 1) discard;
+							
+							    float z = sqrt(1 - d);
+							    float3 n = normalize(float3(i.UV, z));
+							    float3 light = normalize(float3(0.0, 0.0, 200));
+							    float diff = saturate(dot(n, light));
+							
+							    float inner = i.Radius / (i.Radius + i.Stroke);
+							    float3 col = (d > inner * inner) ? i.StrokeCol : i.Fill;
+							
+							    if ((i.Flags & 1) != 0 && d > 0.85)
+							        col = float3(1,1,0);
+							
+							    return float4(col * diff, 1);
+							}
+							
+							// ------------- Pfade (Linien) -------------
+							struct VSInPath
+							{
+							    float2 Pos : POSITION; // Welt-Koordinate (X,Y)
+							};
+							
+							struct VSOutPath
+							{
+							    float4 Pos : SV_POSITION;
+							};
+							
+							VSOutPath VS_Path(VSInPath i)
+							{
+							    VSOutPath o;
+							
+							    // Welt -> Screen
+							    float2 screen = (i.Pos - TopLeft) * Scale;
+							
+							    // Screen -> NDC
+							    float2 ndc;
+							    ndc.x = screen.x * (2.0 / ScreenSize.x) - 1.0;
+							    ndc.y = 1.0 - screen.y * (2.0 / ScreenSize.y);
+							
+							    o.Pos = float4(ndc, 0, 1);
+							    return o;
+							}
+							
+							float4 PS_Path(VSOutPath i) : SV_Target
+							{
+							    // Einfach weiß wie in OpenGL-Variante
+							    return float4(1, 1, 1, 1);
 							}
 							""";
 
 		var vsCode = Compiler.Compile(hlsl, "VS", "VS.hlsl", "vs_5_0").Span;
 		var psCode = Compiler.Compile(hlsl, "PS", "PS.hlsl", "ps_5_0").Span;
+		var vsPathCode = Compiler.Compile(hlsl, "VS_Path", "VS_Path.hlsl", "vs_5_0").Span;
+		var psPathCode = Compiler.Compile(hlsl, "PS_Path", "PS_Path.hlsl", "ps_5_0").Span;
 
 		_vs = device.CreateVertexShader(vsCode);
 		_ps = device.CreatePixelShader(psCode);
+		_vsPath = device.CreateVertexShader(vsPathCode);
+		_psPath = device.CreatePixelShader(psPathCode);
 
 		_inputLayout = device.CreateInputLayout([new("POSITION", 0, Format.R32G32_Float, 0)], vsCode);
+		_inputLayoutPath = device.CreateInputLayout([new("POSITION", 0, Format.R32G32_Float, 0)], vsPathCode);
 	}
 
 	private void EnsureEntityBuffer(ID3D11Device device, int count)
@@ -193,14 +236,18 @@ public partial class Direct3dWorldView
 		_cameraBuffer = e.Device.CreateBuffer([
 												  new CameraCB()
 												  {
-													  ViewCenter = Vector2.Zero,
-													  ViewScale = 1.0f,
-													  Aspect = 1.0f
+													  TopLeft = Vector2.Zero,
+													  ScreenSize = new Vector2(10f,10f),
+													  Scale = 1.0f
 												  }
 											  ],
 											  BindFlags.ConstantBuffer,
 											  ResourceUsage.Dynamic,
 											  CpuAccessFlags.Write);
+		_pathVb = e.Device.CreateBuffer(new BufferDescription((uint)(_maxPathSegments * Marshal.SizeOf<Vector2>()),
+															  BindFlags.VertexBuffer,
+															  ResourceUsage.Dynamic,
+															  CpuAccessFlags.Write));
 
 		CreateShaders(e.Device);
 	}
@@ -215,60 +262,43 @@ public partial class Direct3dWorldView
 		_entitySrv?.Dispose();
 		_rs?.Dispose();
 		_cameraBuffer?.Dispose();
+		_inputLayoutPath?.Dispose();
+		_vsPath?.Dispose();
+		_psPath?.Dispose();
+		_pathVb?.Dispose();
 	}
 
 	private World Viewmodel
 		=> (World)DataContext;
 
-	private static (double WidthDiu, double HeightDiu) GetCurrentMonitorSizeInDiu(Window window)
+	private void UpdatePaths()
 	{
-		// Fenster-TopLeft in Gerätpixel (PointToScreen liefert device pixels)
-		var topLeftInPx = window.PointToScreen(new(0, 0));
+		var entities = Viewmodel.Entities.ToArray();
+		var entityIds = new System.Collections.Generic.HashSet<int>(entities.Select(e => e.Id));
 
-		// Factory über DXGI-Helper erstellen
-		using var factory = DXGI.CreateDXGIFactory1(out IDXGIFactory1? f).Failure
-								? null
-								: f;
+		foreach (var id in _pathsByEntityId.Keys.Where(id => !entityIds.Contains(id)).ToArray())
+			_pathsByEntityId.Remove(id);
 
-		// Fallback: Primärbildschirm in DIU
-		var fallback = (SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
-
-		if (factory is null)
-			return fallback;
-
-		for (uint a = 0; a < 10 ; a++)
+		// Anhängen wenn Bewegungsschwelle überschritten
+		foreach (var entity in entities)
 		{
-			using var adapter = factory.EnumAdapters(a);
+			if(!_pathsByEntityId.TryGetValue(entity.Id, out var path))
+				_pathsByEntityId[entity.Id] = path = [new((float)entity.Position.X, (float)entity.Position.Y)];
 
-			if (adapter is null) break;
+			var last = path[^1];
+			var pos = new Vector2((float)entity.Position.X, (float)entity.Position.Y);
 
-			for(uint o = 0; o < 10; o++)
-			{
-				using var output = adapter.EnumOutputs(o);
+			if(Vector2.Distance(pos, last) >= (float)(1.0 / Viewmodel.Viewport.ScaleFactor))
+				path.Add(pos);
 
-				if(output is null)
-					break;
-
-				var rect = output.Description.DesktopCoordinates;
-				
-				if(!rect.Contains(topLeftInPx))
-					continue;
-
-				var dpi = VisualTreeHelper.GetDpi(window);
-
-				return (rect.Width / dpi.DpiScaleX, rect.Height / dpi.DpiScaleY);
-			}
+			// Begrenzen wie in OpenGL
+			if(path.Count > _maxPathSegments)
+				path.RemoveRange(0, path.Count - _maxPathSegments);
 		}
-
-		return fallback;
 	}
 
-	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-    [SuppressMessage("Minor Code Smell", "S1481:Unused local variables should be removed", Justification = "<Pending>")]
     private void _drawingSurface_OnDraw(object? sender, DrawEventArgs e)
 	{
-		(var monitorWidthInDiu, var monitorHeightInDiu) = GetCurrentMonitorSizeInDiu(Application.Current!.MainWindow!);
-
 		// === DEMO-DATEN ===
 		var entities = Viewmodel.Entities.ToArray();
 		
@@ -305,24 +335,22 @@ public partial class Direct3dWorldView
 							Flags = 0
 						};
 
-		var visibleArea = new Rect(new(-ActualWidth / 2, -ActualHeight / 2), new Size(ActualWidth, ActualHeight));
-		//var sx = visibleArea.Width / monitorWidthInDiu * 1000.0f;
-		//var sy = visibleArea.Height / monitorHeightInDiu * 1000.0f;
-		//var vs = Viewmodel.Viewport.ScaleFactor * Math.Min(sx,sy);
+		// Sichtbarer Bereich in DIU (wie OpenGL gl.Ortho 0..w,0..h)
+		var screenSize = new Size(ActualWidth, ActualHeight);
 
-		// Feste Welt-Skalierung (unabhängig von der Control-Größe)
-		var viewScale = (float)Viewmodel.Viewport.ScaleFactor;
-
-		// Aspect als Höhe/Breite (InvAspect), damit im Shader X multipliziert wird
-		var invAspect = (float)(visibleArea.Height / visibleArea.Width);
+		// Kamera aus dem Viewmodel (wie GL: gl.Scale + gl.Translate)
+		var topLeft = new Vector2((float)Viewmodel.Viewport.TopLeft.X,
+								  (float)Viewmodel.Viewport.TopLeft.Y);
+		var scale = (float)Viewmodel.Viewport.ScaleFactor;
 
 		e.Context.MapConstantBuffer(_entityBuffer!, count, data);
 		e.Context.MapConstantBuffer(_cameraBuffer!, new CameraCB
 													{
-														ViewCenter = Vector2.Zero,
-														ViewScale = viewScale, //(float)vs,
-														Aspect = invAspect //(float)(visibleArea.Width / visibleArea.Height)
+														TopLeft = topLeft, // Welt
+														ScreenSize = new((float)screenSize.Width, (float)screenSize.Height), // DIU
+														Scale = scale // Zoom
 													});
+
 
 		e.Context.OMSetRenderTargets(e.Surface.ColorTextureView!, e.Surface.DepthStencilView);
 
@@ -343,6 +371,46 @@ public partial class Direct3dWorldView
 		e.Context.PSSetShader(_ps);
 		e.Context.RSSetState(_rs);
 		e.Context.DrawInstanced(6, (uint)count, 0, 0);
+
+		// Pfade rendern (wie OpenGL: weiß, 1px)
+		UpdatePaths();
+
+		if(!Viewmodel.ShowPath ||
+		   _pathsByEntityId.Count <= 0 ||
+		   _pathVb is null ||
+		   _vsPath is null ||
+		   _psPath is null ||
+		   _inputLayoutPath is null)
+			return;
+
+		// Pipeline für Linien
+		e.Context.IASetInputLayout(_inputLayoutPath);
+		e.Context.IASetPrimitiveTopology(PrimitiveTopology.LineStrip);
+		e.Context.VSSetShader(_vsPath);
+		e.Context.PSSetShader(_psPath);
+
+		// Vertexbuffer binden (stride = float2)
+		var stride = (uint)Marshal.SizeOf<Vector2>();
+		var offset = 0u;
+		e.Context.IASetVertexBuffers(0, [_pathVb], [stride], [offset]);
+
+		// Für jeden Pfad den Buffer neu befüllen und zeichnen
+		foreach(var path in _pathsByEntityId.Values.Where(path => path.Count >= 2))
+		{
+			// Map/Unmap mit WriteDiscard – wir zeichnen sofort danach
+			e.Context.Map(_pathVb, 0, MapMode.WriteDiscard, MapFlags.None, out var box);
+
+			var byteSpan = box.AsSpan(path.Count * Marshal.SizeOf<Vector2>());
+			var dst = MemoryMarshal.Cast<byte, Vector2>(byteSpan);
+
+			// Kopieren
+			for(var idx = 0; idx < path.Count; idx++)
+				dst[idx] = path[idx];
+
+			e.Context.Unmap(_pathVb, 0);
+
+			e.Context.Draw((uint)path.Count, 0);
+		}
 	}
 	
 	#endregion
