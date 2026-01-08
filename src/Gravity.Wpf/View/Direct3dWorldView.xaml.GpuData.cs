@@ -8,58 +8,25 @@ public partial class Direct3dWorldView
 	#region Internal types
 
 	[StructLayout(LayoutKind.Sequential)]
-	private readonly struct Vertex
+	private struct EntityGpu
 	{
-		#region Fields
+		public Vector2 Position;
+		public float Radius;
+		public float StrokeWidth;
 
-		public readonly Vector3 Position;
-		public readonly Vector3 Normal;
-		
-		#endregion
+		public Vector3 FillColor;
+		public uint Flags; // bit 0 = selected
 
-		#region Construction
-
-		public Vertex(Vector3 pos, Vector3 nrm)
-		{
-			Position = pos;
-			Normal = nrm;
-		}
-
-		#endregion
+		public Vector3 StrokeColor;
+		private float _pad;
 	}
 
 	[StructLayout(LayoutKind.Sequential)]
-	private readonly struct InstanceData
+	struct CameraCB
 	{
-		#region Fields
-
-		public readonly Vector3 Position;
-		public readonly float Radius;
-
-		public readonly Vector4 FillColor;
-
-		public readonly float StrokeWidth;
-		public readonly Vector4 StrokeColor;
-
-        #endregion
-
-        #region Construction
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1144:Unused private types or members should be removed", Justification = "<Pending>")]
-        public InstanceData(Vector3 position,
-							float radius,
-							Vector4 fillColor,
-							float strokeWidth,
-							Vector4 strokeColor)
-		{
-			Position = position;
-			Radius = radius;
-			FillColor = fillColor;
-			StrokeWidth = strokeWidth;
-			StrokeColor = strokeColor;
-		}
-
-		#endregion
+		public Vector2 ViewCenter;
+		public float ViewScale;
+		public float Aspect;
 	}
 
 	#endregion

@@ -1,17 +1,25 @@
-// Erstellt am: 22.01.2021
+﻿// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
+using Gravity.SimulationEngine;
+using Gravity.Wpf.Viewmodel;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
 using Vortice.D3DCompiler;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
+using Vortice.Mathematics;
+using Vortice.Wpf;
+using MapFlags = Vortice.Direct3D11.MapFlags;
+using Rect = System.Windows.Rect;
+using Size = System.Windows.Size;
+using Viewport = Vortice.Mathematics.Viewport;
 
 namespace Gravity.Wpf.View;
 
@@ -23,24 +31,15 @@ public partial class Direct3dWorldView
 {
 	#region Fields
 
-	private const int _maxInstances = 100_000;
-	private ID3D11Texture2D? _backBuffer;
-	private ID3D11DeviceContext? _ctx;
-	private D3DImage? _d3dImage;
-	private ID3D11Device? _device;
-	private int _indexCount;
+	private ID3D11Buffer? _entityBuffer;
+	private int _entityCapacity;
 	private ID3D11InputLayout? _inputLayout;
-	private ID3D11Buffer? _instanceVb;
-	private ID3D11Buffer? _meshIb;
-	private ID3D11Buffer? _meshVb;
-	private ID3D11PixelShader? _psFill;
-	private ID3D11PixelShader? _psStroke;
-	private ID3D11RenderTargetView? _rtv;
-	private IDXGISwapChain1? _swapChain;
-	private ID3D11VertexShader? _vsFill;
-	private ID3D11VertexShader? _vsStroke;
-	private ID3D11RasterizerState? _cullBack;
-	private ID3D11RasterizerState? _cullFront;
+	private ID3D11PixelShader? _ps;
+	private ID3D11Buffer? _quadBuffer;
+	private ID3D11Buffer? _cameraBuffer;
+	private ID3D11VertexShader? _vs;
+	private ID3D11ShaderResourceView? _entitySrv;
+	private ID3D11RasterizerState? _rs;
 
 	#endregion
 
@@ -53,246 +52,298 @@ public partial class Direct3dWorldView
 
 	#region Implementation
 
-	// ---------- lifecycle ----------
-
-	private void OnLoaded(object sender, RoutedEventArgs e)
-	{
-		InitializeD3D();
-		CompositionTarget.Rendering += OnRender;
-	}
-
-	private void OnUnloaded(object sender, RoutedEventArgs e)
-	{
-		CompositionTarget.Rendering -= OnRender;
-		DisposeD3D();
-	}
-
-	// ---------- init ----------
-
-	private void InitializeD3D()
-	{
-		FeatureLevel[] levels = { FeatureLevel.Level_11_1, FeatureLevel.Level_11_0 };
-
-		D3D11.D3D11CreateDevice(null,
-								DriverType.Hardware,
-								DeviceCreationFlags.BgraSupport,
-								levels,
-								out _device,
-								out _ctx);
-
-		CreateRasterizerStates();
-		CreateSwapChain();
-		CreateRenderTarget();
-		CreateShaders();
-		CreateGeometry();
-		CreateInstanceBuffer();
-		SetupD3DImage();
-	}
-
-	private void CreateRasterizerStates()
-	{
-		_cullBack = _device!.CreateRasterizerState(new RasterizerDescription(CullMode.Back,
-																			FillMode.Solid));
-
-		_cullFront = _device!.CreateRasterizerState(new RasterizerDescription(CullMode.Front,
-																			 FillMode.Solid));
-	}
-
-	private void CreateSwapChain()
-	{
-		using var dxgiDevice = _device!.QueryInterface<IDXGIDevice>();
-		using var adapter = dxgiDevice.GetAdapter();
-		using var factory = adapter.GetParent<IDXGIFactory2>();
-
-		var desc = new SwapChainDescription1
-				   {
-					   Width = Math.Max(1, (uint)ActualWidth),
-					   Height = Math.Max(1, (uint)ActualHeight),
-					   Format = Format.B8G8R8A8_UNorm,
-					   BufferCount = 2,
-					   SampleDescription = new(1, 0),
-					   SwapEffect = SwapEffect.FlipSequential,
-					   BufferUsage = Usage.RenderTargetOutput
-				   };
-
-		_swapChain = factory.CreateSwapChainForComposition(_device!, desc);
-	}
-
-	private void CreateRenderTarget()
-	{
-		_backBuffer = _swapChain!.GetBuffer<ID3D11Texture2D>(0);
-		_rtv = _device!.CreateRenderTargetView(_backBuffer);
-	}
-
-	private void SetupD3DImage()
-	{
-		_d3dImage = new();
-		_image.Source = _d3dImage;
-
-		using var surface = _backBuffer!.QueryInterface<IDXGISurface>();
-
-		_d3dImage.Lock();
-		_d3dImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9,
-								surface.NativePointer);
-		_d3dImage.Unlock();
-	}
-
-	// ---------- shaders ----------
-
-	private void CreateShaders()
+	private void CreateShaders(ID3D11Device device)
 	{
 		const string hlsl = """
-								 struct VSIn
-								 {
-								     float3 Pos : POSITION;
-								     float3 Nrm : NORMAL;
+							struct EntityGpu
+							{
+							    float2 Position;
+							    float Radius;
+							    float StrokeWidth;
+							    float3 FillColor;
+							    uint Flags;
+							    float3 StrokeColor;
+							    float _pad;
+							};
 
-								     float3 IPos : INSTANCE_POS;
-								     float  Rad  : INSTANCE_RADIUS;
-								     float4 Fill : FILL_COLOR;
-								     float  StrokeW : STROKE_WIDTH;
-								     float4 StrokeC : STROKE_COLOR;
-								 };
+							StructuredBuffer<EntityGpu> Entities : register(t0);
+							
+							cbuffer Camera : register(b0)
+							{
+							    float2 ViewCenter;
+							    float ViewScale;
+							    float Aspect;
+							};
+							
 
-								 struct VSOut
-								 {
-								     float4 Pos : SV_POSITION;
-								     float3 Nrm : NORMAL;
-								     float4 Col : COLOR;
-								 };
+							struct VSIn
+							{
+							    float2 Pos : POSITION;
+							    uint InstanceID : SV_InstanceID;
+							};
 
-								 cbuffer Camera : register(b0)
-								 {
-								     float4x4 ViewProj;
-								 };
+							struct VSOut
+							{
+							    float4 Pos : SV_POSITION;
+							    float2 UV : TEXCOORD;
+							    float Radius : RADIUS;
+							    float Stroke : STROKE;
+							    float3 Fill : FILL;
+							    float3 StrokeCol : STROKECOL;
+							    uint Flags : FLAGS;
+							};
 
-								 VSOut VS_Fill(VSIn i)
-								 {
-								     VSOut o;
-								     float3 wp = i.Pos * i.Rad + i.IPos;
-								     o.Pos = mul(float4(wp,1), ViewProj);
-								     o.Nrm = i.Nrm;
-								     o.Col = i.Fill;
-								     return o;
-								 }
-								 
-								 float4 PS_Fill(VSOut i) : SV_Target
-								 {
-								     float3 L = normalize(float3(0.3,0.5,-1));
-								     float d = saturate(dot(i.Nrm, -L));
-								     return i.Col * (0.25 + 0.75 * d);
-								 }
-								 
-								 VSOut VS_Stroke(VSIn i)
-								 {
-								     VSOut o;
-								     float r = i.Rad + i.StrokeW;
-								     float3 wp = i.Pos * r + i.IPos;
-								     o.Pos = mul(float4(wp,1), ViewProj);
-								     o.Col = i.StrokeC;
-								     return o;
-								 }
-								 
-								 float4 PS_Stroke(VSOut i) : SV_Target
-								 {
-								     return i.Col;
-								 }
-								 """;
+							VSOut VS(VSIn i)
+							{
+							    EntityGpu e = Entities[i.InstanceID];
+							
+							    VSOut o;
+							
+							    float2 world = e.Position + i.Pos * (e.Radius + e.StrokeWidth);
+							
+							    float2 view = (world - ViewCenter) / ViewScale;
+							
+							    // Aspect-Korrektur
+							    // view.x /= Aspect;
+							    
+							    // Aspect-Korrektur: X mit (Höhe/Breite) multiplizieren
+								view.x *= Aspect;
+							
+							    o.Pos = float4(view, 0, 1);
+							    o.UV = i.Pos;
+							    o.Radius = e.Radius;
+							    o.Stroke = e.StrokeWidth;
+							    o.Fill = e.FillColor;
+							    o.StrokeCol = e.StrokeColor;
+							    o.Flags = e.Flags;
+							
+							    return o;
+							}
+							
 
-		var vsFillCode = Compiler.Compile(hlsl, "VS_Fill", "VSFill.hlsl", "vs_5_0").Span;
-		var psFillCode = Compiler.Compile(hlsl, "PS_Fill", "PSFill.hlsl", "ps_5_0").Span;
-		var vsStrokeCode = Compiler.Compile(hlsl, "VS_Stroke", "VSStroke.hlsl", "vs_5_0").Span;
-		var psStrokeCode = Compiler.Compile(hlsl, "PS_Stroke", "PSStroke.hlsl", "ps_5_0").Span;
+							float4 PS(VSOut i) : SV_Target
+							{
+							    float d = dot(i.UV, i.UV);
+								if (d > 1) discard;
+								
+								float z = sqrt(1 - d);
+								float3 n = normalize(float3(i.UV, z));
+								float3 light = normalize(float3(0.0, 0.0, 200));
+								float diff = saturate(dot(n, light));
+								
+								float inner = i.Radius / (i.Radius + i.Stroke);
+								float3 col = (d > inner * inner) ? i.StrokeCol : i.Fill;
+								
+								if ((i.Flags & 1) != 0 && d > 0.85)
+								    col = float3(1,1,0);
+								
+								return float4(col * diff, 1);
+							}
+							""";
 
-		_vsFill = _device!.CreateVertexShader(vsFillCode);
-		_psFill = _device!.CreatePixelShader(psFillCode);
-		_vsStroke = _device!.CreateVertexShader(vsStrokeCode);
-		_psStroke = _device!.CreatePixelShader(psStrokeCode);
-		
-		_inputLayout = _device.CreateInputLayout([
-													 // Per-vertex (Slot 0)
-													 new("POSITION", 0, Format.R32G32B32_Float, 0, 0, InputClassification.PerVertexData, 0),
-													 new("NORMAL", 0, Format.R32G32B32_Float, 12, 0, InputClassification.PerVertexData, 0),
+		var vsCode = Compiler.Compile(hlsl, "VS", "VS.hlsl", "vs_5_0").Span;
+		var psCode = Compiler.Compile(hlsl, "PS", "PS.hlsl", "ps_5_0").Span;
 
-													 // Per-instance (Slot 1)
-													 new("INSTANCE_POS", 0, Format.R32G32B32_Float, 0, 1, InputClassification.PerInstanceData, 1),
-													 new("INSTANCE_RADIUS", 0, Format.R32_Float, 12, 1, InputClassification.PerInstanceData, 1),
-													 new("FILL_COLOR", 0, Format.R32G32B32A32_Float, 16, 1, InputClassification.PerInstanceData, 1),
-													 new("STROKE_WIDTH", 0, Format.R32_Float, 32, 1, InputClassification.PerInstanceData, 1),
-													 new("STROKE_COLOR", 0, Format.R32G32B32A32_Float, 36, 1, InputClassification.PerInstanceData, 1),
-												 ],
-												 vsFillCode);
+		_vs = device.CreateVertexShader(vsCode);
+		_ps = device.CreatePixelShader(psCode);
+
+		_inputLayout = device.CreateInputLayout([new("POSITION", 0, Format.R32G32_Float, 0)], vsCode);
 	}
 
-	// ---------- geometry ----------
-
-	private void CreateGeometry()
+	private void EnsureEntityBuffer(ID3D11Device device, int count)
 	{
-		// minimal tetrahedron instead of full sphere (placeholder)
-		Vertex[] vertices =
-		{
-			new(new(0, 1, 0), Vector3.UnitY), new(new(-1, -1, 1), Vector3.Normalize(new(-1, -1, 1))), new(new(1, -1, 1), Vector3.Normalize(new(1, -1, 1))),
-			new(new(0, -1, -1), Vector3.Normalize(new(0, -1, -1)))
-		};
-
-		uint[] indices = { 0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2 };
-
-		_indexCount = indices.Length;
-
-		_meshVb = _device!.CreateBuffer(vertices, BindFlags.VertexBuffer);
-		_meshIb = _device!.CreateBuffer(indices, BindFlags.IndexBuffer);
-	}
-
-	private void CreateInstanceBuffer()
-		=> _instanceVb = _device!.CreateBuffer(new((uint)Marshal.SizeOf<InstanceData>() * _maxInstances,
-												   BindFlags.VertexBuffer,
-												   ResourceUsage.Dynamic,
-												   CpuAccessFlags.Write));
-
-	// ---------- render ----------
-
-	private void OnRender(object? sender, EventArgs e)
-	{
-		if(_ctx is null)
+		if(count <= _entityCapacity)
 			return;
 
-		_ctx.OMSetRenderTargets(_rtv!);
-		_ctx.ClearRenderTargetView(_rtv!, new(0.05f, 0.05f, 0.1f));
-
-		uint[] strides = [(uint)Marshal.SizeOf<Vertex>(), (uint)Marshal.SizeOf<InstanceData>()];
-		uint[] offsets = [0, 0];
-
-		_ctx.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
-		_ctx.IASetVertexBuffers(0, [_meshVb!, _instanceVb!], strides, offsets);
-		_ctx.IASetIndexBuffer(_meshIb!, Format.R32_UInt, 0);
-		_ctx.IASetInputLayout(_inputLayout);
-
-		_ctx.RSSetState(_cullFront);
-		_ctx.VSSetShader(_vsStroke);
-		_ctx.PSSetShader(_psStroke);
-		
-		_ctx.DrawIndexedInstanced((uint)_indexCount, 1, 0, 0, 0);
-
-		_ctx.RSSetState(_cullBack);
-		_ctx.VSSetShader(_vsFill);
-		_ctx.PSSetShader(_psFill);
-		_ctx.DrawIndexedInstanced((uint)_indexCount, 1, 0, 0, 0);
-		
-		_swapChain!.Present(1, PresentFlags.None);
-
-		_d3dImage!.Lock();
-		_d3dImage.AddDirtyRect(new(0, 0, _d3dImage.PixelWidth, _d3dImage.PixelHeight));
-		_d3dImage.Unlock();
+		_entityBuffer?.Dispose();
+		_entityCapacity = count;
+		_entityBuffer = device.CreateBuffer(new BufferDescription((uint)(Marshal.SizeOf<EntityGpu>() * count),
+																  BindFlags.ShaderResource,
+																  ResourceUsage.Dynamic,
+																  CpuAccessFlags.Write,
+																  ResourceOptionFlags.BufferStructured,
+																  (uint)Marshal.SizeOf<EntityGpu>()));
+		_entitySrv = device.CreateShaderResourceView(_entityBuffer!,
+													 new ShaderResourceViewDescription
+													 {
+														 Format = Format.Unknown,
+														 ViewDimension = ShaderResourceViewDimension.Buffer,
+														 Buffer = new BufferShaderResourceView
+																  {
+																	  NumElements = (uint)_entityCapacity,
+																	  FirstElement = 0
+																  }
+													 });
 	}
 
-	private void DisposeD3D()
+	private void _drawingSurface_OnLoadContent(object? sender, DrawingSurfaceEventArgs e)
 	{
-		_rtv?.Dispose();
-		_backBuffer?.Dispose();
-		_swapChain?.Dispose();
-		_ctx?.Dispose();
-		_device?.Dispose();
+		_rs = e.Device.CreateRasterizerState(new RasterizerDescription
+											 {
+												 FillMode = FillMode.Solid,
+												 CullMode = CullMode.None, // <<< KRITISCH
+												 FrontCounterClockwise = false,
+												 DepthClipEnable = true
+											 });
+
+		// Quad
+		Vector2[] quad = [new(-1, -1), new(1, -1), new(-1, 1), new(-1, 1), new(1, -1), new(1, 1)];
+
+		_quadBuffer = e.Device.CreateBuffer(quad, new BufferDescription((uint)(quad.Length * Marshal.SizeOf<Vector2>()), BindFlags.VertexBuffer));
+		_cameraBuffer = e.Device.CreateBuffer([
+												  new CameraCB()
+												  {
+													  ViewCenter = Vector2.Zero,
+													  ViewScale = 1.0f,
+													  Aspect = 1.0f
+												  }
+											  ],
+											  BindFlags.ConstantBuffer,
+											  ResourceUsage.Dynamic,
+											  CpuAccessFlags.Write);
+
+		CreateShaders(e.Device);
 	}
 
+	private void _drawingSurface_OnUnloadContent(object? sender, DrawingSurfaceEventArgs e)
+	{
+		_inputLayout?.Dispose();
+		_ps?.Dispose();
+		_vs?.Dispose();
+		_quadBuffer?.Dispose();
+		_entityBuffer?.Dispose();
+		_entitySrv?.Dispose();
+		_rs?.Dispose();
+		_cameraBuffer?.Dispose();
+	}
+
+	private World Viewmodel
+		=> (World)DataContext;
+
+	private static (double WidthDiu, double HeightDiu) GetCurrentMonitorSizeInDiu(Window window)
+	{
+		// Fenster-TopLeft in Gerätpixel (PointToScreen liefert device pixels)
+		var topLeftInPx = window.PointToScreen(new(0, 0));
+
+		// Factory über DXGI-Helper erstellen
+		using var factory = DXGI.CreateDXGIFactory1(out IDXGIFactory1? f).Failure
+								? null
+								: f;
+
+		// Fallback: Primärbildschirm in DIU
+		var fallback = (SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+
+		if (factory is null)
+			return fallback;
+
+		for (uint a = 0; a < 10 ; a++)
+		{
+			using var adapter = factory.EnumAdapters(a);
+
+			if (adapter is null) break;
+
+			for(uint o = 0; o < 10; o++)
+			{
+				using var output = adapter.EnumOutputs(o);
+
+				if(output is null)
+					break;
+
+				var rect = output.Description.DesktopCoordinates;
+				
+				if(!rect.Contains(topLeftInPx))
+					continue;
+
+				var dpi = VisualTreeHelper.GetDpi(window);
+
+				return (rect.Width / dpi.DpiScaleX, rect.Height / dpi.DpiScaleY);
+			}
+		}
+
+		return fallback;
+	}
+
+	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
+    [SuppressMessage("Minor Code Smell", "S1481:Unused local variables should be removed", Justification = "<Pending>")]
+    private void _drawingSurface_OnDraw(object? sender, DrawEventArgs e)
+	{
+		(var monitorWidthInDiu, var monitorHeightInDiu) = GetCurrentMonitorSizeInDiu(Application.Current!.MainWindow!);
+
+		// === DEMO-DATEN ===
+		var entities = Viewmodel.Entities.ToArray();
+		
+		var count = entities.Length;
+
+		if(1 > count)
+			return;
+
+		EnsureEntityBuffer(e.Device, count);
+
+		Span<EntityGpu> data = stackalloc EntityGpu[count];
+
+		//data[0] = new EntityGpu
+		//{
+		//	Position = new Vector2(0,0),
+		//	Radius = 10,
+		//	StrokeWidth = 2,
+		//	FillColor = new Vector3(0f, 0f, 0f),
+		//	StrokeColor = new Vector3(1f, 1f, 1f),
+		//	Flags = 0
+		//};
+		
+		var i = 0;
+		foreach(var entity in entities)
+			data[i++] = new EntityGpu
+						{
+							Position = new((float)entity.Position.X, (float)entity.Position.Y),
+							Radius = (float)entity.r,
+							StrokeWidth = (float)entity.StrokeWidth,
+							FillColor = new(entity.Fill.R, entity.Fill.G, entity.Fill.B),
+							StrokeColor = entity.Stroke.HasValue
+											  ? new(entity.Stroke.Value.R, entity.Stroke.Value.G, entity.Stroke.Value.B)
+											  : Vector3.Zero,
+							Flags = 0
+						};
+
+		var visibleArea = new Rect(new(-ActualWidth / 2, -ActualHeight / 2), new Size(ActualWidth, ActualHeight));
+		//var sx = visibleArea.Width / monitorWidthInDiu * 1000.0f;
+		//var sy = visibleArea.Height / monitorHeightInDiu * 1000.0f;
+		//var vs = Viewmodel.Viewport.ScaleFactor * Math.Min(sx,sy);
+
+		// Feste Welt-Skalierung (unabhängig von der Control-Größe)
+		var viewScale = (float)Viewmodel.Viewport.ScaleFactor;
+
+		// Aspect als Höhe/Breite (InvAspect), damit im Shader X multipliziert wird
+		var invAspect = (float)(visibleArea.Height / visibleArea.Width);
+
+		e.Context.MapConstantBuffer(_entityBuffer!, count, data);
+		e.Context.MapConstantBuffer(_cameraBuffer!, new CameraCB
+													{
+														ViewCenter = Vector2.Zero,
+														ViewScale = viewScale, //(float)vs,
+														Aspect = invAspect //(float)(visibleArea.Width / visibleArea.Height)
+													});
+
+		e.Context.OMSetRenderTargets(e.Surface.ColorTextureView!, e.Surface.DepthStencilView);
+
+		if (e.Surface.DepthStencilView != null)
+			e.Context.ClearDepthStencilView(e.Surface.DepthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
+
+		e.Context.ClearRenderTargetView(e.Surface.ColorTextureView,
+										new Color4(0, 0, 0, 1));
+
+
+		e.Context.RSSetViewport(new(0, 0, (float)e.Surface.ActualWidth, (float)e.Surface.ActualHeight, -1000, 1000));
+		e.Context.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
+		e.Context.IASetInputLayout(_inputLayout);
+		e.Context.IASetVertexBuffers(0, [_quadBuffer!], [(uint)Marshal.SizeOf<Vector2>()], [0]);
+		e.Context.VSSetShaderResource(0, _entitySrv);
+		e.Context.VSSetConstantBuffer(0, _cameraBuffer);
+		e.Context.VSSetShader(_vs);
+		e.Context.PSSetShader(_ps);
+		e.Context.RSSetState(_rs);
+		e.Context.DrawInstanced(6, (uint)count, 0, 0);
+	}
+	
 	#endregion
 }
