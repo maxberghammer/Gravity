@@ -31,8 +31,8 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			var entitiesById = entities.ToDictionary(e => e.Id);
 
 			foreach((var entity1, var entity2) in collisions.Select(t => Tuple.Create(entitiesById[Math.Min(t.Item1, t.Item2)],
-																					  entitiesById[Math.Max(t.Item1, t.Item2)]))
-															.Distinct())
+																														entitiesById[Math.Max(t.Item1, t.Item2)]))
+																				.Distinct())
 			{
 				(var v1, var v2) = entity1.HandleCollision(entity2, entity1.World.ElasticCollisions);
 
@@ -65,15 +65,13 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	#region Implementation
 
-	private static async Task<Tuple<int, int>[]> ApplyPhysicsAsync(IReadOnlyCollection<Entity> entities)
+	// Reduce allocations by operating on array and index ranges
+	private static async Task<Tuple<int, int>[]> ApplyPhysicsAsync(Entity[] entities)
 	{
-		var l = 0.0d;
-		var t = 0.0d;
-		var r = 0.0d;
-		var b = 0.0d;
-
-		foreach(var pos in entities.Select(e=>e.Position))
+		double l = 0.0d, t = 0.0d, r = 0.0d, b = 0.0d;
+		for (int i = 0; i < entities.Length; i++)
 		{
+			var pos = entities[i].Position;
 			l = Math.Min(l, pos.X);
 			t = Math.Min(t, pos.Y);
 			r = Math.Max(r, pos.X);
@@ -82,22 +80,30 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 		var tree = new EntityTree(new(l, t), new(r, b), 1.0d);
 
-		foreach(var entity in entities)
-			tree.Add(entity);
+		for (int i = 0; i < entities.Length; i++)
+			tree.Add(entities[i]);
 
-		await Task.Run(() => tree.ComputeMassDistribution());
+		// Compute synchronously to avoid Task scheduling overhead
+		tree.ComputeMassDistribution();
 
-		// Gravitation berechnen
-		await Task.WhenAll(entities.Chunked(IWorld.GetPreferredChunkSize(entities))
-								   .Select(chunk => Task.Run(() =>
-															 {
-																 foreach(var entity in chunk)
-																	 entity.a = tree.CalculateGravity(entity);
-															 })));
+		// Gravitation berechnen using Parallel.For to avoid chunk allocations
+		await Task.Run(() =>
+		{
+			System.Threading.Tasks.Parallel.For(0, entities.Length, i =>
+			{
+				entities[i].a = tree.CalculateGravity(entities[i]);
+			});
+		});
 
-		return tree.CollidedEntities
-				   .Select(c => Tuple.Create(c.Item1.Id, c.Item2.Id))
-				   .ToArray();
+		// Project collisions to id tuples (one allocation for result array)
+		var collisions = tree.CollidedEntities;
+		var result = new Tuple<int, int>[collisions.Count];
+		for (int i = 0; i < collisions.Count; i++)
+		{
+			var c = collisions[i];
+			result[i] = Tuple.Create(c.Item1.Id, c.Item2.Id);
+		}
+		return result;
 	}
 
 	#endregion

@@ -20,6 +20,7 @@ internal sealed class EntityTree
 		private readonly EntityNode[] _childNodes = new EntityNode[4];
 		private readonly Vector2D _topLeft;
 		private readonly EntityTree _tree;
+		private readonly double _nodeSizeLenSq; // cached squared size
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
@@ -34,6 +35,8 @@ internal sealed class EntityTree
 			_topLeft = topLeft;
 			_bottomRight = bottomRight;
 			_tree = tree;
+			var size = _bottomRight - _topLeft;
+			_nodeSizeLenSq = size.LengthSquared;
 		}
 
 		#endregion
@@ -97,8 +100,11 @@ internal sealed class EntityTree
 			_centerOfMass = Vector2D.Zero;
 			_mass = 0;
 
-			foreach(var childNode in _childNodes.Where(n => null != n))
+			// replace LINQ with plain loop to reduce allocations and overhead
+			for (int i = 0; i < _childNodes.Length; i++)
 			{
+				var childNode = _childNodes[i];
+				if (childNode == null) continue;
 				childNode.ComputeMassDistribution();
 
 				_mass += childNode._mass;
@@ -117,32 +123,43 @@ internal sealed class EntityTree
 					return Vector2D.Zero;
 
 				var dist = entity.Position - _entity!.Position;
+				double distLenSq = dist.LengthSquared;
 
 				if(dist.Length < entity.r + _entity.r)
 				{
 					lock(_tree.CollidedEntities)
 						_tree.CollidedEntities.Add(Tuple.Create(_entity, entity));
 
-					if(dist.LengthSquared == 0.0d)
+					if(distLenSq == 0.0d)
 						return Vector2D.Zero;
 
 					dist = dist.Unit() * (entity.r + _entity.r);
+					distLenSq = dist.LengthSquared;
 				}
 
-				return -IWorld.G * _entity.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
+				double invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+				return -IWorld.G * _entity.m * dist * invR3;
 			}
 			else
 			{
 				var dist = entity.Position - _centerOfMass;
-				var nodeSize = _bottomRight - _topLeft;
+				double distLenSq = dist.LengthSquared;
 
-				if(nodeSize.Length / dist.Length < _tree._theta)
-					return -IWorld.G * _mass * dist / Math.Pow(dist.LengthSquared, 1.5d);
+				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
+				{
+					double invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+					return -IWorld.G * _mass * dist * invR3;
+				}
 
 				var ret = Vector2D.Zero;
 
-				foreach(var childNode in _childNodes.Where(n => null != n))
+				// replace LINQ with plain loop
+				for (int i = 0; i < _childNodes.Length; i++)
+				{
+					var childNode = _childNodes[i];
+					if (childNode == null) continue;
 					ret += childNode.CalculateGravity(entity);
+				}
 
 				return ret;
 			}
@@ -176,16 +193,20 @@ internal sealed class EntityTree
 
 		private int GetChildNodeIndex(Vector2D position)
 		{
-			var size = _bottomRight - _topLeft;
-			var pos = position - _topLeft;
+			// Optimize math: work on scalars to avoid temporary Vector2D instances
+			var halfWidth = (_bottomRight.X - _topLeft.X) / 2.0;
+			var halfHeight = (_bottomRight.Y - _topLeft.Y) / 2.0;
+			var dx = position.X - _topLeft.X;
+			var dy = position.Y - _topLeft.Y;
 
-			return pos.X < size.X / 2
-					   ? pos.Y < size.Y / 2
-							 ? 0
-							 : 2
-					   : pos.Y < size.Y / 2
-						   ? 1
-						   : 3;
+			if (dx < halfWidth)
+			{
+				return dy < halfHeight ? 0 : 2;
+			}
+			else
+			{
+				return dy < halfHeight ? 1 : 3;
+			}
 		}
 
 		#endregion
@@ -196,7 +217,7 @@ internal sealed class EntityTree
 	#region Fields
 
 	private readonly EntityNode _rootNode;
-	private readonly double _theta;
+	private readonly double _thetaSquared;
 
 	#endregion
 
@@ -204,7 +225,7 @@ internal sealed class EntityTree
 
 	public EntityTree(Vector2D topLeft, Vector2D bottomRight, double theta)
 	{
-		_theta = theta;
+		_thetaSquared = theta * theta;
 		_rootNode = new(topLeft, bottomRight, this);
 	}
 
