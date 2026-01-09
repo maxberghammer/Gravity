@@ -20,6 +20,7 @@
     <File Path="../Wellenlib/.git" />
     <File Path="../Wellenlib/.gitignore" />
   </Folder>
+  <Project Path="Gravity.SimulationEngine.Benchmarks/Gravity.SimulationEngine.Benchmarks.csproj" />
   <Project Path="Gravity.SimulationEngine/Gravity.SimulationEngine.csproj" />
   <Project Path="Gravity.Wpf/Gravity.Wpf.csproj" Id="53f64170-9ed7-4f3a-8369-6f566744eebf" />
 </Solution>
