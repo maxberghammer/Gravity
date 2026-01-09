@@ -20,7 +20,7 @@ using Wellenlib.ComponentModel;
 namespace Gravity.Wpf.Viewmodel;
 
 internal class World : NotifyPropertyChanged,
-					   IWorld
+                       IWorld
 {
 	#region Internal types
 
@@ -222,8 +222,23 @@ internal class World : NotifyPropertyChanged,
 		{
 			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
-			while(Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
+			// Manual Any
+			while (Entities.Count > 0)
+			{
+				bool overlap = false;
+				for (int j = 0; j < Entities.Count; j++)
+				{
+					var e = Entities[j];
+					var d = e.Position - position;
+					if (Math.Sqrt(d.LengthSquared) <= e.r + SelectedEntityPreset.r)
+					{
+						overlap = true;
+						break;
+					}
+				}
+				if (!overlap) break;
 				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			}
 
 			CreateEntity(position, Vector2D.Zero);
 
@@ -244,8 +259,22 @@ internal class World : NotifyPropertyChanged,
 		{
 			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
-			while(Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
+			while (Entities.Count > 0)
+			{
+				bool overlap = false;
+				for (int j = 0; j < Entities.Count; j++)
+				{
+					var e = Entities[j];
+					var d = e.Position - position;
+					if (Math.Sqrt(d.LengthSquared) <= e.r + SelectedEntityPreset.r)
+					{
+						overlap = true;
+						break;
+					}
+				}
+				if (!overlap) break;
 				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			}
 
 			CreateOrbitEntity(position, Vector2D.Zero);
 
@@ -265,14 +294,27 @@ internal class World : NotifyPropertyChanged,
 
 	public void CreateOrbitEntity(Vector2D position, Vector2D velocity)
 	{
-		var nearestEntity = SelectedEntity
-							?? Entities.OrderByDescending(p => G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
-									   .FirstOrDefault();
+		// Find nearest entity without LINQ
+		Entity? nearestEntity = SelectedEntity;
+		if (nearestEntity is null && Entities.Count > 0)
+		{
+			double bestScore = double.NegativeInfinity;
+			for (int i = 0; i < Entities.Count; i++)
+			{
+				var p = Entities[i];
+				var d = p.Position - position;
+				var score = G * p.m / (d.LengthSquared);
+				if (score > bestScore)
+				{
+					bestScore = score;
+					nearestEntity = p;
+				}
+			}
+		}
 
-		if(null == nearestEntity)
+		if (nearestEntity is null)
 		{
 			CreateEntity(position, Vector2D.Zero);
-
 			return;
 		}
 
@@ -290,29 +332,59 @@ internal class World : NotifyPropertyChanged,
 	public void SelectEntity(Point viewportPoint, double viewportSearchRadius)
 	{
 		var pos = Viewport.ToWorld(viewportPoint);
-
-		SelectedEntity = Entities.Where(e => (e.Position - pos).Length <= e.r + viewportSearchRadius / Viewport.ScaleFactor)
-								 .OrderBy(e => (e.Position - pos).Length - (e.r + viewportSearchRadius / Viewport.ScaleFactor))
-								 .FirstOrDefault();
+		// Manual search for closest entity meeting radius criteria
+		Entity? best = null;
+		double bestMetric = double.PositiveInfinity;
+		double threshold = viewportSearchRadius / Viewport.ScaleFactor;
+		for (int i = 0; i < Entities.Count; i++)
+		{
+			var e = Entities[i];
+			var d = e.Position - pos;
+			var len = Math.Sqrt(d.LengthSquared);
+			if (len <= e.r + threshold)
+			{
+				var metric = len - (e.r + threshold);
+				if (metric < bestMetric)
+				{
+					bestMetric = metric;
+					best = e;
+				}
+			}
+		}
+		SelectedEntity = best;
 	}
 
 	public void AutoScaleAndCenterViewport()
 	{
-		if(!Entities.Any())
+		if (Entities.Count == 0)
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(Entities.Min(e => e.Position.X - e.r),
-								   Entities.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector2D(Entities.Max(e => e.Position.X + e.r),
-									   Entities.Max(e => e.Position.Y + e.r));
+		double minX = double.PositiveInfinity, minY = double.PositiveInfinity;
+		double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
+		for (int i = 0; i < Entities.Count; i++)
+		{
+			var e = Entities[i];
+			var px = e.Position.X; var py = e.Position.Y; var r = e.r;
+			var left = px - r; var right = px + r; var top = py - r; var bottom = py + r;
+			if (left < minX) minX = left;
+			if (top < minY) minY = top;
+			if (right > maxX) maxX = right;
+			if (bottom > maxY) maxY = bottom;
+		}
+		var topLeft = new Vector2D(minX, minY);
+		var bottomRight = new Vector2D(maxX, maxY);
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 
-		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
-			newSize.X = newSize.Y * previousSize.X / previousSize.Y;
-		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
-			newSize.Y = newSize.X * previousSize.Y / previousSize.X;
+		if (newSize.X / newSize.Y < previousSize.X / previousSize.Y)
+		{
+			newSize = new Vector2D(newSize.Y * previousSize.X / previousSize.Y, newSize.Y);
+		}
+		if (newSize.X / newSize.Y > previousSize.X / previousSize.Y)
+		{
+			newSize = new Vector2D(newSize.X, newSize.X * previousSize.Y / previousSize.X);
+		}
 
 		Viewport.TopLeft = center - newSize / 2;
 		Viewport.BottomRight = center + newSize / 2;
@@ -334,6 +406,21 @@ internal class World : NotifyPropertyChanged,
 	public async Task SaveAsync(string filePath)
 	{
 #pragma warning disable CS8601 // Possible null reference assignment.
+        var list = new List<State.EntityState>(Entities.Count);
+        for (int i = 0; i < Entities.Count; i++)
+        {
+            var e = Entities[i];
+            list.Add(new State.EntityState
+            {
+                m = e.m,
+                Position = e.Position,
+                v = e.v,
+                r = e.r,
+                StrokeWidth = e.StrokeWidth,
+                FillColor = e.Fill.ToString(),
+                StrokeColor = e.Stroke.ToString()
+            });
+        }
         var state = new State
 					{
 						Viewport = new()
@@ -349,19 +436,7 @@ internal class World : NotifyPropertyChanged,
 						TimeScale = TimeScale,
 						SelectedEntityPresetId = SelectedEntityPreset.Id,
 						RespawnerId = CurrentRespawnerId,
-						Entities = Entities.Select(e => new State.EntityState
-														{
-															m = e.m,
-															Position = e.Position,
-															v = e.v,
-															r = e.r,
-															StrokeWidth = e.StrokeWidth,
-															FillColor = e.Fill
-																		 .ToString(),
-															StrokeColor = e.Stroke
-																		   .ToString()
-														})
-										   .ToArray()
+						Entities = list.ToArray()
 					};
 #pragma warning restore CS8601 // Possible null reference assignment.
 
@@ -372,38 +447,32 @@ internal class World : NotifyPropertyChanged,
 	public async Task OpenAsync(string filePath)
 	{
 		using var srd = File.OpenText(filePath);
-
-		var state = await JsonSerializer.DeserializeAsync<State>(srd.BaseStream);
-
-		Reset();
-
-		if(null == state)
-			return;
-
-		Viewport.TopLeft = state.Viewport.TopLeft;
-		Viewport.BottomRight = state.Viewport.BottomRight;
-		Viewport.Scale = state.Viewport.Scale;
-		AutoCenterViewport = state.AutoCenterViewport;
-		ClosedBoundaries = state.ClosedBoundaries;
-		ElasticCollisions = state.ElasticCollisions;
-		SelectedEntityPreset = EntityPresets.First(p => p.Id == state.SelectedEntityPresetId);
-		CurrentRespawnerId = state.RespawnerId;
-		ShowPath = state.ShowPath;
-		TimeScale = state.TimeScale;
-
-		if(null == state.Entities)
-			return;
-
-		foreach(var entity in state.Entities)
-			Entities.Add(new(entity.Position,
-							 entity.r,
-							 entity.m,
-							 entity.v,
-							 Vector2D.Zero,
-							 this,
-							 Color.Parse(entity.FillColor),
-							 Color.Parse(entity.StrokeColor),
-							 entity.StrokeWidth));
+        var state = await JsonSerializer.DeserializeAsync<State>(srd.BaseStream);
+        Reset();
+        if (state is null)
+            return;
+        Viewport.TopLeft = state.Viewport.TopLeft;
+        Viewport.BottomRight = state.Viewport.BottomRight;
+        Viewport.Scale = state.Viewport.Scale;
+        AutoCenterViewport = state.AutoCenterViewport;
+        ClosedBoundaries = state.ClosedBoundaries;
+        ElasticCollisions = state.ElasticCollisions;
+        SelectedEntityPreset = Array.Find(EntityPresets, p => p.Id == state.SelectedEntityPresetId) ?? _selectedEntityPreset;
+        CurrentRespawnerId = state.RespawnerId;
+        ShowPath = state.ShowPath;
+        TimeScale = state.TimeScale;
+        if (state.Entities is null)
+            return;
+        foreach (var entity in state.Entities)
+            Entities.Add(new(entity.Position,
+                             entity.r,
+                             entity.m,
+                             entity.v,
+                             Vector2D.Zero,
+                             this,
+                             Color.Parse(entity.FillColor),
+                             Color.Parse(entity.StrokeColor),
+                             entity.StrokeWidth));
 	}
 
 	#endregion
@@ -437,39 +506,48 @@ internal class World : NotifyPropertyChanged,
 
 	private async Task UpdateAllEntitiesAsync(TimeSpan deltaTime)
 	{
-		if(!Entities.Any())
+		if (Entities.Count == 0)
 			return;
 
-		var entities = Entities.ToArray();
-
+		var entities = new Entity[Entities.Count];
+		Entities.CopyTo(entities, 0);
 		await _simulationEngine.SimulateAsync(entities, deltaTime);
 
-		var respawner = CurrentRespawnerId.HasValue
-							? _respawnersById[CurrentRespawnerId.Value]
-							: () => {};
+		var respawner = CurrentRespawnerId.HasValue ? _respawnersById[CurrentRespawnerId.Value] : () => { };
 
-		// Absorbierte Objekte entfernen
-		foreach(var absorbedEntities in entities.Where(e => e.IsAbsorbed).ToArray())
+		// Remove absorbed without LINQ
+		for (int i = 0; i < entities.Length; i++)
 		{
-			Entities.Remove(absorbedEntities);
-
-			if(!CurrentRespawnerId.HasValue)
-				continue;
-
-			respawner();
+			var e = entities[i];
+			if (e.IsAbsorbed)
+			{
+				Entities.Remove(e);
+				if (CurrentRespawnerId.HasValue)
+					respawner();
+			}
 		}
 	}
 
 	private void DoAutoCenterViewport()
 	{
-		if(!Entities.Any())
+		if (Entities.Count == 0)
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(Entities.Min(e => e.Position.X - e.r),
-								   Entities.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector2D(Entities.Max(e => e.Position.X + e.r),
-									   Entities.Max(e => e.Position.Y + e.r));
+		double minX = double.PositiveInfinity, minY = double.PositiveInfinity;
+		double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
+		for (int i = 0; i < Entities.Count; i++)
+		{
+			var e = Entities[i];
+			var px = e.Position.X; var py = e.Position.Y; var r = e.r;
+			var left = px - r; var right = px + r; var top = py - r; var bottom = py + r;
+			if (left < minX) minX = left;
+			if (top < minY) minY = top;
+			if (right > maxX) maxX = right;
+			if (bottom > maxY) maxY = bottom;
+		}
+		var topLeft = new Vector2D(minX, minY);
+		var bottomRight = new Vector2D(maxX, maxY);
 		var center = topLeft + (bottomRight - topLeft) / 2;
 
 		Viewport.TopLeft = center - previousSize / 2;
