@@ -32,5 +32,12 @@ public partial class Direct3dWorldView
 		private Vector2 _pad1; // 8 -> 32 (gesamt)
 	}
 
+	[StructLayout(LayoutKind.Sequential)]
+	private struct PathParams
+	{
+		public uint PathVertexCount;
+		private Vector3 _pad;
+	}
+
 	#endregion
 }

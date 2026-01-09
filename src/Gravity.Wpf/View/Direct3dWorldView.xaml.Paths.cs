@@ -33,15 +33,24 @@ public partial class Direct3dWorldView
 									     float2 _pad1;
 									 };
 
+									 // Pfad-Parameter (pro Draw gesetzt)
+									 cbuffer PathParams : register(b1)
+									 {
+									     uint  PathVertexCount;
+									     float3 _padParams;
+									 };
+
 									 // ------------- Pfade (Linien) -------------
 									 struct VSIn
 									 {
-									     float2 Pos : POSITION; // Welt-Koordinate (X,Y)
+									     float2 Pos : POSITION;      // Welt-Koordinate (X,Y)
+									     uint   Vid : SV_VertexID;   // Laufindex im aktuellen Pfad
 									 };
 
 									 struct VSOut
 									 {
 									     float4 Pos : SV_POSITION;
+									     float  T   : TEXCOORD0;     // 0..1 entlang des Pfades
 									 };
 
 									 VSOut VS(VSIn i)
@@ -56,20 +65,28 @@ public partial class Direct3dWorldView
 									     ndc.x = screen.x * (2.0 / ScreenSize.x) - 1.0;
 									     ndc.y = 1.0 - screen.y * (2.0 / ScreenSize.y);
 
+									     // Pfad-Interpolation 0..1 (Start->Ende)
+									     float denom = max(1.0, (float)(PathVertexCount - 1));
+									     o.T = saturate((float)i.Vid / denom);
+
 									     o.Pos = float4(ndc, 0, 1);
 									     return o;
 									 }
 
 									 float4 PS(VSOut i) : SV_Target
 									 {
-									     // Einfach weiß wie in OpenGL-Variante
-									     return float4(1, 1, 1, 1);
+									     // Verlauf: Start nahezu schwarz, Ende weiß
+									     const float3 startCol = float3(0.05, 0.05, 0.05);
+									     const float3 endCol   = float3(1.0, 1.0, 1.0);
+									     float3 col = lerp(startCol, endCol, i.T);
+									     return float4(col, 1);
 									 }
 									 """;
 
 		private const int _maxPathSegments = 10_000;
 		private readonly Dictionary<int, List<Vector2>> _pathsByEntityId = new();
 		private ID3D11Buffer? _buffer;
+		private ID3D11Buffer? _paramsBuffer;
 		private ID3D11InputLayout? _inputLayout;
 		private ID3D11PixelShader? _pixelShader;
 		private ID3D11VertexShader? _vertexShader;
@@ -94,33 +111,33 @@ public partial class Direct3dWorldView
 		/// <inheritdoc/>
 		protected override void OnDraw(DrawEventArgs e)
 		{
-			if(!World.ShowPath)
+			if (!World.ShowPath)
 				return;
 
 			var entities = World.Entities.ToArray();
 			var entityIds = new HashSet<int>(entities.Select(e1 => e1.Id));
 
-			foreach(var id in _pathsByEntityId.Keys.Where(id => !entityIds.Contains(id)).ToArray())
+			foreach (var id in _pathsByEntityId.Keys.Where(id => !entityIds.Contains(id)).ToArray())
 				_pathsByEntityId.Remove(id);
 
 			// Anhängen wenn Bewegungsschwelle überschritten
-			foreach(var entity in entities)
+			foreach (var entity in entities)
 			{
-				if(!_pathsByEntityId.TryGetValue(entity.Id, out var path1))
+				if (!_pathsByEntityId.TryGetValue(entity.Id, out var path1))
 					_pathsByEntityId[entity.Id] = path1 = [new((float)entity.Position.X, (float)entity.Position.Y)];
 
 				var last = path1[^1];
 				var pos = new Vector2((float)entity.Position.X, (float)entity.Position.Y);
 
-				if(Vector2.Distance(pos, last) >= (float)(1.0 / World.Viewport.ScaleFactor))
+				if (Vector2.Distance(pos, last) >= (float)(1.0 / World.Viewport.ScaleFactor))
 					path1.Add(pos);
 
 				// Begrenzen wie in OpenGL
-				if(path1.Count > _maxPathSegments)
+				if (path1.Count > _maxPathSegments)
 					path1.RemoveRange(0, path1.Count - _maxPathSegments);
 			}
 
-			if(1 > _pathsByEntityId.Count)
+			if (1 > _pathsByEntityId.Count)
 				return;
 
 			EnsureBuffers(e.Device);
@@ -131,13 +148,16 @@ public partial class Direct3dWorldView
 			e.Context.VSSetShader(_vertexShader);
 			e.Context.PSSetShader(_pixelShader);
 
+			// ConstantBuffer b1 für Pfadparameter binden
+			e.Context.VSSetConstantBuffer(1, _paramsBuffer);
+
 			// Vertexbuffer binden (stride = float2)
 			var stride = (uint)Marshal.SizeOf<Vector2>();
 			var offset = 0u;
 			e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
 
 			// Für jeden Pfad den Buffer neu befüllen und zeichnen
-			foreach(var path in _pathsByEntityId.Values.Where(path => path.Count >= 2))
+			foreach (var path in _pathsByEntityId.Values.Where(path => path.Count >= 2))
 			{
 				// Map/Unmap mit WriteDiscard – wir zeichnen sofort danach
 				e.Context.Map(_buffer, 0, MapMode.WriteDiscard, MapFlags.None, out var box);
@@ -146,11 +166,15 @@ public partial class Direct3dWorldView
 				var dst = MemoryMarshal.Cast<byte, Vector2>(byteSpan);
 
 				// Kopieren
-				for(var idx = 0; idx < path.Count; idx++)
+				for (var idx = 0; idx < path.Count; idx++)
 					dst[idx] = path[idx];
 
 				e.Context.Unmap(_buffer, 0);
 
+				// Pfadlänge in b1 setzen (für SV_VertexID-Normalisierung)
+				e.Context.MapConstantBuffer(_paramsBuffer!, new PathParams { PathVertexCount = (uint)path.Count });
+
+				// Zeichnen
 				e.Context.Draw((uint)path.Count, 0);
 			}
 		}
@@ -165,7 +189,7 @@ public partial class Direct3dWorldView
 		{
 			base.Dispose(disposing);
 
-			if(!disposing)
+			if (!disposing)
 				return;
 
 			_inputLayout?.Dispose();
@@ -176,13 +200,23 @@ public partial class Direct3dWorldView
 			_pixelShader = null;
 			_buffer?.Dispose();
 			_buffer = null;
+			_paramsBuffer?.Dispose();
+			_paramsBuffer = null;
 		}
 
 		private void EnsureBuffers(ID3D11Device device)
-			=> _buffer ??= device.CreateBuffer(new((uint)(_maxPathSegments * Marshal.SizeOf<Vector2>()),
-												   BindFlags.VertexBuffer,
-												   ResourceUsage.Dynamic,
-												   CpuAccessFlags.Write));
+		{
+			_buffer ??= device.CreateBuffer(new((uint)(_maxPathSegments * Marshal.SizeOf<Vector2>()),
+												 BindFlags.VertexBuffer,
+												 ResourceUsage.Dynamic,
+												 CpuAccessFlags.Write));
+
+			// b1: PathParams (16-Byte aligned)
+			_paramsBuffer ??= device.CreateBuffer([new PathParams { PathVertexCount = 0 }],
+												  BindFlags.ConstantBuffer,
+												  ResourceUsage.Dynamic,
+												  CpuAccessFlags.Write);
+		}
 
 		private void CreateShaders(ID3D11Device device)
 		{
