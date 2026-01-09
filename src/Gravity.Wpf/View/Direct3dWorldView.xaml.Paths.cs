@@ -155,6 +155,11 @@ public partial class Direct3dWorldView
 			}
 		}
 
+		/// <inheritdoc />
+		protected override void OnAfterDraw(DrawEventArgs e)
+		{
+		}
+
 		/// <inheritdoc/>
 		protected override void Dispose(bool disposing)
 		{

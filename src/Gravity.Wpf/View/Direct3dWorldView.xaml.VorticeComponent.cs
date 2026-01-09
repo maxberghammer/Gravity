@@ -34,6 +34,9 @@ public partial class Direct3dWorldView
 		public void Draw(DrawEventArgs e)
 			=> OnDraw(e);
 
+		public void AfterDraw(DrawEventArgs e)
+			=> OnAfterDraw(e);
+
 		#endregion
 
 		#region Implementation of IDisposable
@@ -54,6 +57,8 @@ public partial class Direct3dWorldView
 		protected abstract void OnLoad(DrawingSurfaceEventArgs e);
 
 		protected abstract void OnDraw(DrawEventArgs e);
+
+		protected abstract void OnAfterDraw(DrawEventArgs e);
 
 		protected virtual void Dispose(bool disposing)
 		{

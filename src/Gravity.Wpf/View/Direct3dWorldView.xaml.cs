@@ -49,6 +49,9 @@ public partial class Direct3dWorldView
 	{
 		foreach(var component in _components)
 			component.Draw(e);
+
+		foreach(var component in _components)
+			component.AfterDraw(e);
 	}
 
 	#endregion

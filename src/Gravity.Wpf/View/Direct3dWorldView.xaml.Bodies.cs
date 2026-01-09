@@ -23,6 +23,7 @@ public partial class Direct3dWorldView
 		#region Fields
 
 		private const string _hlsl = """
+			
 									 struct Body
 									 {
 									     float2 Position;
@@ -90,25 +91,41 @@ public partial class Direct3dWorldView
 									     return o;
 									 }
 
-									 float4 PS(VSOut i) : SV_Target
-									 {
-									     float d = dot(i.UV, i.UV);
-									     if (d > 1) discard;
-
-									     float z = sqrt(1 - d);
-									     float3 n = normalize(float3(i.UV, z));
-									     float3 light = normalize(float3(0.0, 0.0, 200));
-									     float diff = saturate(dot(n, light));
-
-									     float inner = i.Radius / (i.Radius + i.Stroke);
-									     float3 col = (d > inner * inner) ? i.StrokeCol : i.Fill;
-
-									     if ((i.Flags & 1) != 0 && d > 0.85)
-									         col = float3(1,1,0);
-
-									     return float4(col * diff, 1);
-									 }
-									 """;
+									float4 PS(VSOut i) : SV_Target
+									{
+									    // Kreismaske
+									    float d = dot(i.UV, i.UV);
+									    if (d > 1) discard;
+									
+									    // "Kugel"-Normal aus UV (Z zeigt zur Kamera)
+									    float z = sqrt(1 - d);
+									    float3 n = normalize(float3(i.UV, z));
+									
+									    // Vorderlicht (zur Kamera): front = n.z
+									    float front = saturate(n.z);
+									
+									    // Sanfter Verlauf: Ambient + Diffuse (Half-Lambert-ähnlich)
+									    const float ambient = 0.15;
+									    float diffuse = front * 0.85;
+									    float shade = ambient + diffuse; // 0.15..1.0
+									
+									    // Dezentes Specular-Hotspot in der Mitte
+									    float spec = pow(front, 32.0) * 0.15;
+									
+									    // Innen- vs. Außenfarbe (Stroke)
+									    float inner = i.Radius / (i.Radius + i.Stroke);
+									    float3 baseCol = (d > inner * inner) ? i.StrokeCol : i.Fill;
+									
+									    // Selektion übersteuern (wie bisher)
+									    if ((i.Flags & 1) != 0 && d > 0.85)
+									        baseCol = float3(1,1,0);
+									
+									    float3 col = baseCol * shade + spec;
+									
+									    return float4(col, 1);
+									}
+			
+			""";
 
 		private static readonly Vector2[] _quad = [new(-1, -1), new(1, -1), new(-1, 1), new(-1, 1), new(1, -1), new(1, 1)];
 		private ID3D11Buffer? _bodyBuffer;
@@ -167,9 +184,9 @@ public partial class Direct3dWorldView
 								Position = new((float)entity.Position.X, (float)entity.Position.Y),
 								Radius = (float)entity.r,
 								StrokeWidth = (float)entity.StrokeWidth,
-								FillColor = new(entity.Fill.R, entity.Fill.G, entity.Fill.B),
+								FillColor = new(entity.Fill.ScR, entity.Fill.ScG, entity.Fill.ScB),
 								StrokeColor = entity.Stroke.HasValue
-												  ? new(entity.Stroke.Value.R, entity.Stroke.Value.G, entity.Stroke.Value.B)
+												  ? new(entity.Stroke.Value.ScR, entity.Stroke.Value.ScG, entity.Stroke.Value.ScB)
 												  : Vector3.Zero,
 								Flags = 0
 							};
@@ -182,6 +199,11 @@ public partial class Direct3dWorldView
 			e.Context.VSSetShader(_vertexShader);
 			e.Context.PSSetShader(_pixelShader);
 			e.Context.DrawInstanced(6, (uint)count, 0, 0);
+		}
+
+		/// <inheritdoc />
+		protected override void OnAfterDraw(DrawEventArgs e)
+		{
 		}
 
 		/// <inheritdoc/>
@@ -231,6 +253,7 @@ public partial class Direct3dWorldView
 												  CpuAccessFlags.Write,
 												  ResourceOptionFlags.BufferStructured,
 												  (uint)Marshal.SizeOf<BodyGpu>()));
+			_shaderResourceView?.Dispose();
 			_shaderResourceView = device.CreateShaderResourceView(_bodyBuffer!,
 																  new ShaderResourceViewDescription
 																  {
