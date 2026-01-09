@@ -12,6 +12,17 @@ internal sealed class EntityTree
 {
 	#region Internal types
 
+	internal readonly struct CollisionPair
+	{
+		public readonly Entity A;
+		public readonly Entity B;
+		public CollisionPair(Entity a, Entity b)
+		{
+			A = a;
+			B = b;
+		}
+	}
+
 	private sealed class EntityNode
 	{
 		#region Fields
@@ -57,7 +68,7 @@ internal sealed class EntityTree
 				{
 					if((entity.Position - _entity!.Position).Length <= entity.r + _entity.r)
 					{
-						_tree.CollidedEntities.Add(Tuple.Create(entity, _entity));
+						_tree.CollidedEntities.Add(new CollisionPair(entity, _entity));
 
 						return;
 					}
@@ -100,7 +111,6 @@ internal sealed class EntityTree
 			_centerOfMass = Vector2D.Zero;
 			_mass = 0;
 
-			// replace LINQ with plain loop to reduce allocations and overhead
 			for (int i = 0; i < _childNodes.Length; i++)
 			{
 				var childNode = _childNodes[i];
@@ -128,7 +138,7 @@ internal sealed class EntityTree
 				if(dist.Length < entity.r + _entity.r)
 				{
 					lock(_tree.CollidedEntities)
-						_tree.CollidedEntities.Add(Tuple.Create(_entity, entity));
+						_tree.CollidedEntities.Add(new CollisionPair(_entity, entity));
 
 					if(distLenSq == 0.0d)
 						return Vector2D.Zero;
@@ -153,7 +163,6 @@ internal sealed class EntityTree
 
 				var ret = Vector2D.Zero;
 
-				// replace LINQ with plain loop
 				for (int i = 0; i < _childNodes.Length; i++)
 				{
 					var childNode = _childNodes[i];
@@ -193,7 +202,6 @@ internal sealed class EntityTree
 
 		private int GetChildNodeIndex(Vector2D position)
 		{
-			// Optimize math: work on scalars to avoid temporary Vector2D instances
 			var halfWidth = (_bottomRight.X - _topLeft.X) / 2.0;
 			var halfHeight = (_bottomRight.Y - _topLeft.Y) / 2.0;
 			var dx = position.X - _topLeft.X;
@@ -218,6 +226,7 @@ internal sealed class EntityTree
 
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
+	private readonly List<CollisionPair> _collidedEntities = new(16);
 
 	#endregion
 
@@ -233,7 +242,10 @@ internal sealed class EntityTree
 
 	#region Interface
 
-	public List<Tuple<Entity, Entity>> CollidedEntities { get; } = new();
+	public List<CollisionPair> CollidedEntities => _collidedEntities;
+
+	public void ResetCollisions()
+		=> _collidedEntities.Clear();
 
 	public void ComputeMassDistribution()
 		=> _rootNode.ComputeMassDistribution();

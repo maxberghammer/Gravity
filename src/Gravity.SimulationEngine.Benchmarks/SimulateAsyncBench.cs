@@ -29,7 +29,7 @@ namespace Gravity.SimulationEngine.Benchmarks
             public IViewport Viewport { get; } = new DummyViewport();
         }
 
-        [Params(500, 2000)]
+        [Params(500, 2000, 5000)]
         public int Count { get; set; }
 
         [GlobalSetup]

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using Gravity.SimulationEngine.Implementation.Integrators;
 
 namespace Gravity.SimulationEngine.Implementation;
@@ -14,6 +15,8 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	#region Fields
 
 	private readonly IIntegrator _integrator = new NullIntegrator();
+	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
+	private readonly HashSet<long> _collisionKeys = new(1024);
 
 	#endregion
 
@@ -30,14 +33,23 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		{
 			var entitiesById = entities.ToDictionary(e => e.Id);
 
-			foreach((var entity1, var entity2) in collisions.Select(t => Tuple.Create(entitiesById[Math.Min(t.Item1, t.Item2)],
-																														entitiesById[Math.Max(t.Item1, t.Item2)]))
-																				.Distinct())
+			// De-dup collisions using a pooled HashSet<long> with normalized pair key (minId<<32 | maxId)
+			_collisionKeys.Clear();
+			for (int i = 0; i < collisions.Length; i++)
 			{
+				var (id1, id2) = collisions[i];
+				int a = Math.Min(id1, id2);
+				int b = Math.Max(id1, id2);
+				long key = ((long)a << 32) | (uint)b;
+				if (!_collisionKeys.Add(key))
+					continue;
+
+				var entity1 = entitiesById[a];
+				var entity2 = entitiesById[b];
+
 				(var v1, var v2) = entity1.HandleCollision(entity2, entity1.World.ElasticCollisions);
 
-				if(v1.HasValue &&
-				   v2.HasValue)
+				if(v1.HasValue && v2.HasValue)
 				{
 					(var position1, var position2) = entity1.CancelOverlap(entity2);
 
@@ -86,12 +98,16 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		// Compute synchronously to avoid Task scheduling overhead
 		tree.ComputeMassDistribution();
 
-		// Gravitation berechnen using Parallel.For to avoid chunk allocations
+		// Balanced parallel traversal using a range partitioner
 		await Task.Run(() =>
 		{
-			System.Threading.Tasks.Parallel.For(0, entities.Length, i =>
+			var partitions = Partitioner.Create(0, entities.Length);
+			System.Threading.Tasks.Parallel.ForEach(partitions, range =>
 			{
-				entities[i].a = tree.CalculateGravity(entities[i]);
+				for (int i = range.Item1; i < range.Item2; i++)
+				{
+					entities[i].a = tree.CalculateGravity(entities[i]);
+				}
 			});
 		});
 
@@ -101,8 +117,10 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		for (int i = 0; i < collisions.Count; i++)
 		{
 			var c = collisions[i];
-			result[i] = Tuple.Create(c.Item1.Id, c.Item2.Id);
+			result[i] = Tuple.Create(c.A.Id, c.B.Id);
 		}
+		// Reuse buffer next step
+		tree.ResetCollisions();
 		return result;
 	}
 
