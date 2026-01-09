@@ -10,8 +10,8 @@
 						 Background="Transparent">
 	<wpf:DrawingSurface HorizontalAlignment="Stretch"
 											VerticalAlignment="Stretch"
-                      LoadContent="_drawingSurface_OnLoadContent"
-                      UnloadContent="_drawingSurface_OnUnloadContent"
-                      Draw="_drawingSurface_OnDraw"
+                      LoadContent="OnLoadContent"
+                      UnloadContent="OnUnloadContent"
+                      Draw="OnDraw"
 											x:Name="_drawingSurface"/>
 </UserControl>

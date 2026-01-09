@@ -8,7 +8,7 @@ public partial class Direct3dWorldView
 	#region Internal types
 
 	[StructLayout(LayoutKind.Sequential)]
-	private struct EntityGpu
+	private struct BodyGpu
 	{
 		public Vector2 Position;
 		public float Radius;
@@ -23,7 +23,7 @@ public partial class Direct3dWorldView
 
 	// Ortho-ähnliche Kamera: Welt -> Screen (TopLeft, Scale) -> NDC (ScreenSize)
 	[StructLayout(LayoutKind.Sequential)]
-	private struct CameraCB
+	private struct CameraGpu
 	{
 		public Vector2 TopLeft; // 8
 		public Vector2 ScreenSize; // 8 -> 16
