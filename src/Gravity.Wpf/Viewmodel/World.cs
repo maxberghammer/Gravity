@@ -116,6 +116,10 @@ internal class World : NotifyPropertyChanged,
 	private bool _showPath = true;
 	private double _timeScale = 1;
 
+	// Track process CPU for accurate utilization and apply EMA smoothing
+	private double _cpuUtilizationEma; // default 0.0
+	private const double CpuUtilizationAlpha = 0.2; // smoothing factor
+
     #endregion
 
     #region Construction
@@ -416,6 +420,7 @@ internal class World : NotifyPropertyChanged,
 			return;
 
 		var start = _stopwatch.Elapsed;
+		var startProcessCpu = Process.GetCurrentProcess().TotalProcessorTime;
 		var deltaTime = TimeSpan.FromSeconds(1.0d / DisplayFrequency * TimeScaleFactor);
 
 		if(IsRunning)
@@ -428,7 +433,18 @@ internal class World : NotifyPropertyChanged,
 			RuntimeInSeconds += deltaTime;
 		}
 
-		CpuUtilizationInPercent = (int)Math.Round((_stopwatch.Elapsed - start).TotalSeconds * DisplayFrequency * 100.0d);
+		var end = _stopwatch.Elapsed;
+		var endProcessCpu = Process.GetCurrentProcess().TotalProcessorTime;
+		var wallElapsed = end - start;
+		var cpuElapsed = endProcessCpu - startProcessCpu;
+		var coreCount = Environment.ProcessorCount;
+		var instantCpuPercent = wallElapsed.TotalMilliseconds > 0
+			? Math.Min(100.0, Math.Max(0.0, cpuElapsed.TotalMilliseconds / wallElapsed.TotalMilliseconds * (100.0 / coreCount)))
+			: 0.0;
+
+		// Exponential moving average for stability
+		_cpuUtilizationEma = CpuUtilizationAlpha * instantCpuPercent + (1.0 - CpuUtilizationAlpha) * _cpuUtilizationEma;
+		CpuUtilizationInPercent = (int)Math.Round(_cpuUtilizationEma);
 
 		Updated?.Invoke(this, EventArgs.Empty);
 

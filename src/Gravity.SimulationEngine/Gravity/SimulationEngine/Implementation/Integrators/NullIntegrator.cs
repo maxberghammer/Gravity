@@ -2,8 +2,6 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
@@ -13,11 +11,11 @@ internal sealed class NullIntegrator : IIntegrator
 	#region Implementation of IIntegrator
 
 	/// <inheritdoc/>
-	async Task<Tuple<int, int>[]> IIntegrator.IntegrateAsync(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Task<Tuple<int, int>[]>> processFunc)
+	Tuple<int, int>[] IIntegrator.Integrate(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Tuple<int, int>[]> processFunc)
 	{
-		var collisions = await processFunc(entities);
+		var collisions = processFunc(entities);
 
-		await IntegrateAsync(entities, deltaTime);
+		Integrate(entities, deltaTime);
 
 		return collisions;
 	}
@@ -26,16 +24,17 @@ internal sealed class NullIntegrator : IIntegrator
 
 	#region Implementation
 
-	private static async Task IntegrateAsync(IReadOnlyCollection<Entity> entities, TimeSpan h)
-		=> await Task.WhenAll(entities.Chunked(IWorld.GetPreferredChunkSize(entities))
-									  .Select((chunk, _) => Task.Run(() =>
-																	 {
-																		 foreach(var entity in chunk)
-																		 {
-																			 entity.v += h.TotalSeconds * entity.a;
-																			 entity.Position += h.TotalSeconds * entity.v;
-																		 }
-																	 })));
+	private static void Integrate(Entity[] entities, TimeSpan h)
+	{
+		var dt = h.TotalSeconds;
+
+		Parallel.For(0, entities.Length, i =>
+										{
+											var entity = entities[i];
+											entity.v += dt * entity.a;
+											entity.Position += dt * entity.v;
+										});
+	}
 
 	#endregion
 }

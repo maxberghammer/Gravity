@@ -23,10 +23,10 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	#region Implementation of ISimulationEngine
 
 	/// <inheritdoc/>
-	async Task ISimulationEngine.SimulateAsync(Entity[] entities, TimeSpan deltaTime)
+	Task ISimulationEngine.SimulateAsync(Entity[] entities, TimeSpan deltaTime)
 	{
-		// Physik anwenden und integrieren
-		var collisions = await _integrator.IntegrateAsync(entities, deltaTime, async es => await ApplyPhysicsAsync(es));
+		// Physik anwenden und integrieren (synchron, aber parallelisiert)
+		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
 
 		// Kollisionen behandeln
 		if(collisions.Length != 0)
@@ -71,17 +71,19 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			}
 		}
 
-		foreach(var entity in entities)
-			if(entity.World.ClosedBoundaries)
-				entity.HandleCollisionWithWorldBoundaries();
+		for(var i = 0; i < entities.Length; i++)
+			if(entities[i].World.ClosedBoundaries)
+				entities[i].HandleCollisionWithWorldBoundaries();
+
+		return Task.CompletedTask;
 	}
 
 	#endregion
 
 	#region Implementation
 
-	// Reduce allocations by operating on array and index ranges
-	private static async Task<Tuple<int, int>[]> ApplyPhysicsAsync(Entity[] entities)
+	// Synchronous physics application using Parallel.ForEach over range partitions
+	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
 	{
 		double l = 0.0d,
 			   t = 0.0d,
@@ -102,10 +104,8 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		for(var i = 0; i < entities.Length; i++)
 			tree.Add(entities[i]);
 
-		// Compute synchronously to avoid Task scheduling overhead
 		tree.ComputeMassDistribution();
 
-		// Balanced parallel traversal using a range partitioner (synchronous)
 		var partitions = Partitioner.Create(0, entities.Length);
 		Parallel.ForEach(partitions, range =>
 									 {
@@ -120,7 +120,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 												 tree.CollidedEntities.AddRange(localCollisions);
 									 });
 
-		// Project collisions to id tuples (one allocation for result array)
+		// Project collisions to id tuples
 		var collisions = tree.CollidedEntities;
 		var result = new Tuple<int, int>[collisions.Count];
 
@@ -130,7 +130,6 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			result[i] = Tuple.Create(c.First.Id, c.Second.Id);
 		}
 
-		// Reuse buffer next step
 		tree.ResetCollisions();
 
 		return result;

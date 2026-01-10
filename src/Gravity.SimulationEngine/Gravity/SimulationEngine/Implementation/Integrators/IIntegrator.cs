@@ -2,11 +2,10 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
 
 internal interface IIntegrator
 {
-	Task<Tuple<int, int>[]> IntegrateAsync(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Task<Tuple<int, int>[]>> processFunc);
+	Tuple<int, int>[] Integrate(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Tuple<int, int>[]> processFunc);
 }
