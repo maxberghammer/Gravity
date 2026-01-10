@@ -130,7 +130,8 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			result[i] = Tuple.Create(c.First.Id, c.Second.Id);
 		}
 
-		tree.ResetCollisions();
+		// Return nodes to pool
+		tree.Release();
 
 		return result;
 	}

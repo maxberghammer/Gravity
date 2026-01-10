@@ -2,6 +2,7 @@
 // Erstellt von: Max Berghammer
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -17,11 +18,11 @@ internal sealed class EntityTree
 	{
 		#region Fields
 
-		private readonly Vector2D _bottomRight;
-		private readonly EntityNode[] _childNodes = new EntityNode[4];
-		private readonly double _nodeSizeLenSq; // cached squared size
-		private readonly Vector2D _topLeft;
-		private readonly EntityTree _tree;
+		private Vector2D _bottomRight;
+		private readonly EntityNode?[] _childNodes = new EntityNode?[4];
+		private double _nodeSizeLenSq; // cached squared size
+		private Vector2D _topLeft;
+		private EntityTree _tree = null!; // set in Init
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
@@ -33,16 +34,27 @@ internal sealed class EntityTree
 
 		public EntityNode(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
 		{
-			_topLeft = topLeft;
-			_bottomRight = bottomRight;
-			_tree = tree;
-			var size = _bottomRight - _topLeft;
-			_nodeSizeLenSq = size.LengthSquared;
+			Init(topLeft, bottomRight, tree);
 		}
 
 		#endregion
 
 		#region Interface
+
+		public void Init(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
+		{
+			_topLeft = topLeft;
+			_bottomRight = bottomRight;
+			_tree = tree;
+			var size = _bottomRight - _topLeft;
+			_nodeSizeLenSq = size.LengthSquared;
+			_centerOfMass = Vector2D.Zero;
+			_entities = 0;
+			_entity = null;
+			_mass = 0;
+			for(var i = 0; i < _childNodes.Length; i++)
+				_childNodes[i] = null;
+		}
 
 		public void Add(Entity entity)
 		{
@@ -240,6 +252,23 @@ internal sealed class EntityTree
 			}
 		}
 
+		public void ReleaseToPool()
+		{
+			for (var i = 0; i < _childNodes.Length; i++)
+			{
+				var child = _childNodes[i];
+				if (child != null)
+				{
+					child.ReleaseToPool();
+					_childNodes[i] = null;
+				}
+			}
+			ReturnNode(this);
+		}
+
+		private static void ReturnNode(EntityNode node)
+			=> _nodePool.Push(node);
+
 		#endregion
 
 		#region Implementation
@@ -258,10 +287,10 @@ internal sealed class EntityTree
 
 			return childNodeIndex switch
 				   {
-					   0     => new(_topLeft, _topLeft + size / 2, _tree),
-					   1     => new(new(_topLeft.X + size.X / 2, _topLeft.Y), new(_bottomRight.X, _topLeft.Y + size.Y / 2), _tree),
-					   2     => new(new(_topLeft.X, _topLeft.Y + size.Y / 2), new(_topLeft.X + size.X / 2, _bottomRight.Y), _tree),
-					   3     => new(_topLeft + size / 2, _bottomRight, _tree),
+					   0     => _tree.RentNode(_topLeft, _topLeft + size / 2),
+					   1     => _tree.RentNode(new(_topLeft.X + size.X / 2, _topLeft.Y), new(_bottomRight.X, _topLeft.Y + size.Y / 2)),
+					   2     => _tree.RentNode(new(_topLeft.X, _topLeft.Y + size.Y / 2), new(_topLeft.X + size.X / 2, _bottomRight.Y)),
+					   3     => _tree.RentNode(_topLeft + size / 2, _bottomRight),
 					   var _ => throw new ArgumentOutOfRangeException(nameof(childNodeIndex))
 				   };
 		}
@@ -275,12 +304,12 @@ internal sealed class EntityTree
 
 			if(dx < halfWidth)
 				return dy < halfHeight
-						   ? 0
-						   : 2;
+					   ? 0
+					   : 2;
 
 			return dy < halfHeight
-					   ? 1
-					   : 3;
+				   ? 1
+				   : 3;
 		}
 
 		#endregion
@@ -290,6 +319,7 @@ internal sealed class EntityTree
 
 	#region Fields
 
+	private static readonly ConcurrentStack<EntityNode> _nodePool = new();
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
 
@@ -300,7 +330,7 @@ internal sealed class EntityTree
 	public EntityTree(Vector2D topLeft, Vector2D bottomRight, double theta)
 	{
 		_thetaSquared = theta * theta;
-		_rootNode = new(topLeft, bottomRight, this);
+		_rootNode = RentNode(topLeft, bottomRight);
 	}
 
 	#endregion
@@ -323,6 +353,27 @@ internal sealed class EntityTree
 
 	public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
 		=> _rootNode.CalculateGravity(entity, collector);
+
+	public void Release()
+	{
+		_rootNode.ReleaseToPool();
+		CollidedEntities.Clear();
+	}
+
+	#endregion
+
+	#region Implementation
+
+	private EntityNode RentNode(Vector2D topLeft, Vector2D bottomRight)
+	{
+		if(_nodePool.TryPop(out var node))
+		{
+			node.Init(topLeft, bottomRight, this);
+			return node;
+		}
+
+		return new EntityNode(topLeft, bottomRight, this);
+	}
 
 	#endregion
 }
