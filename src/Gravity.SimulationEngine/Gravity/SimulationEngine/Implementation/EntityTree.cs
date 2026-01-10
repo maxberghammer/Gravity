@@ -128,7 +128,9 @@ internal sealed class EntityTree
 				var dist = entity.Position - _entity!.Position;
 				var distLenSq = dist.LengthSquared;
 
-				if(dist.Length < entity.r + _entity.r)
+				// Collision check using squared radii
+				var sumR = entity.r + _entity.r;
+				if(distLenSq < sumR * sumR)
 				{
 					lock(_tree.CollidedEntities)
 						_tree.CollidedEntities.Add(new(_entity, entity));
@@ -136,11 +138,15 @@ internal sealed class EntityTree
 					if(distLenSq <= double.Epsilon)
 						return Vector2D.Zero;
 
-					dist = dist.Unit() * (entity.r + _entity.r);
-					distLenSq = dist.LengthSquared;
+					// project to surface along normalized direction without extra sqrt
+					var invRCollision = 1.0d / Math.Sqrt(distLenSq);
+					dist = dist * (sumR * invRCollision);
+					distLenSq = sumR * sumR;
 				}
 
-				var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+				// invR3 = 1 / r^3 using a single sqrt
+				var invR = 1.0d / Math.Sqrt(distLenSq);
+				var invR3 = invR * invR * invR;
 
 				return -IWorld.G * _entity.m * dist * invR3;
 			}
@@ -151,7 +157,8 @@ internal sealed class EntityTree
 
 				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 				{
-					var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+					var invRNode = 1.0d / Math.Sqrt(distLenSq);
+					var invR3 = invRNode * invRNode * invRNode;
 
 					return -IWorld.G * _mass * dist * invR3;
 				}
@@ -183,18 +190,24 @@ internal sealed class EntityTree
 				var dist = entity.Position - _entity!.Position;
 				var distLenSq = dist.LengthSquared;
 
-				if(dist.Length < entity.r + _entity.r)
+				// Collision check using squared radii
+				var sumR = entity.r + _entity.r;
+				if(distLenSq < sumR * sumR)
 				{
 					collector.Add(new(_entity, entity));
 
 					if(distLenSq <= double.Epsilon)
 						return Vector2D.Zero;
 
-					dist = dist.Unit() * (entity.r + _entity.r);
-					distLenSq = dist.LengthSquared;
+					// project to surface along normalized direction without extra sqrt
+					var invRCollision = 1.0d / Math.Sqrt(distLenSq);
+					dist = dist * (sumR * invRCollision);
+					distLenSq = sumR * sumR;
 				}
 
-				var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+				// invR3 = 1 / r^3 using a single sqrt
+				var invR = 1.0d / Math.Sqrt(distLenSq);
+				var invR3 = invR * invR * invR;
 
 				return -IWorld.G * _entity.m * dist * invR3;
 			}
@@ -205,7 +218,8 @@ internal sealed class EntityTree
 
 				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 				{
-					var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+					var invRNode = 1.0d / Math.Sqrt(distLenSq);
+					var invR3 = invRNode * invRNode * invRNode;
 
 					return -IWorld.G * _mass * dist * invR3;
 				}

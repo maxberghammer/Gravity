@@ -16,7 +16,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
 	private readonly HashSet<long> _collisionKeys = new(1024);
-	private readonly IIntegrator _integrator = new NullIntegrator();
+	private readonly IIntegrator _integrator = new RungeKuttaIntegrator();
 
 	#endregion
 
