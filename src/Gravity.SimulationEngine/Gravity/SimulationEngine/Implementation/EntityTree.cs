@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 
 namespace Gravity.SimulationEngine.Implementation;
 
@@ -12,16 +11,7 @@ internal sealed class EntityTree
 {
 	#region Internal types
 
-	internal readonly struct CollisionPair
-	{
-		public readonly Entity A;
-		public readonly Entity B;
-		public CollisionPair(Entity a, Entity b)
-		{
-			A = a;
-			B = b;
-		}
-	}
+	internal record struct CollisionPair(Entity First, Entity Second);
 
 	private sealed class EntityNode
 	{
@@ -29,9 +19,9 @@ internal sealed class EntityTree
 
 		private readonly Vector2D _bottomRight;
 		private readonly EntityNode[] _childNodes = new EntityNode[4];
+		private readonly double _nodeSizeLenSq; // cached squared size
 		private readonly Vector2D _topLeft;
 		private readonly EntityTree _tree;
-		private readonly double _nodeSizeLenSq; // cached squared size
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
@@ -68,7 +58,7 @@ internal sealed class EntityTree
 				{
 					if((entity.Position - _entity!.Position).Length <= entity.r + _entity.r)
 					{
-						_tree.CollidedEntities.Add(new CollisionPair(entity, _entity));
+						_tree.CollidedEntities.Add(new(entity, _entity));
 
 						return;
 					}
@@ -111,10 +101,13 @@ internal sealed class EntityTree
 			_centerOfMass = Vector2D.Zero;
 			_mass = 0;
 
-			for (int i = 0; i < _childNodes.Length; i++)
+			for(var i = 0; i < _childNodes.Length; i++)
 			{
 				var childNode = _childNodes[i];
-				if (childNode == null) continue;
+
+				if(childNode == null)
+					continue;
+
 				childNode.ComputeMassDistribution();
 
 				_mass += childNode._mass;
@@ -124,8 +117,8 @@ internal sealed class EntityTree
 			_centerOfMass /= _mass;
 		}
 
-        [SuppressMessage("Major Bug", "S1244:Floating point numbers should not be tested for equality", Justification = "<Pending>")]
-        public Vector2D CalculateGravity(Entity entity)
+		[SuppressMessage("Major Bug", "S1244:Floating point numbers should not be tested for equality", Justification = "<Pending>")]
+		public Vector2D CalculateGravity(Entity entity)
 		{
 			if(_entities == 1)
 			{
@@ -133,41 +126,100 @@ internal sealed class EntityTree
 					return Vector2D.Zero;
 
 				var dist = entity.Position - _entity!.Position;
-				double distLenSq = dist.LengthSquared;
+				var distLenSq = dist.LengthSquared;
 
 				if(dist.Length < entity.r + _entity.r)
 				{
 					lock(_tree.CollidedEntities)
-						_tree.CollidedEntities.Add(new CollisionPair(_entity, entity));
+						_tree.CollidedEntities.Add(new(_entity, entity));
 
-					if(distLenSq == 0.0d)
+					if(distLenSq <= double.Epsilon)
 						return Vector2D.Zero;
 
 					dist = dist.Unit() * (entity.r + _entity.r);
 					distLenSq = dist.LengthSquared;
 				}
 
-				double invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+				var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+
 				return -IWorld.G * _entity.m * dist * invR3;
 			}
 			else
 			{
 				var dist = entity.Position - _centerOfMass;
-				double distLenSq = dist.LengthSquared;
+				var distLenSq = dist.LengthSquared;
 
 				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 				{
-					double invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+					var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+
 					return -IWorld.G * _mass * dist * invR3;
 				}
 
 				var ret = Vector2D.Zero;
 
-				for (int i = 0; i < _childNodes.Length; i++)
+				for(var i = 0; i < _childNodes.Length; i++)
 				{
 					var childNode = _childNodes[i];
-					if (childNode == null) continue;
+
+					if(childNode == null)
+						continue;
+
 					ret += childNode.CalculateGravity(entity);
+				}
+
+				return ret;
+			}
+		}
+
+		// Lock-free variant using an external collector
+		public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
+		{
+			if(_entities == 1)
+			{
+				if(ReferenceEquals(_entity, entity))
+					return Vector2D.Zero;
+
+				var dist = entity.Position - _entity!.Position;
+				var distLenSq = dist.LengthSquared;
+
+				if(dist.Length < entity.r + _entity.r)
+				{
+					collector.Add(new(_entity, entity));
+
+					if(distLenSq <= double.Epsilon)
+						return Vector2D.Zero;
+
+					dist = dist.Unit() * (entity.r + _entity.r);
+					distLenSq = dist.LengthSquared;
+				}
+
+				var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+
+				return -IWorld.G * _entity.m * dist * invR3;
+			}
+			else
+			{
+				var dist = entity.Position - _centerOfMass;
+				var distLenSq = dist.LengthSquared;
+
+				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
+				{
+					var invR3 = 1.0d / (distLenSq * Math.Sqrt(distLenSq));
+
+					return -IWorld.G * _mass * dist * invR3;
+				}
+
+				var ret = Vector2D.Zero;
+
+				for(var i = 0; i < _childNodes.Length; i++)
+				{
+					var childNode = _childNodes[i];
+
+					if(childNode == null)
+						continue;
+
+					ret += childNode.CalculateGravity(entity, collector);
 				}
 
 				return ret;
@@ -207,14 +259,14 @@ internal sealed class EntityTree
 			var dx = position.X - _topLeft.X;
 			var dy = position.Y - _topLeft.Y;
 
-			if (dx < halfWidth)
-			{
-				return dy < halfHeight ? 0 : 2;
-			}
-			else
-			{
-				return dy < halfHeight ? 1 : 3;
-			}
+			if(dx < halfWidth)
+				return dy < halfHeight
+						   ? 0
+						   : 2;
+
+			return dy < halfHeight
+					   ? 1
+					   : 3;
 		}
 
 		#endregion
@@ -226,7 +278,6 @@ internal sealed class EntityTree
 
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
-	private readonly List<CollisionPair> _collidedEntities = new(16);
 
 	#endregion
 
@@ -242,10 +293,10 @@ internal sealed class EntityTree
 
 	#region Interface
 
-	public List<CollisionPair> CollidedEntities => _collidedEntities;
+	public List<CollisionPair> CollidedEntities { get; } = new(16);
 
 	public void ResetCollisions()
-		=> _collidedEntities.Clear();
+		=> CollidedEntities.Clear();
 
 	public void ComputeMassDistribution()
 		=> _rootNode.ComputeMassDistribution();
@@ -255,6 +306,9 @@ internal sealed class EntityTree
 
 	public Vector2D CalculateGravity(Entity entity)
 		=> _rootNode.CalculateGravity(entity);
+
+	public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
+		=> _rootNode.CalculateGravity(entity, collector);
 
 	#endregion
 }
