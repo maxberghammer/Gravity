@@ -2,7 +2,6 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -267,7 +266,13 @@ internal sealed class EntityTree
 		}
 
 		private static void ReturnNode(EntityNode node)
-			=> _nodePool.Push(node);
+		{
+			lock(_poolLock)
+			{
+				if (_nodePool.Count < _maxPoolSize)
+					_nodePool.Push(node);
+			}
+		}
 
 		#endregion
 
@@ -319,7 +324,9 @@ internal sealed class EntityTree
 
 	#region Fields
 
-	private static readonly ConcurrentStack<EntityNode> _nodePool = new();
+	private static readonly object _poolLock = new();
+	private const int _maxPoolSize = 1 << 20; // cap pool to avoid unbounded growth
+	private static readonly Stack<EntityNode> _nodePool = new();
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
 
@@ -366,7 +373,14 @@ internal sealed class EntityTree
 
 	private EntityNode RentNode(Vector2D topLeft, Vector2D bottomRight)
 	{
-		if(_nodePool.TryPop(out var node))
+		EntityNode? node = null;
+		lock(_poolLock)
+		{
+			if(_nodePool.Count > 0)
+				node = _nodePool.Pop();
+		}
+
+		if(node != null)
 		{
 			node.Init(topLeft, bottomRight, this);
 			return node;

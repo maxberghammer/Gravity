@@ -2,7 +2,6 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,6 +16,11 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
 	private readonly HashSet<long> _collisionKeys = new(1024);
 	private readonly IIntegrator _integrator = new RungeKuttaIntegrator();
+
+	// Pool for per-partition collision collectors to reduce List<T> and array allocations
+	private static readonly object _collectorPoolLock = new();
+	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
+	private const int _maxCollectors = 1024;
 
 	#endregion
 
@@ -71,9 +75,22 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			}
 		}
 
-		for(var i = 0; i < entities.Length; i++)
-			if(entities[i].World.ClosedBoundaries)
-				entities[i].HandleCollisionWithWorldBoundaries();
+		// Pool world-boundary collision work: precompute viewport bounds once
+		var vp = entities.Length > 0 ? entities[0].World.Viewport : null;
+		if (vp != null)
+		{
+			var topLeft = vp.TopLeft;
+			var bottomRight = vp.BottomRight;
+			for(var i = 0; i < entities.Length; i++)
+				if(entities[i].World.ClosedBoundaries)
+					entities[i].HandleCollisionWithWorldBoundaries(in topLeft, in bottomRight);
+		}
+		else
+		{
+			for(var i = 0; i < entities.Length; i++)
+				if(entities[i].World.ClosedBoundaries)
+					entities[i].HandleCollisionWithWorldBoundaries();
+		}
 
 		return Task.CompletedTask;
 	}
@@ -82,7 +99,32 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	#region Implementation
 
-	// Synchronous physics application using Parallel.ForEach over range partitions
+	private static List<EntityTree.CollisionPair> RentCollector()
+	{
+		lock(_collectorPoolLock)
+		{
+			if(_collectorPool.Count > 0)
+				return _collectorPool.Pop();
+		}
+
+		return new List<EntityTree.CollisionPair>(64);
+	}
+
+	private static void ReturnCollector(List<EntityTree.CollisionPair> list)
+	{
+		list.Clear();
+		// Trim excessive capacity to keep array sizes bounded
+		if(list.Capacity > 4096)
+			list.Capacity = 4096;
+
+		lock(_collectorPoolLock)
+		{
+			if(_collectorPool.Count < _maxCollectors)
+				 _collectorPool.Push(list);
+		}
+	}
+
+	// Synchronous physics application using fixed-chunk Parallel.For
 	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
 	{
 		double l = 0.0d,
@@ -106,19 +148,26 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 		tree.ComputeMassDistribution();
 
-		var partitions = Partitioner.Create(0, entities.Length);
-		Parallel.ForEach(partitions, range =>
-									 {
-										 // per-partition collision collector
-										 var localCollisions = new List<EntityTree.CollisionPair>(64);
-										 for(var i = range.Item1; i < range.Item2; i++)
-											 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+		var n = entities.Length;
+		var chunk = Math.Max(1, IWorld.GetPreferredChunkSize(entities));
+		var chunks = (n + chunk - 1) / chunk;
 
-										 // merge once for this partition
-										 if(localCollisions.Count > 0)
-											 lock(tree.CollidedEntities)
-												 tree.CollidedEntities.AddRange(localCollisions);
-									 });
+		Parallel.For(0, chunks, c =>
+		{
+			var start = c * chunk;
+			var end = Math.Min(start + chunk, n);
+
+			var localCollisions = RentCollector();
+			for (var i = start; i < end; i++)
+				entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+
+			if(localCollisions.Count > 0)
+			{
+				lock(tree.CollidedEntities)
+					tree.CollidedEntities.AddRange(localCollisions);
+			}
+			ReturnCollector(localCollisions);
+		});
 
 		// Project collisions to id tuples
 		var collisions = tree.CollidedEntities;

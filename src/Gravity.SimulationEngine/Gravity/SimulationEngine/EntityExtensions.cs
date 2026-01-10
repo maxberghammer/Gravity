@@ -136,5 +136,44 @@ public static class EntityExtensions
 		}
 	}
 
+	public static void HandleCollisionWithWorldBoundaries(this Entity entity, in Vector2D viewportTopLeft, in Vector2D viewportBottomRight)
+	{
+		if(null == entity)
+			throw new ArgumentNullException(nameof(entity));
+
+		var leftX = viewportTopLeft.X + entity.r;
+		var topY = viewportTopLeft.Y + entity.r;
+		var rightX = viewportBottomRight.X - entity.r;
+		var bottomY = viewportBottomRight.Y - entity.r;
+
+		var pos = entity.Position;
+		var v = entity.v;
+
+		if(pos.X < leftX)
+		{
+			v = new(-v.X, v.Y);
+			pos = new(leftX, pos.Y);
+		}
+		else if(pos.X > rightX)
+		{
+			v = new(-v.X, v.Y);
+			pos = new(rightX, pos.Y);
+		}
+
+		if(pos.Y < topY)
+		{
+			v = new(v.X, -v.Y);
+			pos = new(pos.X, topY);
+		}
+		else if(pos.Y > bottomY)
+		{
+			v = new(v.X, -v.Y);
+			pos = new(pos.X, bottomY);
+		}
+
+		entity.v = v;
+		entity.Position = pos;
+	}
+
 	#endregion
 }
