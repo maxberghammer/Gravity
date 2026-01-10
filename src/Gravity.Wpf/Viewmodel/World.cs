@@ -116,12 +116,16 @@ internal class World : NotifyPropertyChanged,
 	private bool _showPath = true;
 	private double _timeScale = 1;
 
-    #endregion
+	// Track process CPU for accurate utilization and apply EMA smoothing
+	private double _cpuUtilizationEma; // default 0.0
+	private const double CpuUtilizationAlpha = 0.2; // smoothing factor
 
-    #region Construction
+	#endregion
 
-    [SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
-    public World()
+	#region Construction
+
+	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
+	public World()
 	{
 		_selectedEntityPreset = EntityPresets[0];
 
@@ -211,18 +215,18 @@ internal class World : NotifyPropertyChanged,
 
 	public bool IsHelpVisible { get => _isHelpVisible; set => SetProperty(ref _isHelpVisible, value); }
 
-    [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-    public void CreateRandomEntities(int count, bool enableRespawn)
+	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
+	public void CreateRandomEntities(int count, bool enableRespawn)
 	{
 		var rnd = new Random();
 
 		var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
 
-		for(var i = 0; i < count; i++)
+		for (var i = 0; i < count; i++)
 		{
 			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
-			while(Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
+			while (Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
 				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
 			CreateEntity(position, Vector2D.Zero);
@@ -233,18 +237,18 @@ internal class World : NotifyPropertyChanged,
 		}
 	}
 
-    [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-    public void CreateRandomOrbitEntities(int count, bool enableRespawn)
+	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
+	public void CreateRandomOrbitEntities(int count, bool enableRespawn)
 	{
 		var rnd = new Random();
 
 		var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
 
-		for(var i = 0; i < count; i++)
+		for (var i = 0; i < count; i++)
 		{
 			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
-			while(Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
+			while (Entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
 				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
 			CreateOrbitEntity(position, Vector2D.Zero);
@@ -269,7 +273,7 @@ internal class World : NotifyPropertyChanged,
 							?? Entities.OrderByDescending(p => G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
 									   .FirstOrDefault();
 
-		if(null == nearestEntity)
+		if (null == nearestEntity)
 		{
 			CreateEntity(position, Vector2D.Zero);
 
@@ -298,7 +302,7 @@ internal class World : NotifyPropertyChanged,
 
 	public void AutoScaleAndCenterViewport()
 	{
-		if(!Entities.Any())
+		if (!Entities.Any())
 			return;
 
 		var previousSize = Viewport.Size;
@@ -309,9 +313,9 @@ internal class World : NotifyPropertyChanged,
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 
-		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
+		if (newSize.X / newSize.Y < previousSize.X / previousSize.Y)
 			newSize.X = newSize.Y * previousSize.X / previousSize.Y;
-		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
+		if (newSize.X / newSize.Y > previousSize.X / previousSize.Y)
 			newSize.Y = newSize.X * previousSize.Y / previousSize.X;
 
 		Viewport.TopLeft = center - newSize / 2;
@@ -334,38 +338,38 @@ internal class World : NotifyPropertyChanged,
 	public async Task SaveAsync(string filePath)
 	{
 #pragma warning disable CS8601 // Possible null reference assignment.
-        var state = new State
-					{
-						Viewport = new()
-								   {
-									   TopLeft = Viewport.TopLeft,
-									   BottomRight = Viewport.BottomRight,
-									   Scale = Viewport.Scale
-								   },
-						AutoCenterViewport = AutoCenterViewport,
-						ClosedBoundaries = ClosedBoundaries,
-						ElasticCollisions = ElasticCollisions,
-						ShowPath = ShowPath,
-						TimeScale = TimeScale,
-						SelectedEntityPresetId = SelectedEntityPreset.Id,
-						RespawnerId = CurrentRespawnerId,
-						Entities = Entities.Select(e => new State.EntityState
-														{
-															m = e.m,
-															Position = e.Position,
-															v = e.v,
-															r = e.r,
-															StrokeWidth = e.StrokeWidth,
-															FillColor = e.Fill
-																		 .ToString(),
-															StrokeColor = e.Stroke
-																		   .ToString()
-														})
+		var state = new State
+		{
+			Viewport = new()
+			{
+				TopLeft = Viewport.TopLeft,
+				BottomRight = Viewport.BottomRight,
+				Scale = Viewport.Scale
+			},
+			AutoCenterViewport = AutoCenterViewport,
+			ClosedBoundaries = ClosedBoundaries,
+			ElasticCollisions = ElasticCollisions,
+			ShowPath = ShowPath,
+			TimeScale = TimeScale,
+			SelectedEntityPresetId = SelectedEntityPreset.Id,
+			RespawnerId = CurrentRespawnerId,
+			Entities = Entities.Select(e => new State.EntityState
+			{
+				m = e.m,
+				Position = e.Position,
+				v = e.v,
+				r = e.r,
+				StrokeWidth = e.StrokeWidth,
+				FillColor = e.Fill
+															 .ToString(),
+				StrokeColor = e.Stroke
+															   .ToString()
+			})
 										   .ToArray()
-					};
+		};
 #pragma warning restore CS8601 // Possible null reference assignment.
 
-        await using var swr = File.CreateText(filePath);
+		await using var swr = File.CreateText(filePath);
 		await JsonSerializer.SerializeAsync(swr.BaseStream, state);
 	}
 
@@ -377,7 +381,7 @@ internal class World : NotifyPropertyChanged,
 
 		Reset();
 
-		if(null == state)
+		if (null == state)
 			return;
 
 		Viewport.TopLeft = state.Viewport.TopLeft;
@@ -391,10 +395,10 @@ internal class World : NotifyPropertyChanged,
 		ShowPath = state.ShowPath;
 		TimeScale = state.TimeScale;
 
-		if(null == state.Entities)
+		if (null == state.Entities)
 			return;
 
-		foreach(var entity in state.Entities)
+		foreach (var entity in state.Entities)
 			Entities.Add(new(entity.Position,
 							 entity.r,
 							 entity.m,
@@ -412,23 +416,35 @@ internal class World : NotifyPropertyChanged,
 
 	private async Task SimulateAsync()
 	{
-		if(1 == Interlocked.CompareExchange(ref _isSimulating, 1, 0))
+		if (1 == Interlocked.CompareExchange(ref _isSimulating, 1, 0))
 			return;
 
 		var start = _stopwatch.Elapsed;
+		var startProcessCpu = Process.GetCurrentProcess().TotalProcessorTime;
 		var deltaTime = TimeSpan.FromSeconds(1.0d / DisplayFrequency * TimeScaleFactor);
 
-		if(IsRunning)
+		if (IsRunning)
 		{
 			await UpdateAllEntitiesAsync(deltaTime);
 
-			if(AutoCenterViewport)
+			if (AutoCenterViewport)
 				DoAutoCenterViewport();
 
 			RuntimeInSeconds += deltaTime;
 		}
 
-		CpuUtilizationInPercent = (int)Math.Round((_stopwatch.Elapsed - start).TotalSeconds * DisplayFrequency * 100.0d);
+		var end = _stopwatch.Elapsed;
+		var endProcessCpu = Process.GetCurrentProcess().TotalProcessorTime;
+		var wallElapsed = end - start;
+		var cpuElapsed = endProcessCpu - startProcessCpu;
+		var coreCount = Environment.ProcessorCount;
+		var instantCpuPercent = wallElapsed.TotalMilliseconds > 0
+			? Math.Min(100.0, Math.Max(0.0, cpuElapsed.TotalMilliseconds / wallElapsed.TotalMilliseconds * (100.0 / coreCount)))
+			: 0.0;
+
+		// Exponential moving average for stability
+		_cpuUtilizationEma = CpuUtilizationAlpha * instantCpuPercent + (1.0 - CpuUtilizationAlpha) * _cpuUtilizationEma;
+		CpuUtilizationInPercent = (int)Math.Round(_cpuUtilizationEma);
 
 		Updated?.Invoke(this, EventArgs.Empty);
 
@@ -437,7 +453,7 @@ internal class World : NotifyPropertyChanged,
 
 	private async Task UpdateAllEntitiesAsync(TimeSpan deltaTime)
 	{
-		if(!Entities.Any())
+		if (!Entities.Any())
 			return;
 
 		var entities = Entities.ToArray();
@@ -446,14 +462,14 @@ internal class World : NotifyPropertyChanged,
 
 		var respawner = CurrentRespawnerId.HasValue
 							? _respawnersById[CurrentRespawnerId.Value]
-							: () => {};
+							: () => { };
 
 		// Absorbierte Objekte entfernen
-		foreach(var absorbedEntities in entities.Where(e => e.IsAbsorbed).ToArray())
+		foreach (var absorbedEntities in entities.Where(e => e.IsAbsorbed).ToArray())
 		{
 			Entities.Remove(absorbedEntities);
 
-			if(!CurrentRespawnerId.HasValue)
+			if (!CurrentRespawnerId.HasValue)
 				continue;
 
 			respawner();
@@ -462,7 +478,7 @@ internal class World : NotifyPropertyChanged,
 
 	private void DoAutoCenterViewport()
 	{
-		if(!Entities.Any())
+		if (!Entities.Any())
 			return;
 
 		var previousSize = Viewport.Size;
