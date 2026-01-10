@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using Gravity.SimulationEngine;
-using SharpGL;
 using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
@@ -97,35 +96,25 @@ internal class World : NotifyPropertyChanged,
 
 	#region Fields
 
-	public static readonly double G = Math.Pow(6.67430d, -11.0);
+	private const double _cpuUtilizationAlpha = 0.2; // smoothing factor
 	private static readonly Guid _randomOrbittingRespawnerId = new("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 	private static readonly Guid _randomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
 	private readonly ISimulationEngine _simulationEngine = Factory.CreateBarnesHut();
 	private readonly Stopwatch _stopwatch = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
-	private bool _autoCenterViewport;
-	private bool _closedBoundaries = true;
-	private bool _elasticCollisions = true;
-	private bool _isEntityPresetSelectionVisible;
-	private bool _isHelpVisible;
-	private bool _isRunning = true;
-	private int _isSimulating;
-	private Entity? _selectedEntity;
-	private EntityPreset _selectedEntityPreset;
-	private bool _showPath = true;
-	private double _timeScale = 1;
 
 	// Track process CPU for accurate utilization and apply EMA smoothing
 	private double _cpuUtilizationEma; // default 0.0
-	private const double CpuUtilizationAlpha = 0.2; // smoothing factor
+	private int _isSimulating;
+	private EntityPreset _selectedEntityPreset;
 
-    #endregion
+	#endregion
 
-    #region Construction
+	#region Construction
 
-    [SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
-    public World()
+	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
+	public World()
 	{
 		_selectedEntityPreset = EntityPresets[0];
 
@@ -139,7 +128,7 @@ internal class World : NotifyPropertyChanged,
 
 		//Win32.EnumDisplaySettings(null, 0, ref d);
 
-		DisplayFrequency = 60;//d.dmDisplayFrequency;
+		DisplayFrequency = 60; //d.dmDisplayFrequency;
 		_stopwatch.Start();
 
 		_timer.Tick += async (_, _) => await SimulateAsync();
@@ -151,14 +140,11 @@ internal class World : NotifyPropertyChanged,
 
 	#region Interface
 
-	public static int GetPreferredChunkSize<T>(IReadOnlyCollection<T> collection)
-		=> collection.Count / Environment.ProcessorCount;
-
 	public event EventHandler? Updated;
 
 	public int DisplayFrequency { get; }
 
-	public double TimeScale { get => _timeScale; set => SetProperty(ref _timeScale, value); }
+	public double TimeScale { get; set => SetProperty(ref field, value); } = 1;
 
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
@@ -185,18 +171,11 @@ internal class World : NotifyPropertyChanged,
 
 	public EntityPreset SelectedEntityPreset { get => _selectedEntityPreset; set => SetProperty(ref _selectedEntityPreset, value); }
 
-	public bool ElasticCollisions { get => _elasticCollisions; set => SetProperty(ref _elasticCollisions, value); }
+	public bool IsEntityPresetSelectionVisible { get; set => SetProperty(ref field, value); }
 
-	public bool IsEntityPresetSelectionVisible { get => _isEntityPresetSelectionVisible; set => SetProperty(ref _isEntityPresetSelectionVisible, value); }
-
-	public bool ClosedBoundaries { get => _closedBoundaries; set => SetProperty(ref _closedBoundaries, value); }
-
-	public bool ShowPath { get => _showPath; set => SetProperty(ref _showPath, value); }
+	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
 
 	public Viewport Viewport { get; } = new();
-
-	IViewport IWorld.Viewport
-		=> Viewport;
 
 	public TimeSpan RuntimeInSeconds { get; private set; }
 
@@ -205,18 +184,18 @@ internal class World : NotifyPropertyChanged,
 	public int EntityCount
 		=> Entities.Count;
 
-	public bool AutoCenterViewport { get => _autoCenterViewport; set => SetProperty(ref _autoCenterViewport, value); }
+	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
 
-	public Entity? SelectedEntity { get => _selectedEntity; set => SetProperty(ref _selectedEntity, value); }
+	public Entity? SelectedEntity { get; set => SetProperty(ref field, value); }
 
-	public bool IsRunning { get => _isRunning; set => SetProperty(ref _isRunning, value); }
+	public bool IsRunning { get; set => SetProperty(ref field, value); } = true;
 
 	public Guid? CurrentRespawnerId { get; set; }
 
-	public bool IsHelpVisible { get => _isHelpVisible; set => SetProperty(ref _isHelpVisible, value); }
+	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
 
-    [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-    public void CreateRandomEntities(int count, bool enableRespawn)
+	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
+	public void CreateRandomEntities(int count, bool enableRespawn)
 	{
 		var rnd = new Random();
 
@@ -237,8 +216,8 @@ internal class World : NotifyPropertyChanged,
 		}
 	}
 
-    [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-    public void CreateRandomOrbitEntities(int count, bool enableRespawn)
+	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
+	public void CreateRandomOrbitEntities(int count, bool enableRespawn)
 	{
 		var rnd = new Random();
 
@@ -270,7 +249,7 @@ internal class World : NotifyPropertyChanged,
 	public void CreateOrbitEntity(Vector2D position, Vector2D velocity)
 	{
 		var nearestEntity = SelectedEntity
-							?? Entities.OrderByDescending(p => G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
+							?? Entities.OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
 									   .FirstOrDefault();
 
 		if(null == nearestEntity)
@@ -284,7 +263,7 @@ internal class World : NotifyPropertyChanged,
 		var direction = (dist.Norm().Unit() - velocity.Unit()).Length > (-dist.Norm().Unit() - velocity.Unit()).Length
 							? -1
 							: 1;
-		var g = G * (SelectedEntityPreset.m * nearestEntity.m) / dist.LengthSquared * -dist.Unit();
+		var g = IWorld.G * (SelectedEntityPreset.m * nearestEntity.m) / dist.LengthSquared * -dist.Unit();
 		var v = (1 + velocity.Length) * direction * Math.Sqrt(g.Length / SelectedEntityPreset.m * dist.Length) * dist.Norm().Unit() +
 				nearestEntity.v;
 
@@ -338,7 +317,7 @@ internal class World : NotifyPropertyChanged,
 	public async Task SaveAsync(string filePath)
 	{
 #pragma warning disable CS8601 // Possible null reference assignment.
-        var state = new State
+		var state = new State
 					{
 						Viewport = new()
 								   {
@@ -369,7 +348,7 @@ internal class World : NotifyPropertyChanged,
 					};
 #pragma warning restore CS8601 // Possible null reference assignment.
 
-        await using var swr = File.CreateText(filePath);
+		await using var swr = File.CreateText(filePath);
 		await JsonSerializer.SerializeAsync(swr.BaseStream, state);
 	}
 
@@ -412,6 +391,20 @@ internal class World : NotifyPropertyChanged,
 
 	#endregion
 
+	#region Implementation of IWorld
+
+	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
+
+	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
+
+	IViewport IWorld.Viewport
+		=> Viewport;
+
+	public static int GetPreferredChunkSize<T>(IReadOnlyCollection<T> collection)
+		=> collection.Count / Environment.ProcessorCount;
+
+	#endregion
+
 	#region Implementation
 
 	private async Task SimulateAsync()
@@ -439,11 +432,11 @@ internal class World : NotifyPropertyChanged,
 		var cpuElapsed = endProcessCpu - startProcessCpu;
 		var coreCount = Environment.ProcessorCount;
 		var instantCpuPercent = wallElapsed.TotalMilliseconds > 0
-			? Math.Min(100.0, Math.Max(0.0, cpuElapsed.TotalMilliseconds / wallElapsed.TotalMilliseconds * (100.0 / coreCount)))
-			: 0.0;
+									? Math.Min(100.0, Math.Max(0.0, cpuElapsed.TotalMilliseconds / wallElapsed.TotalMilliseconds * (100.0 / coreCount)))
+									: 0.0;
 
 		// Exponential moving average for stability
-		_cpuUtilizationEma = CpuUtilizationAlpha * instantCpuPercent + (1.0 - CpuUtilizationAlpha) * _cpuUtilizationEma;
+		_cpuUtilizationEma = _cpuUtilizationAlpha * instantCpuPercent + (1.0 - _cpuUtilizationAlpha) * _cpuUtilizationEma;
 		CpuUtilizationInPercent = (int)Math.Round(_cpuUtilizationEma);
 
 		Updated?.Invoke(this, EventArgs.Empty);

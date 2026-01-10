@@ -16,5 +16,6 @@ public interface IWorld
 
 	IViewport Viewport { get; }
 
-	public static readonly double G = Math.Pow(6.67430d, -11.0);
+	// Correct gravitational constant (SI units)
+	public static readonly double G = 6.67430e-11;
 }
