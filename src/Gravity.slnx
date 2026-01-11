@@ -8,7 +8,11 @@
     <File Path="../.gitignore" />
     <File Path="../.gitmodules" />
   </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="../README.md" />
+  </Folder>
   <Folder Name="/Wellenlib/">
+    <File Path="../Wellenlib/README.md" />
     <Project Path="../Wellenlib/src/Wellenlib.Console/Wellenlib.Console.csproj" />
     <Project Path="../Wellenlib/src/Wellenlib.Windows/Wellenlib.Windows.csproj" />
     <Project Path="../Wellenlib/src/Wellenlib/Wellenlib.csproj" />

@@ -1,12 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<!-- Allgemeine Projekt-Einstellungen -->
-	<Import Project="$(CommonProjectSettingsFilePath)"/>
+	<Import Project="$(CommonProjectSettingsFilePath)" />
 
 	<PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
-
+	
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageReference Include="Microsoft.VisualStudio.DiagnosticsHub.BenchmarkDotNetDiagnosers" Version="18.3.36812.1" />
@@ -15,4 +15,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
   </ItemGroup>
+
 </Project>

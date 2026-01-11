@@ -45,13 +45,14 @@ namespace Gravity.Wpf.View
         [SuppressMessage("Performance", "CA1860:Avoid using 'Enumerable.Any()' extension method", Justification = "<Pending>")]
         private void RenderPaths()
 		{
-			var entityIds = new HashSet<int>(Viewmodel.Entities.Select(e => e.Id));
+			var entities = Viewmodel.Entities.ToArrayLocked();
+			var entityIds = new HashSet<int>(entities.Select(e => e.Id));
 
 			foreach(var id in _pathsByEntityId.Keys.ToArray())
 				if(!entityIds.Contains(id))
 					_pathsByEntityId.Remove(id);
 
-			foreach(var entity in Viewmodel.Entities)
+			foreach(var entity in entities)
 			{
 				if(!_pathsByEntityId.TryGetValue(entity.Id, out var path))
 					_pathsByEntityId[entity.Id] = path = new(new[] { entity.Position });
@@ -135,7 +136,9 @@ namespace Gravity.Wpf.View
 
 			gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT | OpenGL.GL_DEPTH_BUFFER_BIT);
 
-			if(!Viewmodel.Entities.Any())
+			var entities = Viewmodel.Entities.ToArrayLocked();
+
+			if(entities.Length == 0)
 			{
 				gl.Flush();
 
@@ -150,7 +153,7 @@ namespace Gravity.Wpf.View
 			var q = gl.NewQuadric();
 			gl.QuadricNormals(q, OpenGL.GLU_SMOOTH);
 
-			foreach(var entity in Viewmodel.Entities)
+			foreach(var entity in entities)
 			{
 				gl.PushMatrix();
 				gl.Translate(entity.Position.X, entity.Position.Y, 0.0d);

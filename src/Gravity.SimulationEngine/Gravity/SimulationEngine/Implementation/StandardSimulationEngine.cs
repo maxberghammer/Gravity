@@ -24,11 +24,11 @@ internal sealed class StandardSimulationEngine : ISimulationEngine
 	#region Implementation of ISimulationEngine
 
 	/// <inheritdoc/>
-	async Task ISimulationEngine.SimulateAsync(Entity[] entities, TimeSpan deltaTime)
+	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden
-		await ApplyPhysicsAsync(entities.Where(e => !e.IsAbsorbed)
-										.ToArray());
+		ApplyPhysics(entities.Where(e => !e.IsAbsorbed)
+							 .ToArray());
 
 		// Objekte updaten
 		foreach(var entity in entities)
@@ -115,17 +115,23 @@ internal sealed class StandardSimulationEngine : ISimulationEngine
 		entity.a = -IWorld.G * g;
 	}
 
-	private async Task ApplyPhysicsAsync(IReadOnlyCollection<Entity> entities)
+	private void ApplyPhysics(Entity[] entities)
 	{
 		_positionByEntityId.Clear();
 		_vByEntityId.Clear();
 
-		await Task.WhenAll(entities.Chunked(IWorld.GetPreferredChunkSize(entities))
-								   .Select(chunk => Task.Run(() =>
-															 {
-																 foreach(var entity in chunk)
-																	 ApplyPhysics(entity, entities.Except(entity));
-															 })));
+		var n = entities.Length;
+		var chunk = Math.Max(1, IWorld.GetPreferredChunkSize(entities));
+		var chunks = (n + chunk - 1) / chunk;
+
+		Parallel.For(0, chunks, c =>
+								{
+									var start = c * chunk;
+									var end = Math.Min(start + chunk, n);
+
+									for(var i = start; i < end; i++)
+										ApplyPhysics(entities[i], entities.Except(entities[i]));
+								});
 	}
 
 	#endregion

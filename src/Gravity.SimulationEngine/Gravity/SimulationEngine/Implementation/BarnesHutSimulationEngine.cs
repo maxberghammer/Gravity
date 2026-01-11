@@ -2,6 +2,7 @@
 // Erstellt von: Max Berghammer
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,27 +14,59 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 {
 	#region Fields
 
-	private readonly IIntegrator _integrator = new NullIntegrator();
+	private const int _maxCollectors = 1024;
+	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
+
+	// Pool for per-partition collision collectors to reduce List<T> and array allocations
+	private static readonly object _collectorPoolLock = new();
+
+	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
+	private readonly HashSet<long> _collisionKeys = new(1024);
+	private readonly IIntegrator _integrator;
+
+	#endregion
+
+	#region Construction
+
+	public BarnesHutSimulationEngine()
+		: this(new RungeKuttaIntegrator())
+	{
+	}
+
+	public BarnesHutSimulationEngine(IIntegrator integrator)
+		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion
 
 	#region Implementation of ISimulationEngine
 
 	/// <inheritdoc/>
-	async Task ISimulationEngine.SimulateAsync(Entity[] entities, TimeSpan deltaTime)
+	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
 	{
-		// Physik anwenden und integrieren
-		var collisions = await _integrator.IntegrateAsync(entities, deltaTime, async es => await ApplyPhysicsAsync(es));
+		// Physik anwenden und integrieren (synchron, aber parallelisiert)
+		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
 
 		// Kollisionen behandeln
 		if(collisions.Length != 0)
 		{
 			var entitiesById = entities.ToDictionary(e => e.Id);
 
-			foreach((var entity1, var entity2) in collisions.Select(t => Tuple.Create(entitiesById[Math.Min(t.Item1, t.Item2)],
-																					  entitiesById[Math.Max(t.Item1, t.Item2)]))
-															.Distinct())
+			// De-dup collisions using a pooled HashSet<long> with normalized pair key (minId<<32 | maxId)
+			_collisionKeys.Clear();
+
+			for(var i = 0; i < collisions.Length; i++)
 			{
+				(var id1, var id2) = collisions[i];
+				var a = Math.Min(id1, id2);
+				var b = Math.Max(id1, id2);
+				var key = ((long)a << 32) | (uint)b;
+
+				if(!_collisionKeys.Add(key))
+					continue;
+
+				var entity1 = entitiesById[a];
+				var entity2 = entitiesById[b];
+
 				(var v1, var v2) = entity1.HandleCollision(entity2, entity1.World.ElasticCollisions);
 
 				if(v1.HasValue &&
@@ -56,24 +89,61 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			}
 		}
 
-		foreach(var entity in entities)
-			if(entity.World.ClosedBoundaries)
-				entity.HandleCollisionWithWorldBoundaries();
+		// Pool world-boundary collision work: precompute viewport bounds once
+		var vp = entities.Length > 0
+					 ? entities[0].World.Viewport
+					 : null;
+
+		if(vp != null)
+		{
+			var topLeft = vp.TopLeft;
+			var bottomRight = vp.BottomRight;
+			for(var i = 0; i < entities.Length; i++)
+				if(entities[i].World.ClosedBoundaries)
+					entities[i].HandleCollisionWithWorldBoundaries(in topLeft, in bottomRight);
+		}
+		else
+			for(var i = 0; i < entities.Length; i++)
+				if(entities[i].World.ClosedBoundaries)
+					entities[i].HandleCollisionWithWorldBoundaries();
 	}
 
 	#endregion
 
 	#region Implementation
 
-	private static async Task<Tuple<int, int>[]> ApplyPhysicsAsync(IReadOnlyCollection<Entity> entities)
+	private static List<EntityTree.CollisionPair> RentCollector()
 	{
-		var l = 0.0d;
-		var t = 0.0d;
-		var r = 0.0d;
-		var b = 0.0d;
+		lock(_collectorPoolLock)
+			if(_collectorPool.Count > 0)
+				return _collectorPool.Pop();
 
-		foreach(var pos in entities.Select(e=>e.Position))
+		return new(64);
+	}
+
+	private static void ReturnCollector(List<EntityTree.CollisionPair> list)
+	{
+		list.Clear();
+		// Trim excessive capacity to keep array sizes bounded
+		if(list.Capacity > 4096)
+			list.Capacity = 4096;
+
+		lock(_collectorPoolLock)
+			if(_collectorPool.Count < _maxCollectors)
+				_collectorPool.Push(list);
+	}
+
+	// Synchronous physics application using fixed-chunk Parallel.For
+	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
+	{
+		double l = 0.0d,
+			   t = 0.0d,
+			   r = 0.0d,
+			   b = 0.0d;
+
+		for(var i = 0; i < entities.Length; i++)
 		{
+			var pos = entities[i].Position;
 			l = Math.Min(l, pos.X);
 			t = Math.Min(t, pos.Y);
 			r = Math.Max(r, pos.X);
@@ -82,22 +152,45 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 		var tree = new EntityTree(new(l, t), new(r, b), 1.0d);
 
-		foreach(var entity in entities)
-			tree.Add(entity);
+		for(var i = 0; i < entities.Length; i++)
+			tree.Add(entities[i]);
 
-		await Task.Run(() => tree.ComputeMassDistribution());
+		tree.ComputeMassDistribution();
 
-		// Gravitation berechnen
-		await Task.WhenAll(entities.Chunked(IWorld.GetPreferredChunkSize(entities))
-								   .Select(chunk => Task.Run(() =>
-															 {
-																 foreach(var entity in chunk)
-																	 entity.a = tree.CalculateGravity(entity);
-															 })));
+		var n = entities.Length;
+		// Choose a cache-friendly block size relative to CPU count and entity count
+		var workers = Math.Max(1, Environment.ProcessorCount);
+		var blockSize = Math.Max(256, n / (workers * 8)); // favor moderate chunks to reduce scheduling overhead
 
-		return tree.CollidedEntities
-				   .Select(c => Tuple.Create(c.Item1.Id, c.Item2.Id))
-				   .ToArray();
+		// Range partitioning avoids per-iteration loop-state overhead from Parallel.For(int)
+		var ranges = Partitioner.Create(0, n, blockSize);
+		Parallel.ForEach(ranges, range =>
+								 {
+									 (var start, var end) = range;
+									 var localCollisions = RentCollector();
+									 for(var i = start; i < end; i++)
+										 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+
+									 if(localCollisions.Count > 0)
+										 lock(tree.CollidedEntities)
+											 tree.CollidedEntities.AddRange(localCollisions);
+									 ReturnCollector(localCollisions);
+								 });
+
+		// Project collisions to id tuples
+		var collisions = tree.CollidedEntities;
+		var result = new Tuple<int, int>[collisions.Count];
+
+		for(var i = 0; i < collisions.Count; i++)
+		{
+			var c = collisions[i];
+			result[i] = Tuple.Create(c.First.Id, c.Second.Id);
+		}
+
+		// Return nodes to pool
+		tree.Release();
+
+		return result;
 	}
 
 	#endregion
