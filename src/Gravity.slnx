@@ -14,6 +14,8 @@
   <Folder Name="/Wellenlib/">
     <File Path="../Wellenlib/README.md" />
     <Project Path="../Wellenlib/src/Wellenlib.Console/Wellenlib.Console.csproj" />
+    <Project Path="../Wellenlib/src/Wellenlib.Dataaccess/Wellenlib.Dataaccess.csproj" />
+    <Project Path="../Wellenlib/src/Wellenlib.Testing/Wellenlib.Testing.csproj" />
     <Project Path="../Wellenlib/src/Wellenlib.Windows/Wellenlib.Windows.csproj" />
     <Project Path="../Wellenlib/src/Wellenlib/Wellenlib.csproj" />
   </Folder>
@@ -25,6 +27,7 @@
     <File Path="../Wellenlib/.gitignore" />
   </Folder>
   <Project Path="Gravity.SimulationEngine.Benchmarks/Gravity.SimulationEngine.Benchmarks.csproj" />
+  <Project Path="Gravity.SimulationEngine.Tests/Gravity.SimulationEngine.Tests.csproj" />
   <Project Path="Gravity.SimulationEngine/Gravity.SimulationEngine.csproj" />
   <Project Path="Gravity.Wpf/Gravity.Wpf.csproj" Id="53f64170-9ed7-4f3a-8369-6f566744eebf" />
 </Solution>

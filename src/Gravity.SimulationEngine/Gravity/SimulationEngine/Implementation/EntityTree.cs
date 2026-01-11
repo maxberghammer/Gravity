@@ -2,7 +2,6 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -18,22 +17,25 @@ internal sealed class EntityTree
 	{
 		#region Fields
 
-		private readonly EntityNode?[] _childNodes = new EntityNode?[4];
 		private Vector2D _bottomRight;
+		private readonly EntityNode?[] _childNodes = new EntityNode?[4];
+		private double _nodeSizeLenSq; // cached squared size
+		private Vector2D _topLeft;
+		private EntityTree _tree = null!; // set in Init
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
 		private double _mass;
-		private double _nodeSizeLenSq; // cached squared size
-		private Vector2D _topLeft;
-		private EntityTree _tree = null!; // set in Init
+		private double _gm; // cached -G * mass for aggregated nodes
 
 		#endregion
 
 		#region Construction
 
 		public EntityNode(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
-			=> Init(topLeft, bottomRight, tree);
+		{
+			Init(topLeft, bottomRight, tree);
+		}
 
 		#endregion
 
@@ -50,6 +52,7 @@ internal sealed class EntityTree
 			_entities = 0;
 			_entity = null;
 			_mass = 0;
+			_gm = 0;
 			for(var i = 0; i < _childNodes.Length; i++)
 				_childNodes[i] = null;
 		}
@@ -104,6 +107,7 @@ internal sealed class EntityTree
 			{
 				_centerOfMass = _entity!.Position;
 				_mass = _entity.m;
+				_gm = -IWorld.G * _mass;
 
 				return;
 			}
@@ -125,6 +129,7 @@ internal sealed class EntityTree
 			}
 
 			_centerOfMass /= _mass;
+			_gm = -IWorld.G * _mass;
 		}
 
 		[SuppressMessage("Major Bug", "S1244:Floating point numbers should not be tested for equality", Justification = "<Pending>")]
@@ -140,7 +145,6 @@ internal sealed class EntityTree
 
 				// Collision check using squared radii
 				var sumR = entity.r + _entity.r;
-
 				if(distLenSq < sumR * sumR)
 				{
 					lock(_tree.CollidedEntities)
@@ -171,7 +175,7 @@ internal sealed class EntityTree
 					var invRNode = 1.0d / Math.Sqrt(distLenSq);
 					var invR3 = invRNode * invRNode * invRNode;
 
-					return -IWorld.G * _mass * dist * invR3;
+					return _gm * dist * invR3; // use cached -G*M
 				}
 
 				var ret = Vector2D.Zero;
@@ -190,97 +194,13 @@ internal sealed class EntityTree
 			}
 		}
 
-		// Lock-free variant using an external collector
-		public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
-		{
-			if(_entities == 1)
-			{
-				if(ReferenceEquals(_entity, entity))
-					return Vector2D.Zero;
-
-				var dist = entity.Position - _entity!.Position;
-				var distLenSq = dist.LengthSquared;
-
-				// Collision check using squared radii
-				var sumR = entity.r + _entity.r;
-				var sumR2 = sumR * sumR;
-
-				if(distLenSq < sumR2)
-				{
-					collector.Add(new(_entity, entity));
-
-					if(distLenSq <= double.Epsilon)
-						return Vector2D.Zero;
-
-					// project to surface along normalized direction without extra sqrt:
-					// dist = dist * (sumR / |dist|)
-					var invLen = 1.0d / Math.Sqrt(distLenSq);
-					var scale = sumR * invLen;
-					dist = dist * scale;
-					distLenSq = sumR2;
-				}
-
-				// invR3 = 1 / r^3 using a single sqrt
-				var invR = 1.0d / Math.Sqrt(distLenSq);
-				var invR3 = invR * invR * invR;
-
-				return -IWorld.G * _entity.m * dist * invR3;
-			}
-			else
-			{
-				var dist = entity.Position - _centerOfMass;
-				var distLenSq = dist.LengthSquared;
-
-				// Barnes–Hut acceptance: compare node size to distance; avoid extra sqrt
-				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
-				{
-					var invRNode = 1.0d / Math.Sqrt(distLenSq);
-					var invR3 = invRNode * invRNode * invRNode;
-
-					return -IWorld.G * _mass * dist * invR3;
-				}
-
-				var ret = Vector2D.Zero;
-
-				for(var i = 0; i < _childNodes.Length; i++)
-				{
-					var childNode = _childNodes[i];
-
-					if(childNode == null)
-						continue;
-
-					ret += childNode.CalculateGravity(entity, collector);
-				}
-
-				return ret;
-			}
-		}
-
-		public void ReleaseToPool()
-		{
-			for(var i = 0; i < _childNodes.Length; i++)
-			{
-				var child = _childNodes[i];
-
-				if(child != null)
-				{
-					child.ReleaseToPool();
-					_childNodes[i] = null;
-				}
-			}
-
-			ReturnNode(this);
-		}
-
 		// Iterative traversal to reduce recursion overhead
 		public Vector2D CalculateGravityIterative(Entity entity)
 		{
 			var dummy = _tree.CollidedEntities;
-
 			lock(dummy)
 			{
 				dummy.Clear();
-
 				return CalculateGravityIterative(entity, dummy);
 			}
 		}
@@ -289,7 +209,7 @@ internal sealed class EntityTree
 		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
 		{
 			var result = Vector2D.Zero;
-			var pool = ArrayPool<EntityNode>.Shared;
+			var pool = System.Buffers.ArrayPool<EntityNode>.Shared;
 			var stack = pool.Rent(256);
 			var sp = 0;
 			stack[sp++] = this;
@@ -303,15 +223,12 @@ internal sealed class EntityTree
 				{
 					var dist = entity.Position - node._centerOfMass;
 					var distLenSq = dist.LengthSquared;
-
 					if(node._nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 					{
 						var invR = 1.0d / Math.Sqrt(distLenSq);
 						var invR2 = invR * invR;
 						var invR3 = invR * invR2;
-						var gm = -IWorld.G * node._mass;
-						result += gm * invR3 * dist;
-
+						result += node._gm * invR3 * dist;
 						continue;
 					}
 
@@ -319,21 +236,17 @@ internal sealed class EntityTree
 					for(var i = 0; i < node._childNodes.Length; i++)
 					{
 						var child = node._childNodes[i];
-
 						if(child == null)
 							continue;
-
 						if(sp >= stack.Length)
 						{
 							var newStack = pool.Rent(stack.Length * 2);
-							Array.Copy(stack, newStack, stack.Length);
-							pool.Return(stack, false);
+							System.Array.Copy(stack, newStack, stack.Length);
+							pool.Return(stack, clearArray:false);
 							stack = newStack;
 						}
-
 						stack[sp++] = child;
 					}
-
 					continue;
 				}
 
@@ -351,20 +264,19 @@ internal sealed class EntityTree
 				var sumR2 = entity.r2 + node._entity.r2 + 2.0d * ra * rb;
 
 				double invRLeaf;
-
 				if(distLeafLenSq < sumR2)
 				{
 					collector.Add(new(node._entity, entity));
-
 					if(distLeafLenSq <= double.Epsilon)
 						continue;
-
 					var invLen = 1.0d / Math.Sqrt(distLeafLenSq);
 					distLeaf = distLeaf * (sumR * invLen);
 					invRLeaf = 1.0d / sumR; // |dist| == sumR now
 				}
 				else
+				{
 					invRLeaf = 1.0d / Math.Sqrt(distLeafLenSq);
+				}
 
 				var invRLeaf2 = invRLeaf * invRLeaf;
 				var invRLeaf3 = invRLeaf * invRLeaf2;
@@ -372,26 +284,16 @@ internal sealed class EntityTree
 				result += gmLeaf * invRLeaf3 * distLeaf;
 			}
 
-			pool.Return(stack, false);
-
+			pool.Return(stack, clearArray:false);
 			return result;
 		}
-
 		#endregion
 
 		#region Implementation
 
-		private static void ReturnNode(EntityNode node)
-		{
-			lock(_poolLock)
-				if(_nodePool.Count < _maxPoolSize)
-					_nodePool.Push(node);
-		}
-
 		private EntityNode GetOrCreateChildNode(Vector2D position)
 		{
 			var childNodeIndex = GetChildNodeIndex(position);
-
 			return _childNodes[childNodeIndex]
 				   ?? (_childNodes[childNodeIndex] = CreatEntityNode(childNodeIndex));
 		}
@@ -399,35 +301,48 @@ internal sealed class EntityTree
 		private EntityNode CreatEntityNode(int childNodeIndex)
 		{
 			var size = _bottomRight - _topLeft;
-
 			return childNodeIndex switch
-				   {
-					   0     => _tree.RentNode(_topLeft, _topLeft + size / 2),
-					   1     => _tree.RentNode(new(_topLeft.X + size.X / 2, _topLeft.Y), new(_bottomRight.X, _topLeft.Y + size.Y / 2)),
-					   2     => _tree.RentNode(new(_topLeft.X, _topLeft.Y + size.Y / 2), new(_topLeft.X + size.X / 2, _bottomRight.Y)),
-					   3     => _tree.RentNode(_topLeft + size / 2, _bottomRight),
-					   var _ => throw new ArgumentOutOfRangeException(nameof(childNodeIndex))
-				   };
+			{
+				0 => _tree.RentNode(_topLeft, _topLeft + size / 2),
+				1 => _tree.RentNode(new(_topLeft.X + size.X / 2, _topLeft.Y), new(_bottomRight.X, _topLeft.Y + size.Y / 2)),
+				2 => _tree.RentNode(new(_topLeft.X, _topLeft.Y + size.Y / 2), new(_topLeft.X + size.X / 2, _bottomRight.Y)),
+				3 => _tree.RentNode(_topLeft + size / 2, _bottomRight),
+				_ => throw new ArgumentOutOfRangeException(nameof(childNodeIndex))
+			};
 		}
 
 		private int GetChildNodeIndex(Vector2D position)
 		{
-			// Compute half extents once
 			var halfWidth = (_bottomRight.X - _topLeft.X) * 0.5;
 			var halfHeight = (_bottomRight.Y - _topLeft.Y) * 0.5;
 			var dx = position.X - _topLeft.X;
 			var dy = position.Y - _topLeft.Y;
-
-			// Branchless-ish quadrant selection: left(0)/right(1), top(0)/bottom(1)
-			var isRight = dx >= halfWidth
-							  ? 1
-							  : 0; // 0=left, 1=right
-			var isBottom = dy >= halfHeight
-							   ? 1
-							   : 0; // 0=top, 1=bottom
-
-			// Map (isRight, isBottom) to child index: (0,0)->0, (1,0)->1, (0,1)->2, (1,1)->3
+			var isRight = dx >= halfWidth ? 1 : 0;
+			var isBottom = dy >= halfHeight ? 1 : 0;
 			return (isBottom << 1) | isRight;
+		}
+
+		public void ReleaseToPool()
+		{
+			for(var i = 0; i < _childNodes.Length; i++)
+			{
+				var child = _childNodes[i];
+				if(child != null)
+				{
+					child.ReleaseToPool();
+					_childNodes[i] = null;
+				}
+			}
+			ReturnNode(this);
+		}
+
+		private static void ReturnNode(EntityNode node)
+		{
+			lock(_poolLock)
+			{
+				if(_nodePool.Count < _maxPoolSize)
+					_nodePool.Push(node);
+			}
 		}
 
 		#endregion
@@ -437,9 +352,9 @@ internal sealed class EntityTree
 
 	#region Fields
 
+	private static readonly object _poolLock = new();
 	private const int _maxPoolSize = 1 << 20; // cap pool to avoid unbounded growth
 	private static readonly Stack<EntityNode> _nodePool = new();
-	private static readonly object _poolLock = new();
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
 
@@ -488,8 +403,10 @@ internal sealed class EntityTree
 	{
 		EntityNode? node = null;
 		lock(_poolLock)
+		{
 			if(_nodePool.Count > 0)
 				node = _nodePool.Pop();
+		}
 
 		if(node != null)
 		{
@@ -498,7 +415,7 @@ internal sealed class EntityTree
 			return node;
 		}
 
-		return new(topLeft, bottomRight, this);
+		return new EntityNode(topLeft, bottomRight, this);
 	}
 
 	#endregion

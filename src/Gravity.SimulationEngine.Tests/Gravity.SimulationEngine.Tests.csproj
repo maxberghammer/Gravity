@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Test Projekt-Einstellungen -->
+	<Import Project="$(TestProjectSettingsFilePath)" />
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\Wellenlib\src\Wellenlib.Testing\Wellenlib.Testing.csproj" />
+    <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
+  </ItemGroup>
+
+</Project>

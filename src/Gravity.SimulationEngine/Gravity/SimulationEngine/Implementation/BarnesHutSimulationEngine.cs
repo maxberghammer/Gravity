@@ -136,18 +136,24 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	// Synchronous physics application using fixed-chunk Parallel.For
 	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
 	{
-		double l = 0.0d,
-			   t = 0.0d,
-			   r = 0.0d,
-			   b = 0.0d;
+		double l = double.PositiveInfinity,
+			   t = double.PositiveInfinity,
+			   r = double.NegativeInfinity,
+			   b = double.NegativeInfinity;
 
 		for(var i = 0; i < entities.Length; i++)
 		{
-			var pos = entities[i].Position;
-			l = Math.Min(l, pos.X);
-			t = Math.Min(t, pos.Y);
-			r = Math.Max(r, pos.X);
-			b = Math.Max(b, pos.Y);
+			var p = entities[i].Position;
+			if(p.X < l) l = p.X;
+			if(p.Y < t) t = p.Y;
+			if(p.X > r) r = p.X;
+			if(p.Y > b) b = p.Y;
+		}
+
+		// Fallback to a minimal box around origin if no entities
+		if(double.IsInfinity(l) || double.IsInfinity(t) || double.IsInfinity(r) || double.IsInfinity(b))
+		{
+			l = t = -1.0; r = b = 1.0;
 		}
 
 		var tree = new EntityTree(new(l, t), new(r, b), 1.0d);
@@ -158,38 +164,34 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		tree.ComputeMassDistribution();
 
 		var n = entities.Length;
-		// Choose a cache-friendly block size relative to CPU count and entity count
 		var workers = Math.Max(1, Environment.ProcessorCount);
-		var blockSize = Math.Max(256, n / (workers * 8)); // favor moderate chunks to reduce scheduling overhead
+		var blockSize = Math.Max(256, n / (workers * 8));
 
-		// Range partitioning avoids per-iteration loop-state overhead from Parallel.For(int)
 		var ranges = Partitioner.Create(0, n, blockSize);
 		Parallel.ForEach(ranges, range =>
-								 {
-									 (var start, var end) = range;
-									 var localCollisions = RentCollector();
-									 for(var i = start; i < end; i++)
-										 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+		{
+			(var start, var end) = range;
+			var localCollisions = RentCollector();
+			for(var i = start; i < end; i++)
+				entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
 
-									 if(localCollisions.Count > 0)
-										 lock(tree.CollidedEntities)
-											 tree.CollidedEntities.AddRange(localCollisions);
-									 ReturnCollector(localCollisions);
-								 });
+			if(localCollisions.Count > 0)
+			{
+				lock(tree.CollidedEntities)
+					tree.CollidedEntities.AddRange(localCollisions);
+			}
+			ReturnCollector(localCollisions);
+		});
 
-		// Project collisions to id tuples
 		var collisions = tree.CollidedEntities;
 		var result = new Tuple<int, int>[collisions.Count];
-
 		for(var i = 0; i < collisions.Count; i++)
 		{
 			var c = collisions[i];
 			result[i] = Tuple.Create(c.First.Id, c.Second.Id);
 		}
 
-		// Return nodes to pool
 		tree.Release();
-
 		return result;
 	}
 
