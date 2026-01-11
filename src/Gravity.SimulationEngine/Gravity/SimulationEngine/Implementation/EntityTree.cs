@@ -306,19 +306,18 @@ internal sealed class EntityTree
 
 		private int GetChildNodeIndex(Vector2D position)
 		{
-			var halfWidth = (_bottomRight.X - _topLeft.X) / 2.0;
-			var halfHeight = (_bottomRight.Y - _topLeft.Y) / 2.0;
+			// Compute half extents once
+			var halfWidth = (_bottomRight.X - _topLeft.X) * 0.5;
+			var halfHeight = (_bottomRight.Y - _topLeft.Y) * 0.5;
 			var dx = position.X - _topLeft.X;
 			var dy = position.Y - _topLeft.Y;
 
-			if(dx < halfWidth)
-				return dy < halfHeight
-					   ? 0
-					   : 2;
+			// Branchless-ish quadrant selection: left(0)/right(1), top(0)/bottom(1)
+			var isRight = dx >= halfWidth ? 1 : 0;   // 0=left, 1=right
+			var isBottom = dy >= halfHeight ? 1 : 0; // 0=top, 1=bottom
 
-			return dy < halfHeight
-				   ? 1
-				   : 3;
+			// Map (isRight, isBottom) to child index: (0,0)->0, (1,0)->1, (0,1)->2, (1,1)->3
+			return (isBottom << 1) | isRight;
 		}
 
 		#endregion
