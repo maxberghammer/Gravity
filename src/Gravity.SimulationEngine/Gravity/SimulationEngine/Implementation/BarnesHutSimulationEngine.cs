@@ -2,6 +2,7 @@
 // Erstellt von: Max Berghammer
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -161,14 +162,16 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		tree.ComputeMassDistribution();
 
 		var n = entities.Length;
-		var chunk = Math.Max(1, IWorld.GetPreferredChunkSize(entities));
-		var chunks = (n + chunk - 1) / chunk;
+		// Choose a cache-friendly block size relative to CPU count and entity count
+		var workers = Math.Max(1, Environment.ProcessorCount);
+		var blockSize = Math.Max(256, n / (workers * 8)); // favor moderate chunks to reduce scheduling overhead
+		if(blockSize < 256) blockSize = 256;
 
-		Parallel.For(0, chunks, c =>
+		// Range partitioning avoids per-iteration loop-state overhead from Parallel.For(int)
+		var ranges = Partitioner.Create(0, n, blockSize);
+		Parallel.ForEach(ranges, range =>
 		{
-			var start = c * chunk;
-			var end = Math.Min(start + chunk, n);
-
+			var (start, end) = range;
 			var localCollisions = RentCollector();
 			for (var i = start; i < end; i++)
 				entities[i].a = tree.CalculateGravity(entities[i], localCollisions);

@@ -352,25 +352,33 @@ internal sealed class EntityTree
 						continue;
 
 					var dist = entity.Position - node._entity!.Position;
-					var distLenSq = dist.LengthSquared;
-					var sumR = entity.r + node._entity.r;
-					var sumR2 = sumR * sumR;
-					double invR;
-					if(distLenSq < sumR2)
+                    var distLenSq = dist.LengthSquared;
+
+                    // Fused collision check using cached squared radii
+                    var ra = entity.r;
+                    var rb = node._entity.r;
+                    var sumR = ra + rb;
+                    var sumR2 = entity.r2 + node._entity.r2 + 2.0d * ra * rb;
+
+                    double invR;
+                    if(distLenSq < sumR2)
 					{
 						collector.Add(new(node._entity, entity));
 						if(distLenSq <= double.Epsilon)
 							continue;
-						var invLen = 1.0d / Math.Sqrt(distLenSq); dist = dist * (sumR * invLen); invR = 1.0d / sumR;
-                    }
+						var invLen = 1.0d / Math.Sqrt(distLenSq);
+						dist = dist * (sumR * invLen);
+						invR = 1.0d / sumR; // |dist| == sumR now
+					}
 					else
 					{
 						invR = 1.0d / Math.Sqrt(distLenSq);
 					}
-					var invR2 = invR * invR;
-					var invR3 = invR * invR2;
-					var gm = -IWorld.G * node._entity.m;
-					result += gm * invR3 * dist;
+
+                    var invR2 = invR * invR;
+                    var invR3 = invR * invR2;
+                    var gm = -IWorld.G * node._entity.m;
+                    result += gm * invR3 * dist;
 				}
 				else
 				{

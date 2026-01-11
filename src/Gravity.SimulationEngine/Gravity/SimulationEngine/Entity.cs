@@ -36,6 +36,7 @@ public class Entity
 		Stroke = stroke;
 		StrokeWidth = strokeWidth;
 		r = radius;
+		r2 = radius * radius;
 		m = mass;
 		a = acceleration;
 		Id = _maxId++;
@@ -50,6 +51,7 @@ public class Entity
 		Position = other.Position;
 		v = other.v;
 		r = other.r;
+		r2 = other.r2;
 		m = other.m;
 		a = other.a;
 		Id = other.Id;
@@ -82,6 +84,9 @@ public class Entity
 	// ReSharper disable once InconsistentNaming
 	public double r { get; private set; }
 
+	// Cached squared radius for faster collision checks
+	public double r2 { get; private set; }
+
 	// ReSharper disable once InconsistentNaming
 	public double m { get; set; }
 
@@ -100,6 +105,7 @@ public class Entity
 
 		m += other.m;
 		r = Math.Pow(Math.Pow(r, 3) + Math.Pow(other.r, 3), 1.0d / 3.0d);
+		r2 = r * r;
 		other.IsAbsorbed = true;
 	}
 
