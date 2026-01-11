@@ -69,13 +69,14 @@ namespace Gravity.Wpf.View
         [SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "<Pending>")]
         private Geometry? CreatePathGeometry()
 		{
-			var entityIds = new HashSet<int>(Viewmodel.Entities.Select(e => e.Id));
+			var entities = Viewmodel.Entities.ToArrayLocked();
+			var entityIds = new HashSet<int>(entities.Select(e => e.Id));
 
 			foreach(var id in _pathsByEntityId.Keys.ToArray())
 				if(!entityIds.Contains(id))
 					_pathsByEntityId.Remove(id);
 
-			foreach(var entity in Viewmodel.Entities)
+			foreach(var entity in entities)
 			{
 				if(!_pathsByEntityId.TryGetValue(entity.Id, out var path))
 					_pathsByEntityId[entity.Id] = path = new(new[] { entity.Position });
@@ -127,7 +128,9 @@ namespace Gravity.Wpf.View
 			dc.DrawRectangle(Background, null, visibleArea);
 			dc.PushClip(new RectangleGeometry(visibleArea));
 
-			if(Viewmodel.Entities.Any())
+			var entities = Viewmodel.Entities.ToArrayLocked();
+
+			if(entities.Length != 0)
 			{
 				dc.PushTransform(new ScaleTransform(Viewmodel.Viewport.ScaleFactor,
 													Viewmodel.Viewport.ScaleFactor,
@@ -146,7 +149,7 @@ namespace Gravity.Wpf.View
 					dc.DrawGeometry(null, pathPen, path);
 				}
 
-				foreach(var entity in Viewmodel.Entities)
+				foreach(var entity in entities)
 				{
 					if(ReferenceEquals(entity, Viewmodel.SelectedEntity))
 					{

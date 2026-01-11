@@ -27,7 +27,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	#region Implementation of ISimulationEngine
 
 	/// <inheritdoc/>
-	Task ISimulationEngine.SimulateAsync(Entity[] entities, TimeSpan deltaTime)
+	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden und integrieren (synchron, aber parallelisiert)
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
@@ -91,8 +91,6 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 				if(entities[i].World.ClosedBoundaries)
 					entities[i].HandleCollisionWithWorldBoundaries();
 		}
-
-		return Task.CompletedTask;
 	}
 
 	#endregion

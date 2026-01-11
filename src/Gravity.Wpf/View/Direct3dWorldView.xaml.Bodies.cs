@@ -156,7 +156,7 @@ public partial class Direct3dWorldView
 		/// <inheritdoc/>
 		protected override void OnDraw(DrawEventArgs e)
 		{
-			var entities = World.Entities.ToArray();
+			var entities = World.Entities.ToArrayLocked();
 
 			var count = entities.Length;
 

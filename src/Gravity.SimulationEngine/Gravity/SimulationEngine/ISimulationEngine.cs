@@ -2,11 +2,10 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine;
 
 public interface ISimulationEngine
 {
-	Task SimulateAsync(Entity[] entities, TimeSpan deltaTime);
+	void Simulate(Entity[] entities, TimeSpan deltaTime);
 }

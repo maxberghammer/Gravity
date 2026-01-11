@@ -56,7 +56,7 @@ namespace Gravity.SimulationEngine.Benchmarks
             double sum = 0;
             for (int i = 0; i < 1000; i++)
             {
-                _engine.SimulateAsync(_entities, _dt).GetAwaiter().GetResult();
+                _engine.Simulate(_entities, _dt);
                 for (int e = 0; e < _entities.Length; e++)
                 {
                     sum += _entities[e].v.Length;

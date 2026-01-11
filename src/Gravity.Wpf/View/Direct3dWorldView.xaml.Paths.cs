@@ -181,7 +181,7 @@ public partial class Direct3dWorldView
 			if(!World.ShowPath)
 				return;
 
-			var entities = World.Entities.ToArray();
+			var entities = World.Entities.ToArrayLocked();
 			var entityIds = new HashSet<int>(entities.Select(e1 => e1.Id));
 
 			foreach(var id in _pathsByEntityId.Keys.Where(id => !entityIds.Contains(id)).ToArray())
