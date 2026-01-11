@@ -322,6 +322,84 @@ internal sealed class EntityTree
 		}
 
 		#endregion
+
+		// Iterative traversal to reduce recursion overhead
+		public Vector2D CalculateGravityIterative(Entity entity)
+		{
+			var dummy = _tree.CollidedEntities;
+			lock(dummy)
+			{
+				dummy.Clear();
+				return CalculateGravityIterative(entity, dummy);
+			}
+		}
+
+		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
+		{
+			var result = Vector2D.Zero;
+			var pool = System.Buffers.ArrayPool<EntityNode>.Shared;
+			var stack = pool.Rent(256);
+			var sp = 0;
+			stack[sp++] = this;
+
+			while(sp > 0)
+			{
+				var node = stack[--sp];
+
+				if(node._entities == 1)
+				{
+					if(ReferenceEquals(node._entity, entity))
+						continue;
+
+					var dist = entity.Position - node._entity!.Position;
+					var distLenSq = dist.LengthSquared;
+					var sumR = entity.r + node._entity.r;
+					var sumR2 = sumR * sumR;
+					if(distLenSq < sumR2)
+					{
+						collector.Add(new(node._entity, entity));
+						if(distLenSq <= double.Epsilon)
+							continue;
+						var invLen = 1.0d / Math.Sqrt(distLenSq);
+						var scale = sumR * invLen;
+						dist = dist * scale;
+						distLenSq = sumR2;
+					}
+					var invR = 1.0d / Math.Sqrt(distLenSq);
+					var invR3 = invR * invR * invR;
+					result += -IWorld.G * node._entity.m * dist * invR3;
+				}
+				else
+				{
+					var dist = entity.Position - node._centerOfMass;
+					var distLenSq = dist.LengthSquared;
+					if(node._nodeSizeLenSq < _tree._thetaSquared * distLenSq)
+					{
+						var invRNode = 1.0d / Math.Sqrt(distLenSq);
+						var invR3 = invRNode * invRNode * invRNode;
+						result += -IWorld.G * node._mass * dist * invR3;
+						continue;
+					}
+					for(var i = 0; i < node._childNodes.Length; i++)
+					{
+						var child = node._childNodes[i];
+						if(child == null)
+							continue;
+						if(sp >= stack.Length)
+						{
+							var newStack = pool.Rent(stack.Length * 2);
+							System.Array.Copy(stack, newStack, stack.Length);
+							pool.Return(stack, clearArray:false);
+							stack = newStack;
+						}
+						stack[sp++] = child;
+					}
+				}
+			}
+
+			pool.Return(stack, clearArray:false);
+			return result;
+		}
 	}
 
 	#endregion
@@ -360,10 +438,10 @@ internal sealed class EntityTree
 		=> _rootNode.Add(entity);
 
 	public Vector2D CalculateGravity(Entity entity)
-		=> _rootNode.CalculateGravity(entity);
+		=> _rootNode.CalculateGravityIterative(entity);
 
 	public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
-		=> _rootNode.CalculateGravity(entity, collector);
+		=> _rootNode.CalculateGravityIterative(entity, collector);
 
 	public void Release()
 	{
