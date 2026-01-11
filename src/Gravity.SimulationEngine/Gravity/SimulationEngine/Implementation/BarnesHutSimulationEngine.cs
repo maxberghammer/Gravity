@@ -14,14 +14,15 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 {
 	#region Fields
 
-	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
-	private readonly HashSet<long> _collisionKeys = new(1024);
-	private readonly IIntegrator _integrator;
+	private const int _maxCollectors = 1024;
+	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
 
 	// Pool for per-partition collision collectors to reduce List<T> and array allocations
 	private static readonly object _collectorPoolLock = new();
-	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
-	private const int _maxCollectors = 1024;
+
+	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
+	private readonly HashSet<long> _collisionKeys = new(1024);
+	private readonly IIntegrator _integrator;
 
 	#endregion
 
@@ -33,9 +34,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	}
 
 	public BarnesHutSimulationEngine(IIntegrator integrator)
-	{
-		_integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
-	}
+		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion
 
@@ -91,8 +90,11 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		}
 
 		// Pool world-boundary collision work: precompute viewport bounds once
-		var vp = entities.Length > 0 ? entities[0].World.Viewport : null;
-		if (vp != null)
+		var vp = entities.Length > 0
+					 ? entities[0].World.Viewport
+					 : null;
+
+		if(vp != null)
 		{
 			var topLeft = vp.TopLeft;
 			var bottomRight = vp.BottomRight;
@@ -101,11 +103,9 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 					entities[i].HandleCollisionWithWorldBoundaries(in topLeft, in bottomRight);
 		}
 		else
-		{
 			for(var i = 0; i < entities.Length; i++)
 				if(entities[i].World.ClosedBoundaries)
 					entities[i].HandleCollisionWithWorldBoundaries();
-		}
 	}
 
 	#endregion
@@ -115,12 +115,10 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 	private static List<EntityTree.CollisionPair> RentCollector()
 	{
 		lock(_collectorPoolLock)
-		{
 			if(_collectorPool.Count > 0)
 				return _collectorPool.Pop();
-		}
 
-		return new List<EntityTree.CollisionPair>(64);
+		return new(64);
 	}
 
 	private static void ReturnCollector(List<EntityTree.CollisionPair> list)
@@ -131,10 +129,8 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			list.Capacity = 4096;
 
 		lock(_collectorPoolLock)
-		{
 			if(_collectorPool.Count < _maxCollectors)
-				 _collectorPool.Push(list);
-		}
+				_collectorPool.Push(list);
 	}
 
 	// Synchronous physics application using fixed-chunk Parallel.For
@@ -165,24 +161,21 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		// Choose a cache-friendly block size relative to CPU count and entity count
 		var workers = Math.Max(1, Environment.ProcessorCount);
 		var blockSize = Math.Max(256, n / (workers * 8)); // favor moderate chunks to reduce scheduling overhead
-		if(blockSize < 256) blockSize = 256;
 
 		// Range partitioning avoids per-iteration loop-state overhead from Parallel.For(int)
 		var ranges = Partitioner.Create(0, n, blockSize);
 		Parallel.ForEach(ranges, range =>
-		{
-			var (start, end) = range;
-			var localCollisions = RentCollector();
-			for (var i = start; i < end; i++)
-				entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+								 {
+									 (var start, var end) = range;
+									 var localCollisions = RentCollector();
+									 for(var i = start; i < end; i++)
+										 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
 
-			if(localCollisions.Count > 0)
-			{
-				lock(tree.CollidedEntities)
-					tree.CollidedEntities.AddRange(localCollisions);
-			}
-			ReturnCollector(localCollisions);
-		});
+									 if(localCollisions.Count > 0)
+										 lock(tree.CollidedEntities)
+											 tree.CollidedEntities.AddRange(localCollisions);
+									 ReturnCollector(localCollisions);
+								 });
 
 		// Project collisions to id tuples
 		var collisions = tree.CollidedEntities;

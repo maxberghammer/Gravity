@@ -85,6 +85,7 @@ public class Entity
 	public double r { get; private set; }
 
 	// Cached squared radius for faster collision checks
+	// ReSharper disable once InconsistentNaming
 	public double r2 { get; private set; }
 
 	// ReSharper disable once InconsistentNaming

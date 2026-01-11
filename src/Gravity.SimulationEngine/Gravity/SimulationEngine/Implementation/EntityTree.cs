@@ -2,6 +2,7 @@
 // Erstellt von: Max Berghammer
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -17,24 +18,22 @@ internal sealed class EntityTree
 	{
 		#region Fields
 
-		private Vector2D _bottomRight;
 		private readonly EntityNode?[] _childNodes = new EntityNode?[4];
-		private double _nodeSizeLenSq; // cached squared size
-		private Vector2D _topLeft;
-		private EntityTree _tree = null!; // set in Init
+		private Vector2D _bottomRight;
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
 		private double _mass;
+		private double _nodeSizeLenSq; // cached squared size
+		private Vector2D _topLeft;
+		private EntityTree _tree = null!; // set in Init
 
 		#endregion
 
 		#region Construction
 
 		public EntityNode(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
-		{
-			Init(topLeft, bottomRight, tree);
-		}
+			=> Init(topLeft, bottomRight, tree);
 
 		#endregion
 
@@ -141,6 +140,7 @@ internal sealed class EntityTree
 
 				// Collision check using squared radii
 				var sumR = entity.r + _entity.r;
+
 				if(distLenSq < sumR * sumR)
 				{
 					lock(_tree.CollidedEntities)
@@ -204,6 +204,7 @@ internal sealed class EntityTree
 				// Collision check using squared radii
 				var sumR = entity.r + _entity.r;
 				var sumR2 = sumR * sumR;
+
 				if(distLenSq < sumR2)
 				{
 					collector.Add(new(_entity, entity));
@@ -257,30 +258,135 @@ internal sealed class EntityTree
 
 		public void ReleaseToPool()
 		{
-			for (var i = 0; i < _childNodes.Length; i++)
+			for(var i = 0; i < _childNodes.Length; i++)
 			{
 				var child = _childNodes[i];
-				if (child != null)
+
+				if(child != null)
 				{
 					child.ReleaseToPool();
 					_childNodes[i] = null;
 				}
 			}
+
 			ReturnNode(this);
 		}
 
-		private static void ReturnNode(EntityNode node)
+		// Iterative traversal to reduce recursion overhead
+		public Vector2D CalculateGravityIterative(Entity entity)
 		{
-			lock(_poolLock)
+			var dummy = _tree.CollidedEntities;
+
+			lock(dummy)
 			{
-				if (_nodePool.Count < _maxPoolSize)
-					_nodePool.Push(node);
+				dummy.Clear();
+
+				return CalculateGravityIterative(entity, dummy);
 			}
+		}
+
+		[SuppressMessage("Major Bug", "S2681", Justification = "<Pending>")]
+		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
+		{
+			var result = Vector2D.Zero;
+			var pool = ArrayPool<EntityNode>.Shared;
+			var stack = pool.Rent(256);
+			var sp = 0;
+			stack[sp++] = this;
+
+			while(sp > 0)
+			{
+				var node = stack[--sp];
+
+				// Fast-path: aggregated node accepted by Barnes–Hut
+				if(node._entities != 1)
+				{
+					var dist = entity.Position - node._centerOfMass;
+					var distLenSq = dist.LengthSquared;
+
+					if(node._nodeSizeLenSq < _tree._thetaSquared * distLenSq)
+					{
+						var invR = 1.0d / Math.Sqrt(distLenSq);
+						var invR2 = invR * invR;
+						var invR3 = invR * invR2;
+						var gm = -IWorld.G * node._mass;
+						result += gm * invR3 * dist;
+
+						continue;
+					}
+
+					// Push non-null children
+					for(var i = 0; i < node._childNodes.Length; i++)
+					{
+						var child = node._childNodes[i];
+
+						if(child == null)
+							continue;
+
+						if(sp >= stack.Length)
+						{
+							var newStack = pool.Rent(stack.Length * 2);
+							Array.Copy(stack, newStack, stack.Length);
+							pool.Return(stack, false);
+							stack = newStack;
+						}
+
+						stack[sp++] = child;
+					}
+
+					continue;
+				}
+
+				// Leaf path: single entity
+				if(ReferenceEquals(node._entity, entity))
+					continue;
+
+				var distLeaf = entity.Position - node._entity!.Position;
+				var distLeafLenSq = distLeaf.LengthSquared;
+
+				// Fused collision check using cached squared radii
+				var ra = entity.r;
+				var rb = node._entity.r;
+				var sumR = ra + rb;
+				var sumR2 = entity.r2 + node._entity.r2 + 2.0d * ra * rb;
+
+				double invRLeaf;
+
+				if(distLeafLenSq < sumR2)
+				{
+					collector.Add(new(node._entity, entity));
+
+					if(distLeafLenSq <= double.Epsilon)
+						continue;
+
+					var invLen = 1.0d / Math.Sqrt(distLeafLenSq);
+					distLeaf = distLeaf * (sumR * invLen);
+					invRLeaf = 1.0d / sumR; // |dist| == sumR now
+				}
+				else
+					invRLeaf = 1.0d / Math.Sqrt(distLeafLenSq);
+
+				var invRLeaf2 = invRLeaf * invRLeaf;
+				var invRLeaf3 = invRLeaf * invRLeaf2;
+				var gmLeaf = -IWorld.G * node._entity.m;
+				result += gmLeaf * invRLeaf3 * distLeaf;
+			}
+
+			pool.Return(stack, false);
+
+			return result;
 		}
 
 		#endregion
 
 		#region Implementation
+
+		private static void ReturnNode(EntityNode node)
+		{
+			lock(_poolLock)
+				if(_nodePool.Count < _maxPoolSize)
+					_nodePool.Push(node);
+		}
 
 		private EntityNode GetOrCreateChildNode(Vector2D position)
 		{
@@ -313,118 +419,27 @@ internal sealed class EntityTree
 			var dy = position.Y - _topLeft.Y;
 
 			// Branchless-ish quadrant selection: left(0)/right(1), top(0)/bottom(1)
-			var isRight = dx >= halfWidth ? 1 : 0;   // 0=left, 1=right
-			var isBottom = dy >= halfHeight ? 1 : 0; // 0=top, 1=bottom
+			var isRight = dx >= halfWidth
+							  ? 1
+							  : 0; // 0=left, 1=right
+			var isBottom = dy >= halfHeight
+							   ? 1
+							   : 0; // 0=top, 1=bottom
 
 			// Map (isRight, isBottom) to child index: (0,0)->0, (1,0)->1, (0,1)->2, (1,1)->3
 			return (isBottom << 1) | isRight;
 		}
 
 		#endregion
-
-		// Iterative traversal to reduce recursion overhead
-		public Vector2D CalculateGravityIterative(Entity entity)
-		{
-			var dummy = _tree.CollidedEntities;
-			lock(dummy)
-			{
-				dummy.Clear();
-				return CalculateGravityIterative(entity, dummy);
-			}
-		}
-
-		[SuppressMessage("Major Bug", "S2681", Justification = "<Pending>")]
-		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
-		{
-			var result = Vector2D.Zero;
-			var pool = System.Buffers.ArrayPool<EntityNode>.Shared;
-			var stack = pool.Rent(256);
-			var sp = 0;
-			stack[sp++] = this;
-
-			while(sp > 0)
-			{
-				var node = stack[--sp];
-
-				// Fast-path: aggregated node accepted by Barnes–Hut
-				if(node._entities != 1)
-				{
-					var dist = entity.Position - node._centerOfMass;
-					var distLenSq = dist.LengthSquared;
-					if(node._nodeSizeLenSq < _tree._thetaSquared * distLenSq)
-					{
-						var invR = 1.0d / Math.Sqrt(distLenSq);
-						var invR2 = invR * invR;
-						var invR3 = invR * invR2;
-						var gm = -IWorld.G * node._mass;
-						result += gm * invR3 * dist;
-						continue;
-					}
-
-					// Push non-null children
-					for(var i = 0; i < node._childNodes.Length; i++)
-					{
-						var child = node._childNodes[i];
-						if(child == null)
-							continue;
-						if(sp >= stack.Length)
-						{
-							var newStack = pool.Rent(stack.Length * 2);
-							System.Array.Copy(stack, newStack, stack.Length);
-							pool.Return(stack, clearArray:false);
-							stack = newStack;
-						}
-						stack[sp++] = child;
-					}
-					continue;
-				}
-
-				// Leaf path: single entity
-				if(ReferenceEquals(node._entity, entity))
-					continue;
-
-				var distLeaf = entity.Position - node._entity!.Position;
-				var distLeafLenSq = distLeaf.LengthSquared;
-
-				// Fused collision check using cached squared radii
-				var ra = entity.r;
-				var rb = node._entity.r;
-				var sumR = ra + rb;
-				var sumR2 = entity.r2 + node._entity.r2 + 2.0d * ra * rb;
-
-				double invRLeaf;
-				if(distLeafLenSq < sumR2)
-				{
-					collector.Add(new(node._entity, entity));
-					if(distLeafLenSq <= double.Epsilon)
-						continue;
-					var invLen = 1.0d / Math.Sqrt(distLeafLenSq);
-					distLeaf = distLeaf * (sumR * invLen);
-					invRLeaf = 1.0d / sumR; // |dist| == sumR now
-				}
-				else
-				{
-					invRLeaf = 1.0d / Math.Sqrt(distLeafLenSq);
-				}
-
-				var invRLeaf2 = invRLeaf * invRLeaf;
-				var invRLeaf3 = invRLeaf * invRLeaf2;
-				var gmLeaf = -IWorld.G * node._entity.m;
-				result += gmLeaf * invRLeaf3 * distLeaf;
-			}
-
-			pool.Return(stack, clearArray:false);
-			return result;
-		}
 	}
 
 	#endregion
 
 	#region Fields
 
-	private static readonly object _poolLock = new();
 	private const int _maxPoolSize = 1 << 20; // cap pool to avoid unbounded growth
 	private static readonly Stack<EntityNode> _nodePool = new();
+	private static readonly object _poolLock = new();
 	private readonly EntityNode _rootNode;
 	private readonly double _thetaSquared;
 
@@ -473,18 +488,17 @@ internal sealed class EntityTree
 	{
 		EntityNode? node = null;
 		lock(_poolLock)
-		{
 			if(_nodePool.Count > 0)
 				node = _nodePool.Pop();
-		}
 
 		if(node != null)
 		{
 			node.Init(topLeft, bottomRight, this);
+
 			return node;
 		}
 
-		return new EntityNode(topLeft, bottomRight, this);
+		return new(topLeft, bottomRight, this);
 	}
 
 	#endregion
