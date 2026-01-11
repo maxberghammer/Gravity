@@ -203,17 +203,20 @@ internal sealed class EntityTree
 
 				// Collision check using squared radii
 				var sumR = entity.r + _entity.r;
-				if(distLenSq < sumR * sumR)
+				var sumR2 = sumR * sumR;
+				if(distLenSq < sumR2)
 				{
 					collector.Add(new(_entity, entity));
 
 					if(distLenSq <= double.Epsilon)
 						return Vector2D.Zero;
 
-					// project to surface along normalized direction without extra sqrt
-					var invRCollision = 1.0d / Math.Sqrt(distLenSq);
-					dist = dist * (sumR * invRCollision);
-					distLenSq = sumR * sumR;
+					// project to surface along normalized direction without extra sqrt:
+					// dist = dist * (sumR / |dist|)
+					var invLen = 1.0d / Math.Sqrt(distLenSq);
+					var scale = sumR * invLen;
+					dist = dist * scale;
+					distLenSq = sumR2;
 				}
 
 				// invR3 = 1 / r^3 using a single sqrt
@@ -227,6 +230,7 @@ internal sealed class EntityTree
 				var dist = entity.Position - _centerOfMass;
 				var distLenSq = dist.LengthSquared;
 
+				// Barnes–Hut acceptance: compare node size to distance; avoid extra sqrt
 				if(_nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 				{
 					var invRNode = 1.0d / Math.Sqrt(distLenSq);
