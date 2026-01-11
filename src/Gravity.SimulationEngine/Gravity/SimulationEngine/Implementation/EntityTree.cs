@@ -333,6 +333,7 @@ internal sealed class EntityTree
 			}
 		}
 
+		[SuppressMessage("Major Bug", "S2681", Justification = "<Pending>")]
 		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
 		{
 			var result = Vector2D.Zero;
@@ -354,19 +355,22 @@ internal sealed class EntityTree
 					var distLenSq = dist.LengthSquared;
 					var sumR = entity.r + node._entity.r;
 					var sumR2 = sumR * sumR;
+					double invR;
 					if(distLenSq < sumR2)
 					{
 						collector.Add(new(node._entity, entity));
 						if(distLenSq <= double.Epsilon)
 							continue;
-						var invLen = 1.0d / Math.Sqrt(distLenSq);
-						var scale = sumR * invLen;
-						dist = dist * scale;
-						distLenSq = sumR2;
+						var invLen = 1.0d / Math.Sqrt(distLenSq); dist = dist * (sumR * invLen); invR = 1.0d / sumR;
+                    }
+					else
+					{
+						invR = 1.0d / Math.Sqrt(distLenSq);
 					}
-					var invR = 1.0d / Math.Sqrt(distLenSq);
-					var invR3 = invR * invR * invR;
-					result += -IWorld.G * node._entity.m * dist * invR3;
+					var invR2 = invR * invR;
+					var invR3 = invR * invR2;
+					var gm = -IWorld.G * node._entity.m;
+					result += gm * invR3 * dist;
 				}
 				else
 				{
@@ -374,10 +378,12 @@ internal sealed class EntityTree
 					var distLenSq = dist.LengthSquared;
 					if(node._nodeSizeLenSq < _tree._thetaSquared * distLenSq)
 					{
-						var invRNode = 1.0d / Math.Sqrt(distLenSq);
-						var invR3 = invRNode * invRNode * invRNode;
-						result += -IWorld.G * node._mass * dist * invR3;
-						continue;
+						var invR = 1.0d / Math.Sqrt(distLenSq);
+                        var invR2 = invR * invR;
+                        var invR3 = invR * invR2;
+                        var gm = -IWorld.G * node._mass;
+                        result += gm * invR3 * dist;
+                        continue;
 					}
 					for(var i = 0; i < node._childNodes.Length; i++)
 					{
