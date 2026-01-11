@@ -15,12 +15,26 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
 	private readonly HashSet<long> _collisionKeys = new(1024);
-	private readonly IIntegrator _integrator = new RungeKuttaIntegrator();
+	private readonly IIntegrator _integrator;
 
 	// Pool for per-partition collision collectors to reduce List<T> and array allocations
 	private static readonly object _collectorPoolLock = new();
 	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
 	private const int _maxCollectors = 1024;
+
+	#endregion
+
+	#region Construction
+
+	public BarnesHutSimulationEngine()
+		: this(new RungeKuttaIntegrator())
+	{
+	}
+
+	public BarnesHutSimulationEngine(IIntegrator integrator)
+	{
+		_integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
+	}
 
 	#endregion
 

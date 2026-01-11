@@ -100,7 +100,7 @@ internal class World : NotifyPropertyChanged,
 	private static readonly Guid _randomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
 	private readonly FrameTiming _frameTiming = new();
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
-	private readonly ISimulationEngine _simulationEngine = Factory.CreateBarnesHut();
+	private readonly ISimulationEngine _simulationEngine = Factory.CreateBarnesHutWithLeapfrog();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
 	private EntityPreset _selectedEntityPreset;
