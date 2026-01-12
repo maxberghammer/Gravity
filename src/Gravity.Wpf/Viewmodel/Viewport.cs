@@ -8,23 +8,12 @@ using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
 
-internal class Viewport : NotifyPropertyChanged,
-						  IViewport
+public class Viewport : NotifyPropertyChanged,
+						IViewport
 {
-	#region Fields
-
-	private DragIndicator? _dragIndicator;
-	private double _scale;
-
-	#endregion
-
 	#region Interface
 
-	public DragIndicator? DragIndicator { get => _dragIndicator; set => SetProperty(ref _dragIndicator, value); }
-
-	public Vector2D TopLeft { get; set; }
-
-	public Vector2D BottomRight { get; set; }
+	public DragIndicator? DragIndicator { get; set => SetProperty(ref field, value); }
 
 	public Vector2D Center
 		=> Size / 2 + TopLeft;
@@ -34,12 +23,12 @@ internal class Viewport : NotifyPropertyChanged,
 
 	public double Scale
 	{
-		get => _scale;
+		get;
 		set
 		{
 			value = Math.Min(7, value);
 
-			if(!SetProperty(ref _scale, value))
+			if(!SetProperty(ref field, value))
 				return;
 
 			RaiseOtherPropertyChanged(nameof(ScaleFactor));
@@ -52,6 +41,7 @@ internal class Viewport : NotifyPropertyChanged,
 	// ReSharper disable once UnusedMember.Global
 	public void CenterTo(Entity entity)
 	{
+		ArgumentNullException.ThrowIfNull(entity);
 		var size = BottomRight - TopLeft;
 
 		TopLeft = entity.Position - size / 2;
@@ -84,6 +74,14 @@ internal class Viewport : NotifyPropertyChanged,
 
 		return new(viewportVector.X, viewportVector.Y);
 	}
+
+	#endregion
+
+	#region Implementation of IViewport
+
+	public Vector2D TopLeft { get; set; }
+
+	public Vector2D BottomRight { get; set; }
 
 	#endregion
 }

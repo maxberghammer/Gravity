@@ -153,6 +153,7 @@ public partial class Direct3dWorldView
 		private const int _maxPathSegments = 10_000;
 		private readonly Dictionary<int, PathBuffer> _pathsByEntityId = new();
 		private ID3D11Buffer? _buffer;
+		private int _bufferCapacity; // in vertices
 		private ID3D11InputLayout? _inputLayout;
 		private ID3D11Buffer? _paramsBuffer;
 		private ID3D11PixelShader? _pixelShader;
@@ -182,66 +183,148 @@ public partial class Direct3dWorldView
 				return;
 
 			var entities = World.Entities.ToArrayLocked();
-			var entityIds = new HashSet<int>(entities.Select(e1 => e1.Id));
 
-			foreach(var id in _pathsByEntityId.Keys.Where(id => !entityIds.Contains(id)).ToArray())
-				_pathsByEntityId.Remove(id);
-
-			// Anhängen wenn Bewegungsschwelle überschritten
-			foreach(var entity in entities)
+			// Remove paths for entities that no longer exist without LINQ/HashSet churn
+			if(_pathsByEntityId.Count > 0)
 			{
+				var tmpIds = entities.Length <= 1024
+								 ? stackalloc int[entities.Length]
+								 : new int[entities.Length];
+				for(var i = 0; i < entities.Length; i++)
+					tmpIds[i] = entities[i].Id;
+				var toRemove = entities.Length <= 1024
+								   ? stackalloc int[_pathsByEntityId.Count]
+								   : new int[_pathsByEntityId.Count];
+				var rm = 0;
+
+				foreach(var key in _pathsByEntityId.Keys)
+				{
+					var found = false;
+
+					for(var i = 0; i < tmpIds.Length; i++)
+						if(tmpIds[i] == key)
+						{
+							found = true;
+
+							break;
+						}
+
+					if(!found)
+						toRemove[rm++] = key;
+				}
+
+				for(var i = 0; i < rm; i++)
+					_pathsByEntityId.Remove(toRemove[i]);
+			}
+
+			// Append when movement threshold exceeded
+			var moveThreshold = (float)(1.0 / World.Viewport.ScaleFactor);
+
+			for(var i = 0; i < entities.Length; i++)
+			{
+				var entity = entities[i];
 				if(!_pathsByEntityId.TryGetValue(entity.Id, out var pathBuf))
 					_pathsByEntityId[entity.Id] = pathBuf = new(_maxPathSegments);
-
 				var last = pathBuf.LastOrDefault();
 				var pos = new Vector2((float)entity.Position.X, (float)entity.Position.Y);
-
 				if(pathBuf.Count == 0 ||
-				   Vector2.Distance(pos, last) >= (float)(1.0 / World.Viewport.ScaleFactor))
+				   Vector2.Distance(pos, last) >= moveThreshold)
 					pathBuf.Add(pos);
 			}
 
-			if(1 > _pathsByEntityId.Count)
+			if(_pathsByEntityId.Count < 1)
 				return;
 
 			EnsureBuffers(e.Device);
 
-			// Pipeline für Linien
+			// Pipeline for line strips
 			e.Context.IASetInputLayout(_inputLayout);
 			e.Context.IASetPrimitiveTopology(PrimitiveTopology.LineStrip);
 			e.Context.VSSetShader(_vertexShader);
 			e.Context.PSSetShader(_pixelShader);
 
-			// ConstantBuffer b1 für Pfadparameter binden
+			// ConstantBuffer b1 for path params
 			e.Context.VSSetConstantBuffer(1, _paramsBuffer);
 
-			// Vertexbuffer binden (stride = float2)
+			// Bind vertex buffer (stride = float2)
 			var stride = (uint)Marshal.SizeOf<Vector2>();
 			var offset = 0u;
 			e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
 
-			// Für jeden Pfad den Buffer neu befüllen und zeichnen
-			foreach(var path in _pathsByEntityId.Values)
+			// Build compact list of paths to draw
+			var valuesArray = _pathsByEntityId.Values.ToArray();
+			var pathCount = 0;
+			for(var vi = 0; vi < valuesArray.Length; vi++)
+				if(valuesArray[vi].Count >= 2)
+					pathCount++;
+
+			if(pathCount == 0)
+				return;
+
+			var counts = pathCount <= 1024
+							 ? stackalloc int[pathCount]
+							 : new int[pathCount];
+			var bases = pathCount <= 1024
+							? stackalloc int[pathCount]
+							: new int[pathCount];
+			int totalVerts = 0,
+				idx = 0;
+
+			for(var vi = 0; vi < valuesArray.Length; vi++)
 			{
-				if(path.Count < 2)
+				var p = valuesArray[vi];
+
+				if(p.Count < 2)
 					continue;
 
-				// Map/Unmap mit WriteDiscard – wir zeichnen sofort danach
-				e.Context.Map(_buffer, 0, MapMode.WriteDiscard, MapFlags.None, out var box);
+				counts[idx] = p.Count;
+				bases[idx] = totalVerts;
+				totalVerts += p.Count;
+				idx++;
+			}
 
-				var byteSpan = box.AsSpan(path.Count * Marshal.SizeOf<Vector2>());
-				var dst = MemoryMarshal.Cast<byte, Vector2>(byteSpan);
+			// Map once and copy concatenated
+			// Ensure buffer is large enough
+			if(totalVerts > _bufferCapacity)
+			{
+				_eDisposeBuffer();
+				_bufferCapacity = Math.Max(totalVerts, _bufferCapacity * 2);
+				_buffer = e.Device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector2>()), BindFlags.VertexBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write));
+				// Re-bind vertex buffer with new capacity
+				e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
+			}
 
-				// Kopieren (max. 2 Slices bei Wrap)
-				path.CopyTo(dst);
+			e.Context.Map(_buffer, 0, MapMode.WriteDiscard, MapFlags.None, out var box);
+			var byteSpanAll = box.AsSpan(totalVerts * Marshal.SizeOf<Vector2>());
+			var dstAll = MemoryMarshal.Cast<byte, Vector2>(byteSpanAll);
+			var writeIdx = 0;
 
-				e.Context.Unmap(_buffer, 0);
+			for(var vi = 0; vi < valuesArray.Length; vi++)
+			{
+				var p = valuesArray[vi];
 
-				// Pfadlänge in b1 setzen (für SV_VertexID-Normalisierung)
-				e.Context.MapConstantBuffer(_paramsBuffer!, new PathParams { PathVertexCount = (uint)path.Count });
+				if(p.Count < 2)
+					continue;
 
-				// Zeichnen
-				e.Context.Draw((uint)path.Count, 0);
+				p.CopyTo(dstAll.Slice(bases[writeIdx], counts[writeIdx]));
+				writeIdx++;
+			}
+
+			e.Context.Unmap(_buffer, 0);
+
+			void _eDisposeBuffer()
+			{
+				_buffer?.Dispose();
+				_buffer = null;
+			}
+
+			// Draw each path from its base offset
+			for(var i = 0; i < pathCount; i++)
+			{
+				// Set path length in b1
+				e.Context.MapConstantBuffer(_paramsBuffer!, new PathParams { PathVertexCount = (uint)counts[i] });
+				// Draw
+				e.Context.Draw((uint)counts[i], (uint)bases[i]);
 			}
 		}
 
@@ -272,10 +355,14 @@ public partial class Direct3dWorldView
 
 		private void EnsureBuffers(ID3D11Device device)
 		{
-			_buffer ??= device.CreateBuffer(new((uint)(_maxPathSegments * Marshal.SizeOf<Vector2>()),
-												BindFlags.VertexBuffer,
-												ResourceUsage.Dynamic,
-												CpuAccessFlags.Write));
+			if(_buffer == null)
+			{
+				_bufferCapacity = _maxPathSegments;
+				_buffer = device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector2>()),
+												  BindFlags.VertexBuffer,
+												  ResourceUsage.Dynamic,
+												  CpuAccessFlags.Write));
+			}
 
 			// b1: PathParams (16-Byte aligned)
 			_paramsBuffer ??= device.CreateBuffer([new PathParams { PathVertexCount = 0 }],

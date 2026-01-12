@@ -6,7 +6,7 @@ using Gravity.SimulationEngine;
 
 namespace Gravity.Wpf.Viewmodel;
 
-internal class EntityPreset
+public class EntityPreset
 {
 	#region Construction
 

@@ -6,31 +6,22 @@ using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
 
-internal class DragIndicator : NotifyPropertyChanged
+public class DragIndicator : NotifyPropertyChanged
 {
-	#region Fields
-
-	private double mDiameter;
-	private Vector mEnd;
-	private string? mLabel;
-	private Vector mStart;
-
-	#endregion
-
 	#region Interface
 
-	public Vector Start { get => mStart; set => SetProperty(ref mStart, value); }
+	public Vector Start { get; set => SetProperty(ref field, value); }
 
-	public Vector End { get => mEnd; set => SetProperty(ref mEnd, value); }
+	public Vector End { get; set => SetProperty(ref field, value); }
 
-	public string? Label { get => mLabel; set => SetProperty(ref mLabel, value); }
+	public string? Label { get; set => SetProperty(ref field, value); }
 
 	public double Diameter
 	{
-		get => mDiameter;
+		get;
 		set
 		{
-			if(SetProperty(ref mDiameter, value))
+			if(SetProperty(ref field, value))
 				RaiseOtherPropertyChanged(nameof(EntityTranslate));
 		}
 	}

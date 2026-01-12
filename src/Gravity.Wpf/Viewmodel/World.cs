@@ -18,8 +18,8 @@ using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
 
-internal class World : NotifyPropertyChanged,
-					   IWorld
+public class World : NotifyPropertyChanged,
+					 IWorld
 {
 	#region Internal types
 
@@ -86,7 +86,7 @@ internal class World : NotifyPropertyChanged,
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
 
-	public EntityPreset[] EntityPresets { get; } =
+	public IReadOnlyList<EntityPreset> EntityPresets { get; } =
 		[
 			EntityPreset.FromDensity("Eisenkugel klein", 7874, 10, Color.DarkGray, Color.White, 2.0d, new("C53FA0C5-AB12-43F7-9548-C098D5C44ADF")),
 			EntityPreset.FromDensity("Eisenkugel mittel", 7874, 20, Color.DarkGray, Color.White, 2.0d,
@@ -102,7 +102,7 @@ internal class World : NotifyPropertyChanged,
 			new("Mond", 7.346E22d, 3474000.0d / 2, Color.DarkGray, new("71A1DD4C-5B87-405C-8033-B033B46A5237"))
 		];
 
-	public EngineType[] EngineTypes { get; } =
+	public IReadOnlyList<EngineType> EngineTypes { get; } =
 		[
 			new()
 			{
@@ -143,6 +143,7 @@ internal class World : NotifyPropertyChanged,
 			if(!SetProperty(ref field, value))
 				return;
 
+			ArgumentNullException.ThrowIfNull(value);
 			_simulationEngine = Factory.Create(value.Type);
 		}
 	}
