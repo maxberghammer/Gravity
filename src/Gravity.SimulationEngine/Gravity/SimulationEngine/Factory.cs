@@ -20,11 +20,11 @@ public static class Factory
 	public static ISimulationEngine Create(SimulationEngineType type)
 		=> type switch
 		{
-			SimulationEngineType.Standard                => new StandardSimulationEngine(),
-			SimulationEngineType.BarnesHutWithRungeKutta => new BarnesHutSimulationEngine(new RungeKuttaIntegrator()),
-			SimulationEngineType.BarnesHutWithLeapfrog   => new BarnesHutSimulationEngine(new LeapfrogIntegrator()),
-			SimulationEngineType.ClusteredNBody          => new ClusteredNBodySimulationEngine(),
-			SimulationEngineType.Adaptive                => new AdaptiveSimulationEngine(),
+			SimulationEngineType.Standard                => new Implementation.Standard.SimulationEngine(),
+			SimulationEngineType.BarnesHutWithRungeKutta => new Implementation.BarnesHut.SimulationEngine(new RungeKuttaIntegrator()),
+			SimulationEngineType.BarnesHutWithLeapfrog   => new Implementation.BarnesHut.SimulationEngine(new LeapfrogIntegrator()),
+			SimulationEngineType.ClusteredNBody          => new Implementation.ClusteredNBody.SimulationEngine(),
+			SimulationEngineType.Adaptive                => new Implementation.Adaptive.SimulationEngine(),
 			_                                            => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		};
 

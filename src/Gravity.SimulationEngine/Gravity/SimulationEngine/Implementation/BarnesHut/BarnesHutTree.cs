@@ -5,9 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.BarnesHut;
 
-internal sealed class EntityTree
+internal sealed class BarnesHutTree
 {
 	#region Internal types
 
@@ -21,7 +21,7 @@ internal sealed class EntityTree
 		private readonly EntityNode?[] _childNodes = new EntityNode?[4];
 		private double _nodeSizeLenSq; // cached squared size
 		private Vector2D _topLeft;
-		private EntityTree _tree = null!; // set in Init
+		private BarnesHutTree _tree = null!; // set in Init
 		private Vector2D _centerOfMass;
 		private int _entities;
 		private Entity? _entity;
@@ -32,7 +32,7 @@ internal sealed class EntityTree
 
 		#region Construction
 
-		public EntityNode(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
+		public EntityNode(Vector2D topLeft, Vector2D bottomRight, BarnesHutTree tree)
 		{
 			Init(topLeft, bottomRight, tree);
 		}
@@ -41,7 +41,7 @@ internal sealed class EntityTree
 
 		#region Interface
 
-		public void Init(Vector2D topLeft, Vector2D bottomRight, EntityTree tree)
+		public void Init(Vector2D topLeft, Vector2D bottomRight, BarnesHutTree tree)
 		{
 			_topLeft = topLeft;
 			_bottomRight = bottomRight;
@@ -362,7 +362,7 @@ internal sealed class EntityTree
 
 	#region Construction
 
-	public EntityTree(Vector2D topLeft, Vector2D bottomRight, double theta)
+	public BarnesHutTree(Vector2D topLeft, Vector2D bottomRight, double theta)
 	{
 		_thetaSquared = theta * theta;
 		_rootNode = RentNode(topLeft, bottomRight);

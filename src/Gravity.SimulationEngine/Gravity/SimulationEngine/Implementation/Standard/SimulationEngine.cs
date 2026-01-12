@@ -7,9 +7,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.Standard;
 
-internal sealed class StandardSimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Fields
 

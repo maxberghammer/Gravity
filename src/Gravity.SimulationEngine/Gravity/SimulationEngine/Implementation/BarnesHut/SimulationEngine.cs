@@ -8,14 +8,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Gravity.SimulationEngine.Implementation.Integrators;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.BarnesHut;
 
-internal sealed class BarnesHutSimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Fields
 
 	private const int _maxCollectors = 1024;
-	private static readonly Stack<List<EntityTree.CollisionPair>> _collectorPool = new();
+	private static readonly Stack<List<BarnesHutTree.CollisionPair>> _collectorPool = new();
 
 	// Pool for per-partition collision collectors to reduce List<T> and array allocations
 	private static readonly object _collectorPoolLock = new();
@@ -28,7 +28,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	#region Construction
 
-	public BarnesHutSimulationEngine(IIntegrator integrator)
+	public SimulationEngine(IIntegrator integrator)
 		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion
@@ -107,7 +107,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	#region Implementation
 
-	private static List<EntityTree.CollisionPair> RentCollector()
+	private static List<BarnesHutTree.CollisionPair> RentCollector()
 	{
 		lock(_collectorPoolLock)
 			if(_collectorPool.Count > 0)
@@ -116,7 +116,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 		return new(64);
 	}
 
-	private static void ReturnCollector(List<EntityTree.CollisionPair> list)
+	private static void ReturnCollector(List<BarnesHutTree.CollisionPair> list)
 	{
 		list.Clear();
 		// Trim excessive capacity to keep array sizes bounded
@@ -194,7 +194,7 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			theta = Math.Clamp(raw, 0.6, 1.2);
 		}
 
-		var tree = new EntityTree(new(l, t), new(r, b), theta);
+		var tree = new BarnesHutTree(new(l, t), new(r, b), theta);
 
 		for(var i = 0; i < entities.Length; i++)
 			tree.Add(entities[i]);

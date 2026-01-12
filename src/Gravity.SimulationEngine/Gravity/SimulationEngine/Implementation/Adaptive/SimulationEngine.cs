@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.Adaptive;
 
-internal sealed class AdaptiveSimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Tunables
 
@@ -29,7 +29,7 @@ internal sealed class AdaptiveSimulationEngine : ISimulationEngine
 
 		while(remaining > 0.0 && steps < MaxSubsteps)
 		{
-			// 1) Kräfte bzw. Beschleunigungen berechnen (Barnes–Hut via EntityTree)
+			// 1) Kräfte bzw. Beschleunigungen berechnen (Barnes–Hut via EntityTree2)
 			ComputeAccelerations(entities);
 
 			// 2) dtO bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
@@ -118,7 +118,7 @@ internal sealed class AdaptiveSimulationEngine : ISimulationEngine
 		// Theta adaptiv wie in Barnes–Hut (inkl. Small-N-Overrides)
 		var theta = ComputeTheta(entities, l, t, r, b);
 
-		var tree = new EntityTree(new(l, t), new(r, b), theta);
+		var tree = new BarnesHutTree(new(l, t), new(r, b), theta);
 		for(var i = 0; i < n; i++) tree.Add(entities[i]);
 		tree.ComputeMassDistribution();
 

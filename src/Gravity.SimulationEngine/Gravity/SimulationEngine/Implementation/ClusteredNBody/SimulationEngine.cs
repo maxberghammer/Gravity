@@ -4,9 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Gravity.SimulationEngine.Implementation.Integrators;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.ClusteredNBody;
 
-internal sealed class ClusteredNBodySimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Fields
 
@@ -16,12 +16,12 @@ internal sealed class ClusteredNBodySimulationEngine : ISimulationEngine
 
 	#region Construction
 
-	public ClusteredNBodySimulationEngine()
+	public SimulationEngine()
 		: this(new LeapfrogIntegrator())
 	{
 	}
 
-	public ClusteredNBodySimulationEngine(IIntegrator integrator)
+	public SimulationEngine(IIntegrator integrator)
 		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion

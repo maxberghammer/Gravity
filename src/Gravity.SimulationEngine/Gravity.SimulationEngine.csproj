@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	
 	<!-- Allgemeine Projekt-Einstellungen -->
-	<Import Project="$(CommonProjectSettingsFilePath)"/>
+	<Import Project="$(CommonProjectSettingsFilePath)" />
 
 	<PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-		<RootNamespace/>
+		<RootNamespace />
   </PropertyGroup>
 
 </Project>
