@@ -23,6 +23,17 @@ internal class World : NotifyPropertyChanged,
 {
 	#region Internal types
 
+	public sealed class EngineType
+	{
+		#region Interface
+
+		public Factory.SimulationEngineType Type { get; init; }
+
+		public required string Name { get; init; }
+
+		#endregion
+	}
+
 	private sealed class State
 	{
 		#region Internal types
@@ -100,10 +111,9 @@ internal class World : NotifyPropertyChanged,
 	private static readonly Guid _randomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
 	private readonly FrameTiming _frameTiming = new();
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
-	private readonly ISimulationEngine _simulationEngine = Factory.CreateBarnesHutWithLeapfrog();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
-	private EntityPreset _selectedEntityPreset;
+	private ISimulationEngine? _simulationEngine;
 
 	#endregion
 
@@ -112,7 +122,8 @@ internal class World : NotifyPropertyChanged,
 	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
 	public World()
 	{
-		_selectedEntityPreset = EntityPresets[0];
+		SelectedEntityPreset = EntityPresets[0];
+		SelectedEngineType = EngineTypes[0];
 
 		_respawnersById[_randomRespawnerId] = () => CreateRandomEntities(1, true);
 		_respawnersById[_randomOrbittingRespawnerId] = () => CreateRandomOrbitEntities(1, true);
@@ -132,7 +143,7 @@ internal class World : NotifyPropertyChanged,
 	}
 
 	#endregion
-	
+
 	#region Interface
 
 	public event EventHandler? Updated;
@@ -160,11 +171,54 @@ internal class World : NotifyPropertyChanged,
 			new("Mond", 7.346E22d, 3474000.0d / 2, Color.DarkGray, new("71A1DD4C-5B87-405C-8033-B033B46A5237"))
 		];
 
+	public EngineType[] EngineTypes { get; } =
+		[
+			new()
+			{
+				Type = Factory.SimulationEngineType.Adaptive,
+				Name = "Adaptive"
+			},
+			new()
+			{
+				Type = Factory.SimulationEngineType.BarnesHutWithLeapfrog,
+				Name = "Barnes-Hut mit Leapfrog"
+			},
+			new()
+			{
+				Type = Factory.SimulationEngineType.BarnesHutWithRungeKutta,
+				Name = "Barnes-Hut mit Runge-Kutta"
+			},
+			new()
+			{
+				Type = Factory.SimulationEngineType.Standard,
+				Name = "Direkte N-Body"
+			},
+			new()
+			{
+				Type = Factory.SimulationEngineType.ClusteredNBody,
+				Name = "Clustered N-Body"
+			}
+		];
+
 	public ObservableCollection<Entity> Entities { get; } = [];
 
-	public EntityPreset SelectedEntityPreset { get => _selectedEntityPreset; set => SetProperty(ref _selectedEntityPreset, value); }
+	public EntityPreset SelectedEntityPreset { get; set => SetProperty(ref field, value); }
+
+	public EngineType SelectedEngineType
+	{
+		get;
+		set
+		{
+			if(!SetProperty(ref field, value))
+				return;
+
+			_simulationEngine = Factory.Create(value.Type);
+		}
+	}
 
 	public bool IsEntityPresetSelectionVisible { get; set => SetProperty(ref field, value); }
+
+	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
 
 	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
 
@@ -356,15 +410,19 @@ internal class World : NotifyPropertyChanged,
 		TimeScale = state.TimeScale;
 
 		Entities.AddRangeLocked(state.Entities
-									   .Select(e=>new Entity(e.Position,
-														  e.r,
-														  e.m,
-														  e.v,
-														  Vector2D.Zero,
-														  this,
-														  Color.Parse(e.FillColor),
-														  Color.Parse(e.StrokeColor),
-														  e.StrokeWidth)));
+									 .Select(e => new Entity(e.Position,
+															 e.r,
+															 e.m,
+															 e.v,
+															 Vector2D.Zero,
+															 this,
+															 string.IsNullOrEmpty(e.FillColor)
+																 ? Color.Transparent
+																 : Color.Parse(e.FillColor),
+															 string.IsNullOrEmpty(e.StrokeColor)
+																 ? null
+																 : Color.Parse(e.StrokeColor),
+															 e.StrokeWidth)));
 	}
 
 	#endregion
@@ -422,9 +480,10 @@ internal class World : NotifyPropertyChanged,
 	{
 		var entities = Entities.ToArrayLocked();
 
-		if (entities.Length == 0)
+		if(entities.Length == 0 ||
+		   _simulationEngine == null)
 			return;
-		
+
 		_simulationEngine.Simulate(entities, deltaTime);
 
 		var respawner = CurrentRespawnerId.HasValue
@@ -437,7 +496,7 @@ internal class World : NotifyPropertyChanged,
 		Entities.RemoveRangeLocked(absorbedEntities);
 
 		// Bei Bedarf Respawner aufrufen
-		if (null==respawner)
+		if(null == respawner)
 			return;
 
 		foreach(var _ in absorbedEntities)

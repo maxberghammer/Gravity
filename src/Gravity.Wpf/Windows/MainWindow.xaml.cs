@@ -34,7 +34,7 @@ internal sealed partial class MainWindow
 
 		_uiUpdateTimer = new(DispatcherPriority.Render)
 		{
-			Interval = TimeSpan.FromSeconds(1.0d / mViewmodel.DisplayFrequency),
+			Interval = TimeSpan.FromSeconds(1.0d / _viewmodel.DisplayFrequency),
 			IsEnabled = true
 		};
 
@@ -47,13 +47,13 @@ internal sealed partial class MainWindow
 
 	private void OnUpdateUi(object? sender, EventArgs args)
 	{
-		mLblSelectedEntitym.Visibility = mLblSelectedEntityv.Visibility = null != mViewmodel.SelectedEntity
+		_lblSelectedEntitym.Visibility = _lblSelectedEntityv.Visibility = null != _viewmodel.SelectedEntity
 																			  ? Visibility.Visible
 																			  : Visibility.Collapsed;
-		mLblSelectedEntityv.Content = mViewmodel.SelectedEntity?.v;
-		mLblSelectedEntitym.Content = mViewmodel.SelectedEntity?.m;
-		mLblCpuUtilizationInPercent.Content = mViewmodel.CpuUtilizationInPercent;
-		mLblRuntimeInSeconds.Content = mViewmodel.RuntimeInSeconds;
+		_lblSelectedEntityv.Content = _viewmodel.SelectedEntity?.v;
+		_lblSelectedEntitym.Content = _viewmodel.SelectedEntity?.m;
+		_lblCpuUtilizationInPercent.Content = _viewmodel.CpuUtilizationInPercent;
+		_lblRuntimeInSeconds.Content = _viewmodel.RuntimeInSeconds;
 	}
 
     [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
@@ -61,152 +61,152 @@ internal sealed partial class MainWindow
 	{
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 
-		_wasRunning = mViewmodel.IsRunning;
-		mViewmodel.IsRunning = false;
+		_wasRunning = _viewmodel.IsRunning;
+		_viewmodel.IsRunning = false;
 
 		if (Keyboard.Modifiers == ModifierKeys.None &&
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
-			mViewmodel.SelectEntity(viewportPoint, _viewportSelectionSearchRadius);
+			_viewmodel.SelectEntity(viewportPoint, _viewportSelectionSearchRadius);
 
-			if (null != mViewmodel.SelectedEntity)
+			if (null != _viewmodel.SelectedEntity)
 			{
-				var entityViewportPoint = mViewmodel.Viewport.ToViewport(mViewmodel.SelectedEntity.Position);
+				var entityViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedEntity.Position);
 
-				mViewmodel.Viewport.DragIndicator = new()
+				_viewmodel.Viewport.DragIndicator = new()
 				{
 					Start = new(entityViewportPoint.X, entityViewportPoint.Y),
 					End = new(entityViewportPoint.X, entityViewportPoint.Y),
-					Diameter = (mViewmodel.SelectedEntity.r + mViewmodel.SelectedEntity.StrokeWidth) * 2 * mViewmodel.Viewport.ScaleFactor
+					Diameter = (_viewmodel.SelectedEntity.r + _viewmodel.SelectedEntity.StrokeWidth) * 2 * _viewmodel.Viewport.ScaleFactor
 				};
 
 				return;
 			}
 		}
 
-		_referencePosition = mViewmodel.Viewport.ToWorld(viewportPoint);
-		mViewmodel.Viewport.DragIndicator = new()
+		_referencePosition = _viewmodel.Viewport.ToWorld(viewportPoint);
+		_viewmodel.Viewport.DragIndicator = new()
 		{
 			Start = new(viewportPoint.X, viewportPoint.Y),
 			End = new(viewportPoint.X, viewportPoint.Y),
-			Diameter = (mViewmodel.SelectedEntityPreset.r + mViewmodel.SelectedEntityPreset.StrokeWidth) * 2 *
-														   mViewmodel.Viewport.ScaleFactor
+			Diameter = (_viewmodel.SelectedEntityPreset.r + _viewmodel.SelectedEntityPreset.StrokeWidth) * 2 *
+														   _viewmodel.Viewport.ScaleFactor
 		};
 	}
 
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
-		if (null == mViewmodel.Viewport.DragIndicator)
+		if (null == _viewmodel.Viewport.DragIndicator)
 			return;
 
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 
-		mViewmodel.Viewport.DragIndicator.End = new(viewportPoint.X, viewportPoint.Y);
+		_viewmodel.Viewport.DragIndicator.End = new(viewportPoint.X, viewportPoint.Y);
 
-		var position = mViewmodel.Viewport.ToWorld(viewportPoint);
+		var position = _viewmodel.Viewport.ToWorld(viewportPoint);
 
 		if (_referencePosition.HasValue)
 		{
-			mViewmodel.Viewport.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
-														  ? $"Δv={(position - _referencePosition.Value) / mViewmodel.TimeScaleFactor}m/s"
-														  : $"v={(position - _referencePosition.Value) / mViewmodel.TimeScaleFactor}m/s";
+			_viewmodel.Viewport.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
+														  ? $"Δv={(position - _referencePosition.Value) / _viewmodel.TimeScaleFactor}m/s"
+														  : $"v={(position - _referencePosition.Value) / _viewmodel.TimeScaleFactor}m/s";
 
 			return;
 		}
 
-		if (null != mViewmodel.SelectedEntity)
-			mViewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
-														  ? $"Δv={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s"
-														  : $"v={(position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor}m/s";
+		if (null != _viewmodel.SelectedEntity)
+			_viewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
+														  ? $"Δv={(position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor}m/s"
+														  : $"v={(position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor}m/s";
 	}
 
     [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
     private void OnWorldMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
 	{
-		mViewmodel.IsRunning = _wasRunning;
+		_viewmodel.IsRunning = _wasRunning;
 
 		var referencePosition = _referencePosition;
-		var position = mViewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
+		var position = _viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
 
-		mViewmodel.Viewport.DragIndicator = null;
+		_viewmodel.Viewport.DragIndicator = null;
 		_referencePosition = null;
 
 		if (null != referencePosition)
 		{
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				mViewmodel.CreateRandomEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+				_viewmodel.CreateRandomEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
 
 				return;
 			}
 
-			mViewmodel.CreateEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
-			mViewmodel.CurrentRespawnerId = null;
+			_viewmodel.CreateEntity(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
+			_viewmodel.CurrentRespawnerId = null;
 
 			return;
 		}
 
-		if (null != mViewmodel.SelectedEntity)
+		if (null != _viewmodel.SelectedEntity)
 		{
-			if ((position - mViewmodel.SelectedEntity.Position).Length <=
-			   mViewmodel.SelectedEntity.r + _viewportSelectionSearchRadius / mViewmodel.Viewport.ScaleFactor)
+			if ((position - _viewmodel.SelectedEntity.Position).Length <=
+			   _viewmodel.SelectedEntity.r + _viewportSelectionSearchRadius / _viewmodel.Viewport.ScaleFactor)
 				return;
 
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
-				mViewmodel.SelectedEntity.v += (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
+				_viewmodel.SelectedEntity.v += (position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor;
 			else
-				mViewmodel.SelectedEntity.v = (position - mViewmodel.SelectedEntity.Position) / mViewmodel.TimeScaleFactor;
+				_viewmodel.SelectedEntity.v = (position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor;
 		}
 	}
 
     [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
     private void OnWorldRightButtonUp(object sender, MouseButtonEventArgs args)
 	{
-		mViewmodel.IsRunning = _wasRunning;
+		_viewmodel.IsRunning = _wasRunning;
 
 		var referencePosition = _referencePosition;
-		var position = mViewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
+		var position = _viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
 
-		mViewmodel.Viewport.DragIndicator = null;
+		_viewmodel.Viewport.DragIndicator = null;
 		_referencePosition = null;
 
 		if (null != referencePosition)
 		{
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				mViewmodel.CreateRandomOrbitEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+				_viewmodel.CreateRandomOrbitEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
 
 				return;
 			}
 
-			mViewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / mViewmodel.TimeScaleFactor);
-			mViewmodel.CurrentRespawnerId = null;
+			_viewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
+			_viewmodel.CurrentRespawnerId = null;
 		}
 	}
 
 	private void OnWorldSizeChanged(object sender, SizeChangedEventArgs args)
 	{
-		var center = mViewmodel.Viewport.Center;
+		var center = _viewmodel.Viewport.Center;
 		var newSize = new Vector2D(args.NewSize.Width, args.NewSize.Height);
 
-		mViewmodel.Viewport.TopLeft = center - newSize / 2 / mViewmodel.Viewport.ScaleFactor;
-		mViewmodel.Viewport.BottomRight = center + newSize / 2 / mViewmodel.Viewport.ScaleFactor;
+		_viewmodel.Viewport.TopLeft = center - newSize / 2 / _viewmodel.Viewport.ScaleFactor;
+		_viewmodel.Viewport.BottomRight = center + newSize / 2 / _viewmodel.Viewport.ScaleFactor;
 	}
 
 	private void OnResetClicked(object sender, RoutedEventArgs args)
-		=> mViewmodel.Reset();
+		=> _viewmodel.Reset();
 
 	private void OnWorldMouseWheel(object sender, MouseWheelEventArgs args)
-		=> mViewmodel.Viewport.Zoom(mViewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender)),
+		=> _viewmodel.Viewport.Zoom(_viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender)),
 									-Math.Sign(args.Delta) * (Keyboard.IsKeyDown(Key.LeftAlt)
 																  ? 0.1
 																  : 1));
 
 	private void OnAutoScaleAndCenterViewportClicked(object sender, RoutedEventArgs args)
-		=> mViewmodel.AutoScaleAndCenterViewport();
+		=> _viewmodel.AutoScaleAndCenterViewport();
 
 	private void OnEntityPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
-		=> mViewmodel.IsEntityPresetSelectionVisible = false;
+		=> _viewmodel.IsEntityPresetSelectionVisible = false;
 
     [SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
     private async void OnSaveClicked(object sender, RoutedEventArgs args)
@@ -221,7 +221,7 @@ internal sealed partial class MainWindow
 		if (dlgResult is not true)
 			return;
 
-		await mViewmodel.SaveAsync(dlg.FileName);
+		await _viewmodel.SaveAsync(dlg.FileName);
 	}
 
     [SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
@@ -237,7 +237,7 @@ internal sealed partial class MainWindow
 		if(dlgResult is not true)
 			return;
 
-		await mViewmodel.OpenAsync(dlg.FileName);
+		await _viewmodel.OpenAsync(dlg.FileName);
 	}
 
 	#endregion

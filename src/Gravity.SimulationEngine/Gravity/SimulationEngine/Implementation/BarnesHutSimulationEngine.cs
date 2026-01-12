@@ -28,11 +28,6 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 
 	#region Construction
 
-	public BarnesHutSimulationEngine()
-		: this(new RungeKuttaIntegrator())
-	{
-	}
-
 	public BarnesHutSimulationEngine(IIntegrator integrator)
 		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 

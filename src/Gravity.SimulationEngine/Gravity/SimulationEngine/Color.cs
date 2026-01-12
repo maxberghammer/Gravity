@@ -14,6 +14,7 @@ public struct Color : IEquatable<Color>
 	public static readonly Color Red = new(0xFFFF0000);
 	public static readonly Color White = new(0xFFFFFFFF);
 	public static readonly Color Yellow = new(0xFFFFFF00);
+	public static readonly Color Transparent = new(0x00000000);
 
 	#endregion
 
@@ -46,7 +47,7 @@ public struct Color : IEquatable<Color>
 		=> !left.Equals(right);
 
 	public static Color Parse(string color)
-		=> uint.TryParse(color, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var c)
+		=> uint.TryParse(color?.TrimStart('#'), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var c)
 			   ? new Color(c)
 			   : throw new FormatException($"Invalid color format: {color}");
 

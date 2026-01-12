@@ -35,8 +35,8 @@ namespace Gravity.SimulationEngine.Benchmarks
         [GlobalSetup]
         [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Deterministic pseudo-random is fine for benchmarking data generation")]
         public void Setup()
-        {
-            _engine = Factory.CreateBarnesHut();
+		{
+			_engine = Factory.Create(Factory.SimulationEngineType.BarnesHutWithRungeKutta);
             _dt = TimeSpan.FromMilliseconds(16.6); // ~60 FPS
             var world = new DummyWorld();
             var rnd = new Random(42);

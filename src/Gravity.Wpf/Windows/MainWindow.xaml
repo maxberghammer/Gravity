@@ -5,16 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
         xmlns:view="clr-namespace:Gravity.Wpf.View"
+        xmlns:conv="clr-namespace:Gravity.Wpf.Converters"
         mc:Ignorable="d"
         Title="Gravity"
         WindowState="Maximized"
         Background="Black"
 				x:ClassModifier="internal">
 	<Window.DataContext>
-		<viewmodel:World x:Name="mViewmodel"/>
+		<viewmodel:World x:Name="_viewmodel"/>
 	</Window.DataContext>
 	<Window.Resources>
 		<BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+		<conv:ColorToSolidBrushConverter x:Key="ColorToSolidBrushConverter"/>
 	</Window.Resources>
 	<Grid>
 		<Grid.RowDefinitions>
@@ -140,20 +142,20 @@
                    Content="{Binding Viewport.Scale}"
                    ContentStringFormat="1px=10^{0}m"
                    VerticalContentAlignment="Center"/>
-			<Button Name="mBtnAutoScaleAndCenterViewport"
+			<Button Name="_btnAutoScaleAndCenterViewport"
                     DockPanel.Dock="Left"
                     FontFamily="WingDings"
                     ToolTip="Sichtbereich automatisch anpassen"
                     Content="ó"
                     Click="OnAutoScaleAndCenterViewportClicked"/>
-			<ToggleButton Name="mBtnAutoCenterViewportOnOff"
+			<ToggleButton Name="_btnAutoCenterViewportOnOff"
                           DockPanel.Dock="Left"
                           Margin="10,0,0,0"
                           FontFamily="WingDings"
                           Content="°"
                           ToolTip="Automatisch zentrieren an/aus"
                           IsChecked="{Binding AutoCenterViewport}"/>
-			<ToggleButton Name="mBtnShowHelpOnOff"
+			<ToggleButton Name="_btnShowHelpOnOff"
                           DockPanel.Dock="Right"
                           ToolTip="Hilfe ein-/ausblenden"
                           Content="?"
@@ -170,14 +172,14 @@
                     ToolTip="Öffnen"
                     Content="1"
                     Click="OnOpenClicked"/>
-			<Button Name="mBtnReset"
+			<Button Name="_btnReset"
                     DockPanel.Dock="Right"
                     Margin="0,0,10,0"
                     FontFamily="Wingdings 3"
                     ToolTip="Zurücksetzen"
                     Content="Q"
                     Click="OnResetClicked"/>
-			<ToggleButton Name="mBtnSimulationOnOff"
+			<ToggleButton Name="_btnSimulationOnOff"
                           DockPanel.Dock="Right"
                           Margin="0,0,10,0"
                           FontFamily="Arial"
@@ -189,28 +191,34 @@
 		<StackPanel Grid.Row="0"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center">
-			<ToggleButton Name="mBtnShowPathsOnOff"
+			<ToggleButton Name="_btnShowPathsOnOff"
                           ToolTip="Pfade anzeigen"
                           Content="ꟿ"
                           IsChecked="{Binding ShowPath, Mode=TwoWay}"/>
-			<ToggleButton Name="mBtnClosedBoundariesOnOff"
+			<ToggleButton Name="_btnClosedBoundariesOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings 3"
                           Content="F"
                           ToolTip="Geschlossene Grenzen"
                           IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
-			<ToggleButton Name="mBtnElasticCollisionsOnOff"
+			<ToggleButton Name="_btnElasticCollisionsOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="R"
                           ToolTip="Elastische Zusammenstöße an/aus"
                           IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
-			<ToggleButton Name="mBtnShowEntityPresetSelectionOnOff"
+			<ToggleButton Name="_btnShowEntityPresetSelectionOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="¡"
                           ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
                           IsChecked="{Binding IsEntityPresetSelectionVisible, Mode=TwoWay}"/>
+			<ToggleButton Name="_btnShowEngineSelectionOnOff"
+										Margin="10,0,0,0"
+										FontFamily="Wingdings"
+										Content="["
+										ToolTip="Auswahl für Simulations-Engine ein-/ausblenden"
+										IsChecked="{Binding IsEngineSelectionVisible, Mode=TwoWay}"/>
 		</StackPanel>
 
 		<ComboBox Grid.Row="1"
@@ -231,8 +239,8 @@
 						<Ellipse Width="20"
                                  Height="20"
                                  VerticalAlignment="Center"
-                                 Fill="{Binding Fill}"
-                                 Stroke="{Binding Stroke}"
+                                 Fill="{Binding Fill, Converter={StaticResource ColorToSolidBrushConverter}}"
+                                 Stroke="{Binding Stroke, Converter={StaticResource ColorToSolidBrushConverter}}"
                                  StrokeThickness="{Binding StrokeWidth}"/>
 						<Label Margin="10,0,0,0"
                                Content="{Binding Name}"/>
@@ -241,6 +249,28 @@
 						<Label Content="{Binding r}"/>
 						<Label Content="Masse (kg):"/>
 						<Label Content="{Binding m}"/>
+					</StackPanel>
+				</DataTemplate>
+			</ComboBox.ItemTemplate>
+		</ComboBox>
+
+		<ComboBox Grid.Row="1"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Top"
+							Visibility="{Binding IsEngineSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+							ItemsSource="{Binding EngineTypes}"
+							SelectedItem="{Binding SelectedEngineType}"
+							SelectionChanged="OnEntityPresetSelectionChanged">
+			<ComboBox.ItemTemplate>
+				<DataTemplate>
+					<StackPanel Orientation="Horizontal">
+						<StackPanel.Resources>
+							<Style TargetType="Label">
+								<Setter Property="Foreground"
+												Value="Black"/>
+							</Style>
+						</StackPanel.Resources>
+						<Label Content="{Binding Name}"/>
 					</StackPanel>
 				</DataTemplate>
 			</ComboBox.ItemTemplate>
@@ -257,10 +287,10 @@
 					<Setter Property="IsHitTestVisible" Value="False"/>
 				</Style>
 			</DockPanel.Resources>
-			<Label Name="mLblCpuUtilizationInPercent"
+			<Label Name="_lblCpuUtilizationInPercent"
                    DockPanel.Dock="Left"
                    ContentStringFormat="CPU={0}%"/>
-			<Slider Name="mSldTimeScale"
+			<Slider Name="_sldTimeScale"
                     DockPanel.Dock="Right"
                     ToolTip="Zeit-Skalierung"
                     Width="100"
@@ -270,7 +300,7 @@
                     TickFrequency="1"
                     TickPlacement="Both"
                     Value="{Binding TimeScale}"/>
-			<Label Name="mLblRuntimeInSeconds"
+			<Label Name="_lblRuntimeInSeconds"
                    DockPanel.Dock="Right"
                    ContentStringFormat="t={0}"/>
 			<Label DockPanel.Dock="Right"
@@ -286,10 +316,10 @@
 				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
-			<Label Name="mLblSelectedEntityv"
+			<Label Name="_lblSelectedEntityv"
                    Grid.Column="1"
                    ContentStringFormat="v={0}m/s"/>
-			<Label Name="mLblSelectedEntitym"
+			<Label Name="_lblSelectedEntitym"
                    Grid.Column="2"
                    ContentStringFormat="m={0}kg"/>
 		</Grid>
@@ -338,11 +368,11 @@
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnAutoScaleAndCenterViewport, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnAutoScaleAndCenterViewport, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Passt die Größe der Darstellung so an, dass sich alle Objekte im Sichtbereich befinden.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnAutoCenterViewportOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnAutoCenterViewportOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Aktiviert/Deaktiviert das daurhafte automatische Ausrichten des Sichtbereiches auf den Mittelpunkt aller Objekte.</Run>
 			</TextBlock>
 
@@ -354,19 +384,19 @@
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnShowPathsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnShowPathsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt die Bewegungspfade der simulierten Objekte an oder blendet sie aus. Dabei wird aus Gründen der Performance nicht der gesamte Pfad angezeigt, sondern nur ein Teil.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnClosedBoundariesOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnClosedBoundariesOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Steuert, ob die simulierten Objekte am Rand des Sichtbereichs abprallen sollen, oder nicht.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnElasticCollisionsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnElasticCollisionsOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Steuert, ob die Objekte aneinander abprallen sollen, wenn sie sich berühren, oder ob sie verschmelzen sollen. Dabei absorbiert stets das Objekt mit der größeren Masse dasjenige mit der geringeren.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt die Auswahl für den zu erzeugenden Objekttyp an oder blendet sie aus.</Run>
 			</TextBlock>
 
@@ -378,15 +408,15 @@
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnSimulationOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnSimulationOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Startet die Simulation oder hält sie an.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnReset, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnReset, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Entfernt alle Objekte und setzt die Simulation auf den Anfang zurück.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mBtnShowHelpOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnShowHelpOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt diese Hilfe an oder blendet sie aus.</Run>
 			</TextBlock>
 
@@ -467,7 +497,7 @@
                 <LineBreak/>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=mSldTimeScale, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_sldTimeScale, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Steuert die zeitliche Genauigkeit der Simulation. Kleinere Werte (links) bedeuten höhere Genauigkeit bei geringerer Simulationsgeschwindigkeit, größere Werte (rechts) bedeuten geringere Genauigkeit bei höherer Simulationsgeschwindigkeit. Geringere Werte eignen sich besser für kleine Größenmaßstäbe, höhere für größere Größenmaßstäbe.</Run>
 			</TextBlock>
 		</Grid>
