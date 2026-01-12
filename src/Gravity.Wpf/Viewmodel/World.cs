@@ -8,12 +8,12 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using Gravity.SimulationEngine;
+using Gravity.SimulationEngine.Serialization;
 using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
@@ -30,54 +30,6 @@ internal class World : NotifyPropertyChanged,
 		public Factory.SimulationEngineType Type { get; init; }
 
 		public required string Name { get; init; }
-
-		#endregion
-	}
-
-	private sealed class State
-	{
-		public sealed record Vector(double X, double Y);
-		
-		#region Internal types
-
-		public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
-
-		public sealed record EntityState(string FillColor,
-										 string? StrokeColor,
-										 double StrokeWidth,
-										 Vector Position,
-										 // ReSharper disable once InconsistentNaming
-										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-										 Vector v,
-										 // ReSharper disable once InconsistentNaming
-										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-										 double r,
-										 // ReSharper disable once InconsistentNaming
-										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-										 double m);
-		
-
-		#endregion
-
-		#region Interface
-
-		public required ViewportState Viewport { get; init; }
-
-		public double TimeScale { get; init; }
-
-		public bool ElasticCollisions { get; init; }
-
-		public bool ClosedBoundaries { get; init; }
-
-		public bool ShowPath { get; init; }
-
-		public bool AutoCenterViewport { get; init; }
-
-		public Guid SelectedEntityPresetId { get; init; }
-
-		public Guid? RespawnerId { get; init; }
-
-		public required EntityState[] Entities { get; init; }
 
 		#endregion
 	}
@@ -334,7 +286,6 @@ internal class World : NotifyPropertyChanged,
 
 	public async Task SaveAsync(string filePath)
 	{
-#pragma warning disable CS8601
 		var state = new State
 					{
 						Viewport = new(new(Viewport.TopLeft.X, Viewport.TopLeft.Y),
@@ -356,19 +307,16 @@ internal class World : NotifyPropertyChanged,
 																			  e.m))
 										   .ToArray()
 					};
-#pragma warning restore CS8601
 		await using var swr = File.CreateText(filePath);
-		await JsonSerializer.SerializeAsync(swr.BaseStream, state);
+		await state.SerializeAsync(swr);
 	}
 
 	public async Task OpenAsync(string filePath)
 	{
 		using var srd = File.OpenText(filePath);
-		var state = await JsonSerializer.DeserializeAsync<State>(srd.BaseStream);
-		Reset();
+		var state = await State.DeserializeAsync(srd);
 
-		if(null == state)
-			return;
+		Reset();
 
 		Viewport.TopLeft = new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y);
 		Viewport.BottomRight = new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y);

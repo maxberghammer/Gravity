@@ -1,0 +1,6 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Allgemeine Projekt-Einstellungen -->
+	<Import Project="$(CommonProjectSettingsFilePath)"/>
+
+</Project>
