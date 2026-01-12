@@ -36,47 +36,26 @@ internal class World : NotifyPropertyChanged,
 
 	private sealed class State
 	{
+		public sealed record Vector(double X, double Y);
+		
 		#region Internal types
 
-		public class ViewportState
-		{
-			#region Interface
+		public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
 
-			public Vector2D TopLeft { get; init; }
-
-			public Vector2D BottomRight { get; init; }
-
-			public double Scale { get; init; }
-
-			#endregion
-		}
-
-		public class EntityState
-		{
-			#region Interface
-
-			public required string FillColor { get; init; }
-
-			public required string StrokeColor { get; init; }
-
-			public double StrokeWidth { get; init; }
-
-			public Vector2D Position { get; init; }
-
-			// ReSharper disable once InconsistentNaming
-			[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-			public Vector2D v { get; init; }
-
-			// ReSharper disable once InconsistentNaming
-			[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-			public double r { get; init; }
-
-			// ReSharper disable once InconsistentNaming
-			[SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-			public double m { get; init; }
-
-			#endregion
-		}
+		public sealed record EntityState(string FillColor,
+										 string? StrokeColor,
+										 double StrokeWidth,
+										 Vector Position,
+										 // ReSharper disable once InconsistentNaming
+										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+										 Vector v,
+										 // ReSharper disable once InconsistentNaming
+										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+										 double r,
+										 // ReSharper disable once InconsistentNaming
+										 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+										 double m);
+		
 
 		#endregion
 
@@ -358,12 +337,9 @@ internal class World : NotifyPropertyChanged,
 #pragma warning disable CS8601
 		var state = new State
 					{
-						Viewport = new()
-								   {
-									   TopLeft = Viewport.TopLeft,
-									   BottomRight = Viewport.BottomRight,
-									   Scale = Viewport.Scale
-								   },
+						Viewport = new(new(Viewport.TopLeft.X, Viewport.TopLeft.Y),
+									   new(Viewport.BottomRight.X, Viewport.BottomRight.Y),
+									   Viewport.Scale),
 						AutoCenterViewport = AutoCenterViewport,
 						ClosedBoundaries = ClosedBoundaries,
 						ElasticCollisions = ElasticCollisions,
@@ -372,16 +348,12 @@ internal class World : NotifyPropertyChanged,
 						SelectedEntityPresetId = SelectedEntityPreset.Id,
 						RespawnerId = CurrentRespawnerId,
 						Entities = Entities.ToArrayLocked()
-										   .Select(e => new State.EntityState
-														{
-															m = e.m,
-															Position = e.Position,
-															v = e.v,
-															r = e.r,
-															StrokeWidth = e.StrokeWidth,
-															FillColor = e.Fill.ToString(),
-															StrokeColor = e.Stroke.ToString()
-														})
+										   .Select(e => new State.EntityState(e.Fill.ToString(), e.Stroke?.ToString(),
+																			  e.StrokeWidth,
+																			  new(e.Position.X, e.Position.Y),
+																			  new(e.v.X, e.v.Y),
+																			  e.r,
+																			  e.m))
 										   .ToArray()
 					};
 #pragma warning restore CS8601
@@ -398,8 +370,8 @@ internal class World : NotifyPropertyChanged,
 		if(null == state)
 			return;
 
-		Viewport.TopLeft = state.Viewport.TopLeft;
-		Viewport.BottomRight = state.Viewport.BottomRight;
+		Viewport.TopLeft = new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y);
+		Viewport.BottomRight = new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y);
 		Viewport.Scale = state.Viewport.Scale;
 		AutoCenterViewport = state.AutoCenterViewport;
 		ClosedBoundaries = state.ClosedBoundaries;
@@ -410,10 +382,10 @@ internal class World : NotifyPropertyChanged,
 		TimeScale = state.TimeScale;
 
 		Entities.AddRangeLocked(state.Entities
-									 .Select(e => new Entity(e.Position,
+									 .Select(e => new Entity(new(e.Position.X, e.Position.Y),
 															 e.r,
 															 e.m,
-															 e.v,
+															 new(e.v.X, e.v.Y),
 															 Vector2D.Zero,
 															 this,
 															 string.IsNullOrEmpty(e.FillColor)
