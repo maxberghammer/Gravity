@@ -13,6 +13,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Fields
 
+	private readonly Diagnostics _diagnostics = new();
+
 	// ReSharper disable once InconsistentNaming
 	private readonly ConcurrentDictionary<int, Vector2D> _positionByEntityId = new();
 
@@ -22,6 +24,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 	#endregion
 
 	#region Implementation of ISimulationEngine
+
+	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
+		=> _diagnostics;
 
 	/// <inheritdoc/>
 	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)

@@ -40,7 +40,7 @@ internal class World : NotifyPropertyChanged,
 
 	private static readonly Guid _randomOrbittingRespawnerId = new("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 	private static readonly Guid _randomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
-	private readonly FrameTiming _frameTiming = new();
+	private readonly FrameDiagnostics _frameTiming = new();
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
@@ -365,7 +365,8 @@ internal class World : NotifyPropertyChanged,
 
 	private void Simulate()
 	{
-		if(1 == Interlocked.CompareExchange(ref _isSimulating, 1, 0))
+		if(null == _simulationEngine ||
+		   1 == Interlocked.CompareExchange(ref _isSimulating, 1, 0))
 			return;
 
 		using(_frameTiming.Measure())
@@ -383,13 +384,25 @@ internal class World : NotifyPropertyChanged,
 			}
 		}
 
-		var frameTimingMeasurement = _frameTiming.LastMeasurement;
+		var frameDiagnosticsMeasurement = _frameTiming.LastMeasurement;
 
-		CpuUtilizationInPercent = (int)Math.Round(frameTimingMeasurement.CpuUtilizationEmaInPercent);
+		CpuUtilizationInPercent = (int)Math.Round(frameDiagnosticsMeasurement.CpuUtilizationEmaInPercent);
 
 		// Log every ~60 frames; use TraceInformation for explicit event type
-		if(frameTimingMeasurement.FrameCount % 60 == 0)
-			Trace.TraceInformation($"Frame: {frameTimingMeasurement.LastFrameDurationInMs:F1} ms, CPU: {frameTimingMeasurement.CpuUtilizationInPercent}% | Entities: {EntityCount}");
+		if(frameDiagnosticsMeasurement.FrameCount % 60 == 0)
+		{
+			var engineDiagnostics = string.Join(" | ", _simulationEngine.GetDiagnostics()
+																		.Fields
+																		.Select(p => $"{p.Key}: {p.Value}"));
+
+			Trace.TraceInformation($"Frame: {frameDiagnosticsMeasurement.LastFrameDurationInMs:F1} ms" +
+								   $" | CPU: {frameDiagnosticsMeasurement.CpuUtilizationInPercent}%" +
+								   $" | Entities: {EntityCount}" +
+								   $" | AllocDelta: {frameDiagnosticsMeasurement.DeltaAllocated / (1024.0 * 1024.0):F2} MiB" +
+								   (string.IsNullOrEmpty(engineDiagnostics)
+										? string.Empty
+										: $" | {engineDiagnostics}"));
+		}
 
 		Updated?.Invoke(this, EventArgs.Empty);
 

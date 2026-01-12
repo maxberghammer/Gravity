@@ -22,6 +22,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
 	private readonly HashSet<long> _collisionKeys = new(1024);
+	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
 
 	#endregion
@@ -103,6 +104,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 					entities[i].HandleCollisionWithWorldBoundaries();
 	}
 
+	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
+		=> _diagnostics;
+
 	#endregion
 
 	#region Implementation
@@ -139,16 +143,24 @@ internal sealed class SimulationEngine : ISimulationEngine
 		for(var i = 0; i < entities.Length; i++)
 		{
 			var p = entities[i].Position;
-			if(p.X < l) l = p.X;
-			if(p.Y < t) t = p.Y;
-			if(p.X > r) r = p.X;
-			if(p.Y > b) b = p.Y;
+			if(p.X < l)
+				l = p.X;
+			if(p.Y < t)
+				t = p.Y;
+			if(p.X > r)
+				r = p.X;
+			if(p.Y > b)
+				b = p.Y;
 		}
 
 		// Fallback to a minimal box around origin if no entities
-		if(double.IsInfinity(l) || double.IsInfinity(t) || double.IsInfinity(r) || double.IsInfinity(b))
+		if(double.IsInfinity(l) ||
+		   double.IsInfinity(t) ||
+		   double.IsInfinity(r) ||
+		   double.IsInfinity(b))
 		{
-			l = t = -1.0; r = b = 1.0;
+			l = t = -1.0;
+			r = b = 1.0;
 		}
 
 		// n-based theta schedule targeting near-constant per-body work, with small-N overrides for accuracy
@@ -157,40 +169,40 @@ internal sealed class SimulationEngine : ISimulationEngine
 		var height = Math.Max(1e-12, b - t);
 		var span = Math.Max(width, height);
 		// Optional mild geometry factor
-		double minSep = double.PositiveInfinity;
-		for(int i=0;i<Math.Min(n, 32); i++)
+		var minSep = double.PositiveInfinity;
+
+		for(var i = 0; i < Math.Min(n, 32); i++)
 		{
-			for(int j=i+1;j<Math.Min(n, i+32); j++)
+			for(var j = i + 1; j < Math.Min(n, i + 32); j++)
 			{
 				var d = (entities[j].Position - entities[i].Position).Length;
-				if(d < minSep) minSep = d;
+				if(d < minSep)
+					minSep = d;
 			}
 		}
-		if(double.IsInfinity(minSep) || minSep <= 0) minSep = span;
-		double sepRatio = Math.Clamp(minSep / span, 0.0, 1.0);
+
+		if(double.IsInfinity(minSep) ||
+		   minSep <= 0)
+			minSep = span;
+		var sepRatio = Math.Clamp(minSep / span, 0.0, 1.0);
 
 		double theta;
+
 		// Small-N exactness: effectively disable aggregation
 		if(n <= 3)
-		{
 			theta = 0.0; // pairwise exact
-		}
 		else if(n <= 10)
-		{
 			theta = 0.1;
-		}
 		else if(n <= 50)
-		{
 			theta = 0.2;
-		}
 		else
 		{
 			// Base schedule: theta(n) = base + k*log10(n), clamped
-			double baseTheta = 0.62;
-			double k = 0.22;
-			double raw = baseTheta + k * Math.Log10(Math.Max(1, n));
+			var baseTheta = 0.62;
+			var k = 0.22;
+			var raw = baseTheta + k * Math.Log10(Math.Max(1, n));
 			// Apply mild geometry factor
-			raw *= (0.9 + 0.2 * sepRatio);
+			raw *= 0.9 + 0.2 * sepRatio;
 			theta = Math.Clamp(raw, 0.6, 1.2);
 		}
 
@@ -207,22 +219,21 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 		var ranges = Partitioner.Create(0, n, blockSize);
 		Parallel.ForEach(ranges, range =>
-		{
-			(var start, var end) = range;
-			var localCollisions = RentCollector();
-			for(var i = start; i < end; i++)
-				entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+								 {
+									 (var start, var end) = range;
+									 var localCollisions = RentCollector();
+									 for(var i = start; i < end; i++)
+										 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
 
-			if(localCollisions.Count > 0)
-			{
-				lock(tree.CollidedEntities)
-					tree.CollidedEntities.AddRange(localCollisions);
-			}
-			ReturnCollector(localCollisions);
-		});
+									 if(localCollisions.Count > 0)
+										 lock(tree.CollidedEntities)
+											 tree.CollidedEntities.AddRange(localCollisions);
+									 ReturnCollector(localCollisions);
+								 });
 
 		var collisions = tree.CollidedEntities;
 		var result = new Tuple<int, int>[collisions.Count];
+
 		for(var i = 0; i < collisions.Count; i++)
 		{
 			var c = collisions[i];
@@ -230,6 +241,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		}
 
 		tree.Release();
+
 		return result;
 	}
 

@@ -10,6 +10,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 {
 	#region Fields
 
+	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
 
 	#endregion
@@ -28,6 +29,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	#region Implementation of ISimulationEngine
 
+	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
+		=> _diagnostics;
+
 	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
 	{
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
@@ -36,12 +40,14 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			var entitiesById = entities.ToDictionary(e => e.Id);
 			var seen = new HashSet<long>(collisions.Length * 2);
+
 			for(var i = 0; i < collisions.Length; i++)
 			{
 				(var id1, var id2) = collisions[i];
 				var a = Math.Min(id1, id2);
 				var b = Math.Max(id1, id2);
 				var key = ((long)a << 32) | (uint)b;
+
 				if(!seen.Add(key))
 					continue;
 
@@ -50,19 +56,27 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 				(var v1, var v2) = e1.HandleCollision(e2, e1.World.ElasticCollisions);
 
-				if(v1.HasValue && v2.HasValue)
+				if(v1.HasValue &&
+				   v2.HasValue)
 				{
 					(var p1, var p2) = e1.CancelOverlap(e2);
-					if(p1.HasValue) e1.Position = p1.Value;
-					if(p2.HasValue) e2.Position = p2.Value;
+					if(p1.HasValue)
+						e1.Position = p1.Value;
+					if(p2.HasValue)
+						e2.Position = p2.Value;
 				}
 
-				if(v1.HasValue) e1.v = v1.Value;
-				if(v2.HasValue) e2.v = v2.Value;
+				if(v1.HasValue)
+					e1.v = v1.Value;
+				if(v2.HasValue)
+					e2.v = v2.Value;
 			}
 		}
 
-		var vp = entities.Length > 0 ? entities[0].World.Viewport : null;
+		var vp = entities.Length > 0
+					 ? entities[0].World.Viewport
+					 : null;
+
 		if(vp != null)
 		{
 			var tl = vp.TopLeft;
@@ -72,11 +86,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 					entities[i].HandleCollisionWithWorldBoundaries(in tl, in br);
 		}
 		else
-		{
 			for(var i = 0; i < entities.Length; i++)
 				if(entities[i].World.ClosedBoundaries)
 					entities[i].HandleCollisionWithWorldBoundaries();
-		}
 	}
 
 	#endregion
@@ -86,22 +98,36 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
 	{
 		var n = entities.Length;
+
 		if(n == 0)
 			return Array.Empty<Tuple<int, int>>();
 
 		// Compute bounds
-		double l = double.PositiveInfinity, t = double.PositiveInfinity, r = double.NegativeInfinity, b = double.NegativeInfinity;
+		double l = double.PositiveInfinity,
+			   t = double.PositiveInfinity,
+			   r = double.NegativeInfinity,
+			   b = double.NegativeInfinity;
+
 		for(var i = 0; i < n; i++)
 		{
 			var p = entities[i].Position;
-			if(p.X < l) l = p.X;
-			if(p.Y < t) t = p.Y;
-			if(p.X > r) r = p.X;
-			if(p.Y > b) b = p.Y;
+			if(p.X < l)
+				l = p.X;
+			if(p.Y < t)
+				t = p.Y;
+			if(p.X > r)
+				r = p.X;
+			if(p.Y > b)
+				b = p.Y;
 		}
-		if(double.IsInfinity(l) || double.IsInfinity(t) || double.IsInfinity(r) || double.IsInfinity(b))
+
+		if(double.IsInfinity(l) ||
+		   double.IsInfinity(t) ||
+		   double.IsInfinity(r) ||
+		   double.IsInfinity(b))
 		{
-			l = t = -1.0; r = b = 1.0;
+			l = t = -1.0;
+			r = b = 1.0;
 		}
 
 		// Choose grid resolution ~ target cluster size for forces
@@ -121,6 +147,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			if(entities[i].IsAbsorbed)
 				continue;
+
 			var p = entities[i].Position;
 			var u = (int)Math.Round((p.X - l) * qx);
 			var v = (int)Math.Round((p.Y - t) * qy);
@@ -143,21 +170,30 @@ internal sealed class SimulationEngine : ISimulationEngine
 		var clusterCom = new List<Vector2D>(n / targetClusterSize + 1);
 
 		var iStart = 0;
+
 		while(iStart < n)
 		{
 			var iEnd = iStart + 1;
 			var code = codes[iStart];
-			while(iEnd < n && codes[iEnd] == code) iEnd++;
+			while(iEnd < n &&
+				  codes[iEnd] == code)
+				iEnd++;
 			var u = (int)DecodeMorton2DX(code);
 			var v = (int)DecodeMorton2DY(code);
-			double mSum = 0.0; var pSum = Vector2D.Zero;
+			var mSum = 0.0;
+			var pSum = Vector2D.Zero;
+
 			for(var k = iStart; k < iEnd; k++)
 			{
 				var e = entities[idx[k]];
-				if(e.IsAbsorbed) continue;
+
+				if(e.IsAbsorbed)
+					continue;
+
 				mSum += e.m;
 				pSum += e.m * e.Position;
 			}
+
 			if(mSum > 0)
 			{
 				clusterStarts.Add(iStart);
@@ -167,6 +203,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				clusterMass.Add(mSum);
 				clusterCom.Add(pSum / mSum);
 			}
+
 			iStart = iEnd;
 		}
 
@@ -174,83 +211,118 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 		// Map cell(u,v) -> cluster index (-1 = empty)
 		var cellToCluster = new int[gridSide][];
+
 		for(var x = 0; x < gridSide; x++)
 		{
 			cellToCluster[x] = new int[gridSide];
-			for(var y = 0; y < gridSide; y++) cellToCluster[x][y] = -1;
+			for(var y = 0; y < gridSide; y++)
+				cellToCluster[x][y] = -1;
 		}
+
 		for(var c = 0; c < clusters; c++)
 			cellToCluster[clusterU[c]][clusterV[c]] = c;
 
 		// Compute accelerations (clustered forces)
 		Parallel.For(0, n, i =>
-		{
-			var ei = entities[i];
-			if(ei.IsAbsorbed)
-			{
-				ei.a = Vector2D.Zero;
-				return;
-			}
-			var ai = Vector2D.Zero;
-			var ui = cellX[i];
-			var vi = cellY[i];
+						   {
+							   var ei = entities[i];
 
-			// Exact within 8-neighborhood cells
-			for(var dv = -1; dv <= 1; dv++)
-			{
-				var vy = vi + dv;
-				if(vy < 0 || vy >= gridSide) continue;
-				for(var du = -1; du <= 1; du++)
-				{
-					var ux = ui + du;
-					if(ux < 0 || ux >= gridSide) continue;
-					var cIdx = cellToCluster[ux][vy];
-					if(cIdx < 0) continue;
-					var start = clusterStarts[cIdx];
-					var len = clusterLens[cIdx];
-					for(var k = start; k < start + len; k++)
-					{
-						var j = idx[k];
-						if(j == i) continue;
-						var ej = entities[j];
-						if(ej.IsAbsorbed) continue;
-						var d = ei.Position - ej.Position;
-						var d2 = d.LengthSquared + 1e-18;
-						var inv = 1.0 / Math.Pow(d2, 1.5);
-						ai += -IWorld.G * ej.m * d * inv;
-					}
-				}
-			}
+							   if(ei.IsAbsorbed)
+							   {
+								   ei.a = Vector2D.Zero;
 
-			// Aggregated for other clusters
-			for(var c = 0; c < clusters; c++)
-			{
-				var cu = clusterU[c];
-				var cv = clusterV[c];
-				if(Math.Abs(cu - ui) <= 1 && Math.Abs(cv - vi) <= 1) continue;
-				var com = clusterCom[c];
-				var d = ei.Position - com;
-				var d2 = d.LengthSquared + 1e-18;
-				var inv = 1.0 / Math.Pow(d2, 1.5);
-				ai += -IWorld.G * clusterMass[c] * d * inv;
-			}
+								   return;
+							   }
 
-			ei.a = ai;
-		});
+							   var ai = Vector2D.Zero;
+							   var ui = cellX[i];
+							   var vi = cellY[i];
+
+							   // Exact within 8-neighborhood cells
+							   for(var dv = -1; dv <= 1; dv++)
+							   {
+								   var vy = vi + dv;
+
+								   if(vy < 0 ||
+									  vy >= gridSide)
+									   continue;
+
+								   for(var du = -1; du <= 1; du++)
+								   {
+									   var ux = ui + du;
+
+									   if(ux < 0 ||
+										  ux >= gridSide)
+										   continue;
+
+									   var cIdx = cellToCluster[ux][vy];
+
+									   if(cIdx < 0)
+										   continue;
+
+									   var start = clusterStarts[cIdx];
+									   var len = clusterLens[cIdx];
+
+									   for(var k = start; k < start + len; k++)
+									   {
+										   var j = idx[k];
+
+										   if(j == i)
+											   continue;
+
+										   var ej = entities[j];
+
+										   if(ej.IsAbsorbed)
+											   continue;
+
+										   var d = ei.Position - ej.Position;
+										   var d2 = d.LengthSquared + 1e-18;
+										   var inv = 1.0 / Math.Pow(d2, 1.5);
+										   ai += -IWorld.G * ej.m * d * inv;
+									   }
+								   }
+							   }
+
+							   // Aggregated for other clusters
+							   for(var c = 0; c < clusters; c++)
+							   {
+								   var cu = clusterU[c];
+								   var cv = clusterV[c];
+
+								   if(Math.Abs(cu - ui) <= 1 &&
+									  Math.Abs(cv - vi) <= 1)
+									   continue;
+
+								   var com = clusterCom[c];
+								   var d = ei.Position - com;
+								   var d2 = d.LengthSquared + 1e-18;
+								   var inv = 1.0 / Math.Pow(d2, 1.5);
+								   ai += -IWorld.G * clusterMass[c] * d * inv;
+							   }
+
+							   ei.a = ai;
+						   });
 
 		// High-accuracy collision detection pass (uniform grid, variable neighborhood)
 		var collisions = new List<Tuple<int, int>>(Math.Min(n, 1024));
-		double rMax = 0.0;
-		for(var i = 0; i < n; i++) if(!entities[i].IsAbsorbed && entities[i].r > rMax) rMax = entities[i].r;
+		var rMax = 0.0;
+		for(var i = 0; i < n; i++)
+			if(!entities[i].IsAbsorbed &&
+			   entities[i].r > rMax)
+				rMax = entities[i].r;
 		var cellSize = Math.Max(1e-12, rMax);
 		var cols = Math.Max(1, (int)Math.Ceiling(spanX / cellSize) + 1);
 		var rows = Math.Max(1, (int)Math.Ceiling(spanY / cellSize) + 1);
 		var buckets = new List<int>[cols * rows];
-		static int Key(int x, int y, int cols) => y * cols + x;
+
+		static int Key(int x, int y, int cols)
+			=> y * cols + x;
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed) continue;
+			if(entities[i].IsAbsorbed)
+				continue;
+
 			var p = entities[i].Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
 			var cy = (int)Math.Floor((p.Y - t) / cellSize);
@@ -258,13 +330,16 @@ internal sealed class SimulationEngine : ISimulationEngine
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
 			var k = Key(cx, cy, cols);
 			var bucket = buckets[k];
-			if(bucket == null) buckets[k] = bucket = new List<int>(4);
+			if(bucket == null)
+				buckets[k] = bucket = new(4);
 			bucket.Add(i);
 		}
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed) continue;
+			if(entities[i].IsAbsorbed)
+				continue;
+
 			var ei = entities[i];
 			var p = ei.Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
@@ -272,18 +347,40 @@ internal sealed class SimulationEngine : ISimulationEngine
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
 			var range = (int)Math.Ceiling(ei.r / cellSize);
+
 			for(var dv = -range; dv <= range; dv++)
 			{
-				var yy = cy + dv; if(yy < 0 || yy >= rows) continue;
+				var yy = cy + dv;
+
+				if(yy < 0 ||
+				   yy >= rows)
+					continue;
+
 				for(var du = -range; du <= range; du++)
 				{
-					var xx = cx + du; if(xx < 0 || xx >= cols) continue;
+					var xx = cx + du;
+
+					if(xx < 0 ||
+					   xx >= cols)
+						continue;
+
 					var bucket = buckets[Key(xx, yy, cols)];
-					if(bucket == null) continue;
+
+					if(bucket == null)
+						continue;
+
 					for(var bi = 0; bi < bucket.Count; bi++)
 					{
-						var j = bucket[bi]; if(j <= i) continue;
-						var ej = entities[j]; if(ej.IsAbsorbed) continue;
+						var j = bucket[bi];
+
+						if(j <= i)
+							continue;
+
+						var ej = entities[j];
+
+						if(ej.IsAbsorbed)
+							continue;
+
 						var d = ei.Position - ej.Position;
 						var d2 = d.LengthSquared;
 						var sumR = ei.r + ej.r;
@@ -295,7 +392,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 			}
 		}
 
-		return collisions.Count == 0 ? Array.Empty<Tuple<int, int>>() : collisions.ToArray();
+		return collisions.Count == 0
+				   ? Array.Empty<Tuple<int, int>>()
+				   : collisions.ToArray();
 	}
 
 	// Morton helpers (2D)
@@ -315,6 +414,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		x = (x | (x << 4)) & 0x0F0F0F0F;
 		x = (x | (x << 2)) & 0x33333333;
 		x = (x | (x << 1)) & 0x55555555;
+
 		return x;
 	}
 
@@ -325,6 +425,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		x = (x ^ (x >> 2)) & 0x0F0F0F0F;
 		x = (x ^ (x >> 4)) & 0x00FF00FF;
 		x = (x ^ (x >> 8)) & 0x0000FFFF;
+
 		return x;
 	}
 

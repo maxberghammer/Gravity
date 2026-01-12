@@ -8,7 +8,7 @@ namespace Gravity.Wpf;
 
 #region Internal types
 
-public sealed class FrameTiming
+public sealed class FrameDiagnostics
 {
 	#region Internal types
 
@@ -22,6 +22,7 @@ public sealed class FrameTiming
 		private readonly ref MeasurementInfo _measurementInfo;
 		private readonly TimeSpan _startProcessCpu;
 		private readonly Stopwatch _stopwatch;
+		private readonly long _totalAllocatedBytes;
 
 		#endregion
 
@@ -34,6 +35,7 @@ public sealed class FrameTiming
 			_measurementInfo = ref measurementInfo;
 			_frameStart = _stopwatch.Elapsed;
 			_startProcessCpu = Process.GetCurrentProcess().TotalProcessorTime;
+			_totalAllocatedBytes = GC.GetTotalAllocatedBytes(false);
 		}
 
 		#endregion
@@ -53,7 +55,10 @@ public sealed class FrameTiming
 								   _cpuUtilizationAlpha * cpuUtilizationInPercent + (1.0 - _cpuUtilizationAlpha) * _measurementInfo.CpuUtilizationEmaInPercent,
 								   _measurementInfo.FrameCount + 1,
 								   frameDuration.TotalMilliseconds,
-								   _frameAlpha * frameDuration.TotalMilliseconds + (1.0 - _frameAlpha) * _measurementInfo.FrameDurationEmaInMs);
+								   _frameAlpha * frameDuration.TotalMilliseconds + (1.0 - _frameAlpha) * _measurementInfo.FrameDurationEmaInMs,
+								   _totalAllocatedBytes == 0
+									   ? 0
+									   : GC.GetTotalAllocatedBytes(false) - _totalAllocatedBytes);
 		}
 
 		#endregion
@@ -63,7 +68,8 @@ public sealed class FrameTiming
 										 double CpuUtilizationEmaInPercent,
 										 int FrameCount,
 										 double LastFrameDurationInMs,
-										 double FrameDurationEmaInMs);
+										 double FrameDurationEmaInMs,
+										 long DeltaAllocated);
 
 	#endregion
 
@@ -76,7 +82,7 @@ public sealed class FrameTiming
 
 	#region Construction
 
-	public FrameTiming()
+	public FrameDiagnostics()
 		=> _stopwatch.Start();
 
 	#endregion
