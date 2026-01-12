@@ -156,14 +156,57 @@ internal sealed class BarnesHutSimulationEngine : ISimulationEngine
 			l = t = -1.0; r = b = 1.0;
 		}
 
-		var tree = new EntityTree(new(l, t), new(r, b), 1.0d);
+		// n-based theta schedule targeting near-constant per-body work, with small-N overrides for accuracy
+		var n = entities.Length;
+		var width = Math.Max(1e-12, r - l);
+		var height = Math.Max(1e-12, b - t);
+		var span = Math.Max(width, height);
+		// Optional mild geometry factor
+		double minSep = double.PositiveInfinity;
+		for(int i=0;i<Math.Min(n, 32); i++)
+		{
+			for(int j=i+1;j<Math.Min(n, i+32); j++)
+			{
+				var d = (entities[j].Position - entities[i].Position).Length;
+				if(d < minSep) minSep = d;
+			}
+		}
+		if(double.IsInfinity(minSep) || minSep <= 0) minSep = span;
+		double sepRatio = Math.Clamp(minSep / span, 0.0, 1.0);
+
+		double theta;
+		// Small-N exactness: effectively disable aggregation
+		if(n <= 3)
+		{
+			theta = 0.0; // pairwise exact
+		}
+		else if(n <= 10)
+		{
+			theta = 0.1;
+		}
+		else if(n <= 50)
+		{
+			theta = 0.2;
+		}
+		else
+		{
+			// Base schedule: theta(n) = base + k*log10(n), clamped
+			double baseTheta = 0.62;
+			double k = 0.22;
+			double raw = baseTheta + k * Math.Log10(Math.Max(1, n));
+			// Apply mild geometry factor
+			raw *= (0.9 + 0.2 * sepRatio);
+			theta = Math.Clamp(raw, 0.6, 1.2);
+		}
+
+		var tree = new EntityTree(new(l, t), new(r, b), theta);
 
 		for(var i = 0; i < entities.Length; i++)
 			tree.Add(entities[i]);
 
 		tree.ComputeMassDistribution();
 
-		var n = entities.Length;
+		// Choose a cache-friendly block size relative to CPU count and entity count
 		var workers = Math.Max(1, Environment.ProcessorCount);
 		var blockSize = Math.Max(256, n / (workers * 8));
 

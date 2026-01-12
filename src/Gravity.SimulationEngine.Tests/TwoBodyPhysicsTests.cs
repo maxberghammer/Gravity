@@ -50,9 +50,8 @@ public class TwoBodyPhysicsTests
         var entities = CreateTwoBodyCircular(out var r0);
         ISimulationEngine engine = new BarnesHutSimulationEngine(new LeapfrogIntegrator());
         var dt = TimeSpan.FromMilliseconds(10);
-        var steps = 10000; // ~100 s sim-time, runs fast; keep under 30 s wall time
         var energy0 = TotalEnergy(entities);
-        for(int i=0;i<steps;i++) engine.Simulate(entities, dt);
+        for(int i=0;i<TestConstants.Steps;i++) engine.Simulate(entities, dt);
         var energyDrift = Math.Abs((TotalEnergy(entities) - energy0) / energy0);
         var r = (entities[1].Position - entities[0].Position).Length;
         var radiusDrift = Math.Abs((r - r0) / r0);
@@ -69,9 +68,8 @@ public class TwoBodyPhysicsTests
         var entities = CreateTwoBodyCircular(out _);
         ISimulationEngine engine = new BarnesHutSimulationEngine(new LeapfrogIntegrator());
         var dt = TimeSpan.FromMilliseconds(10);
-        var steps = 10000;
         var p0 = TotalMomentum(entities);
-        for(int i=0;i<steps;i++) engine.Simulate(entities, dt);
+        for(int i=0;i<TestConstants.Steps;i++) engine.Simulate(entities, dt);
         var p = TotalMomentum(entities);
         var deltaP = (p - p0).Length;
         var tol = 1e-6; // numerical tolerance
@@ -89,10 +87,9 @@ public class TwoBodyPhysicsTests
         ISimulationEngine lf = new BarnesHutSimulationEngine(new LeapfrogIntegrator());
         ISimulationEngine rk = new BarnesHutSimulationEngine(new RungeKuttaIntegrator());
         var dt = TimeSpan.FromMilliseconds(10);
-        var steps = 10000;
         var energy0 = TotalEnergy(lfEntities);
-        for(int i=0;i<steps;i++) lf.Simulate(lfEntities, dt);
-        for(int i=0;i<steps;i++) rk.Simulate(rkEntities, dt);
+        for(int i=0;i<TestConstants.Steps;i++) lf.Simulate(lfEntities, dt);
+        for(int i=0;i<TestConstants.Steps;i++) rk.Simulate(rkEntities, dt);
         var lfEnergyDrift = Math.Abs((TotalEnergy(lfEntities) - energy0) / energy0);
         var rkEnergyDrift = Math.Abs((TotalEnergy(rkEntities) - energy0) / energy0);
         var lfRadiusDrift = Math.Abs(((lfEntities[1].Position - lfEntities[0].Position).Length - r0) / r0);
