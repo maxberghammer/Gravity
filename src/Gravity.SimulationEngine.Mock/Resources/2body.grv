@@ -1,0 +1,50 @@
+{
+    "Viewport": {
+        "TopLeft": {
+            "X": -960,
+            "Y": -504.5
+        },
+        "BottomRight": {
+            "X": 960,
+            "Y": 504.5
+        },
+        "Scale": 0
+    },
+    "TimeScale": 2,
+    "ElasticCollisions": false,
+    "ClosedBoundaries": false,
+    "ShowPath": true,
+    "AutoCenterViewport": false,
+    "SelectedEntityPresetId": "0514f35b-029f-4e91-8071-81fd31c570e0",
+    "RespawnerId": null,
+    "Entities": [{
+            "FillColor": "#FF000000",
+            "StrokeColor": "#FFFFFFFF",
+            "StrokeWidth": 2,
+            "Position": {
+                "X": -50,
+                "Y": 0
+            },
+            "v": {
+                "X": 0,
+                "Y": 0
+            },
+            "r": 10,
+            "m": 1000000000000
+        }, {
+            "FillColor": "#FF000000",
+            "StrokeColor": "#FFFFFFFF",
+            "StrokeWidth": 2,
+            "Position": {
+                "X": 50,
+                "Y": 0
+            },
+            "v": {
+                "X": -0.04393068050813093,
+                "Y": -0.9005789504166842
+            },
+            "r": 10,
+            "m": 1000000000000
+        }
+    ]
+}

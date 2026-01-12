@@ -13,7 +13,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />
     <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
+    <ProjectReference Include="..\Gravity.SimulationEngine.Mock\Gravity.SimulationEngine.Mock.csproj" />
   </ItemGroup>
 
 </Project>

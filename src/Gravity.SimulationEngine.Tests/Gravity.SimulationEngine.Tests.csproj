@@ -2,10 +2,12 @@
 
 	<!-- Test Projekt-Einstellungen -->
 	<Import Project="$(TestProjectSettingsFilePath)" />
-
+	
 	<ItemGroup>
 		<ProjectReference Include="..\..\Wellenlib\src\Wellenlib.Testing\Wellenlib.Testing.csproj" />
-    <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
-  </ItemGroup>
+		<ProjectReference Include="..\Gravity.SimulationEngine.Mock\Gravity.SimulationEngine.Mock.csproj" />
+		<ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
+		<ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />
+	</ItemGroup>
 
 </Project>
