@@ -13,10 +13,13 @@ public abstract class EngineTestsBase
 	protected async Task RunAsync(string jsonResourcePath, int steps)
 	{
 		var engine = Factory.Create(EngineType);
-		(var _, var entities, var deltaTime) = await WorldMock.CreateFromJsonResourceAsync(jsonResourcePath);
+		(var world, var deltaTime) = await IWorld.CreateFromJsonResourceAsync(jsonResourcePath);
 
-		for(var s = 0; s < steps; s++)
-			engine.Simulate(entities, deltaTime);
+		world = world.CreateMock();
+		var entities = world.GetEntities();
+
+		for (var s = 0; s < steps; s++)
+			engine.Simulate(world, deltaTime);
 
 		foreach(var entity in entities)
 		{

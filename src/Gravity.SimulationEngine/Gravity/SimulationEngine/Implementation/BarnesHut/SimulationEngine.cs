@@ -10,7 +10,7 @@ using Gravity.SimulationEngine.Implementation.Integrators;
 
 namespace Gravity.SimulationEngine.Implementation.BarnesHut;
 
-internal sealed class SimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : SimulationEngineBase
 {
 	#region Fields
 
@@ -22,7 +22,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	// Reuse a HashSet for collision de-dup to avoid per-frame allocations
 	private readonly HashSet<long> _collisionKeys = new(1024);
-	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
 
 	#endregion
@@ -34,10 +33,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	#endregion
 
-	#region Implementation of ISimulationEngine
+	#region Implementation
 
 	/// <inheritdoc/>
-	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden und integrieren (synchron, aber parallelisiert)
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
@@ -63,12 +62,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 				var entity1 = entitiesById[a];
 				var entity2 = entitiesById[b];
 
-				(var v1, var v2) = entity1.HandleCollision(entity2, entity1.World.ElasticCollisions);
+				(var v1, var v2) = HandleCollision(entity1, entity2, world.ElasticCollisions);
 
 				if(v1.HasValue &&
 				   v2.HasValue)
 				{
-					(var position1, var position2) = entity1.CancelOverlap(entity2);
+					(var position1, var position2) = CancelOverlap(entity1, entity2);
 
 					if(position1.HasValue)
 						entity1.Position = position1.Value;
@@ -84,32 +83,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 					entity2.v = v2.Value;
 			}
 		}
-
-		// Pool world-boundary collision work: precompute viewport bounds once
-		var vp = entities.Length > 0
-					 ? entities[0].World.Viewport
-					 : null;
-
-		if(vp != null)
-		{
-			var topLeft = vp.TopLeft;
-			var bottomRight = vp.BottomRight;
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries(in topLeft, in bottomRight);
-		}
-		else
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries();
 	}
-
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> _diagnostics;
-
-	#endregion
-
-	#region Implementation
 
 	private static List<BarnesHutTree.CollisionPair> RentCollector()
 	{

@@ -12,7 +12,6 @@ public abstract class AllEnginesBenchBase
 {
 	#region Fields
 
-	private Entity[] _baseline = [];
 	private TimeSpan _dt;
 	private IWorld _world = null!;
 
@@ -24,9 +23,8 @@ public abstract class AllEnginesBenchBase
 	public async Task SetupAsync()
 	{
 		// Always target 1000-bodies resource; steps default to BenchParams.Steps (1000)
-		(var world, var entities, var dt) = await WorldMock.CreateFromJsonResourceAsync(JsonResourcePath);
+		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(JsonResourcePath);
 		_world = world;
-		_baseline = entities;
 		_dt = dt;
 
 		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
@@ -57,31 +55,19 @@ public abstract class AllEnginesBenchBase
 	protected double Run(ISimulationEngine engine)
 	{
 		ArgumentNullException.ThrowIfNull(engine);
-		var entities = Clone(_baseline, _world);
+		var world = _world.CreateMock();
+		var entities = world.GetEntities();
 		var sum = 0d;
 
 		for(var i = 0; i < Steps; i++)
 		{
-			engine.Simulate(entities, _dt);
+			engine.Simulate(world, _dt);
 
 			foreach(var e in entities)
 				sum += e.v.Length;
 		}
 
 		return sum;
-	}
-
-	private static Entity[] Clone(Entity[] src, IWorld world)
-	{
-		var copy = new Entity[src.Length];
-
-		for(var i = 0; i < src.Length; i++)
-		{
-			var e = src[i];
-			copy[i] = new(new(e.Position.X, e.Position.Y), e.r, e.m, new(e.v.X, e.v.Y), Vector2D.Zero, world, e.Fill, e.Stroke, e.StrokeWidth);
-		}
-
-		return copy;
 	}
 
 	#endregion

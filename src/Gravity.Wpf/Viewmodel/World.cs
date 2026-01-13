@@ -173,6 +173,10 @@ public class World : NotifyPropertyChanged,
 
 	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
 
+	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
+
+	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
+
 	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
 	public void CreateRandomEntities(int count, bool enableRespawn)
 	{
@@ -220,7 +224,9 @@ public class World : NotifyPropertyChanged,
 								  SelectedEntityPreset.m,
 								  velocity,
 								  Vector2D.Zero,
-								  this, SelectedEntityPreset.Fill, SelectedEntityPreset.Stroke, SelectedEntityPreset.StrokeWidth));
+								  SelectedEntityPreset.Fill, 
+								  SelectedEntityPreset.Stroke, 
+								  SelectedEntityPreset.StrokeWidth));
 
 	public void CreateOrbitEntity(Vector2D position, Vector2D velocity)
 	{
@@ -336,7 +342,6 @@ public class World : NotifyPropertyChanged,
 															 e.m,
 															 new(e.v.X, e.v.Y),
 															 Vector2D.Zero,
-															 this,
 															 string.IsNullOrEmpty(e.FillColor)
 																 ? Color.Transparent
 																 : Color.Parse(e.FillColor),
@@ -350,12 +355,17 @@ public class World : NotifyPropertyChanged,
 
 	#region Implementation of IWorld
 
-	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
-
-	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
-
 	IViewport IWorld.Viewport
 		=> Viewport;
+
+	bool IWorld.ClosedBoundaries
+		=> ClosedBoundaries;
+
+	bool IWorld.ElasticCollisions
+		=> ElasticCollisions;
+
+	Entity[] IWorld.GetEntities()
+		=> Entities.ToArrayLocked();
 
 	#endregion
 
@@ -418,7 +428,7 @@ public class World : NotifyPropertyChanged,
 		   _simulationEngine == null)
 			return;
 
-		_simulationEngine.Simulate(entities, deltaTime);
+		_simulationEngine.Simulate(this, deltaTime);
 
 		var respawner = CurrentRespawnerId.HasValue
 							? _respawnersById[CurrentRespawnerId.Value]

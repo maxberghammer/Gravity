@@ -13,7 +13,7 @@ public interface ISimulationEngine
 		IReadOnlyDictionary<string, object> Fields { get; }
 	}
 
-	void Simulate(Entity[] entities, TimeSpan deltaTime);
+	void Simulate(IWorld world, TimeSpan deltaTime);
 
 	IDiagnostics GetDiagnostics();
 }

@@ -11,7 +11,7 @@ public abstract class EngineBenchBase
 {
 	#region Fields
 
-	private readonly Dictionary<string, (IWorld World, Entity[] Baseline, TimeSpan Dt)> _cache = new();
+	private readonly Dictionary<string, (IWorld World, TimeSpan Dt)> _cache = new();
 	private ISimulationEngine _engine = null!;
 
 	#endregion
@@ -46,14 +46,15 @@ public abstract class EngineBenchBase
 			entry = _cache[resourcePath];
 		}
 
-		(var world, var baseline, var dt) = entry;
-		var entities = CloneEntities(baseline, world);
+		(var world, var dt) = entry;
 
+		world = world.CreateMock();
 		double sum = 0;
+		var entities = world.GetEntities();
 
 		for(var i = 0; i < steps; i++)
 		{
-			_engine.Simulate(entities, dt);
+			_engine.Simulate(world, dt);
 
 			foreach(var entity in entities)
 				sum += entity.v.Length;
@@ -62,34 +63,13 @@ public abstract class EngineBenchBase
 		return sum;
 	}
 
-	private static Entity[] CloneEntities(Entity[] baseline, IWorld world)
-	{
-		var copy = new Entity[baseline.Length];
-
-		for(var i = 0; i < baseline.Length; i++)
-		{
-			var e = baseline[i];
-			copy[i] = new(new(e.Position.X, e.Position.Y),
-						  e.r,
-						  e.m,
-						  new(e.v.X, e.v.Y),
-						  Vector2D.Zero,
-						  world,
-						  e.Fill,
-						  e.Stroke,
-						  e.StrokeWidth);
-		}
-
-		return copy;
-	}
-
 	private async Task PreloadAsync(string resourcePath)
 	{
 		if(_cache.ContainsKey(resourcePath))
 			return;
 
-		(var world, var entities, var dt) = await WorldMock.CreateFromJsonResourceAsync(resourcePath);
-		_cache[resourcePath] = (world, entities, dt);
+		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
+		_cache[resourcePath] = (world, dt);
 	}
 
 	#endregion

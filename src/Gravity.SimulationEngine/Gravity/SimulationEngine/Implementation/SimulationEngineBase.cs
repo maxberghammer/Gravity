@@ -1,11 +1,9 @@
-// Erstellt am: 22.01.2021
-// Erstellt von: Max Berghammer
+﻿using System;
+using System.Linq;
 
-using System;
+namespace Gravity.SimulationEngine.Implementation;
 
-namespace Gravity.SimulationEngine;
-
-public static class EntityExtensions
+internal abstract class SimulationEngineBase : ISimulationEngine
 {
 	#region Interface
 
@@ -13,12 +11,12 @@ public static class EntityExtensions
 	///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
 	///     neuen Positionen der beiden Objekte, so dass sie sich nicht mehr überlappen.
 	/// </summary>
-	public static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(this Entity entity1, Entity entity2)
+	protected static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Entity entity1, Entity entity2)
 	{
-        ArgumentNullException.ThrowIfNull(entity1);
+		ArgumentNullException.ThrowIfNull(entity1);
 		ArgumentNullException.ThrowIfNull(entity2);
 
-        var dist = entity1.Position - entity2.Position;
+		var dist = entity1.Position - entity2.Position;
 		var minDistAbs = entity1.r + entity2.r;
 
 		if(entity1.m < entity2.m)
@@ -34,12 +32,12 @@ public static class EntityExtensions
 	///     Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die
 	///     neuen Geschwindigkeiten der beiden Objekte.
 	/// </summary>
-	public static (Vector2D? v1, Vector2D? v2) HandleCollision(this Entity entity1, Entity entity2, bool elastic)
+	protected static (Vector2D? v1, Vector2D? v2) HandleCollision(Entity entity1, Entity entity2, bool elastic)
 	{
-        ArgumentNullException.ThrowIfNull(entity1);
+		ArgumentNullException.ThrowIfNull(entity1);
 		ArgumentNullException.ThrowIfNull(entity2);
 
-        if (entity1.IsAbsorbed ||
+		if(entity1.IsAbsorbed ||
 		   entity2.IsAbsorbed)
 			return (null, null);
 
@@ -97,46 +95,45 @@ public static class EntityExtensions
 		return (v, null);
 	}
 
-	public static void HandleCollisionWithWorldBoundaries(this Entity entity)
+	#endregion
+
+	#region Implementation of ISimulationEngine
+
+	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
+		=> Diagnostics;
+
+	void ISimulationEngine.Simulate(IWorld world, TimeSpan deltaTime)
 	{
-        ArgumentNullException.ThrowIfNull(entity);
+		var entities = world.GetEntities();
 
-        var topLeft = entity.World.Viewport.TopLeft + new Vector2D(entity.r, entity.r);
-		var bottomRight = entity.World.Viewport.BottomRight - new Vector2D(entity.r, entity.r);
+		if(entities.Length == 0 ||
+		   deltaTime <= TimeSpan.Zero)
+			return;
 
-		if(entity.Position.X < topLeft.X)
-		{
-			entity.v = new(-entity.v.X, entity.v.Y);
-			entity.Position = new(topLeft.X, entity.Position.Y);
-		}
+		OnSimulate(world, entities, deltaTime);
 
-		if(entity.Position.X > bottomRight.X)
-		{
-			entity.v = new(-entity.v.X, entity.v.Y);
-			entity.Position = new(bottomRight.X, entity.Position.Y);
-		}
+		if(!world.ClosedBoundaries)
+			return;
 
-		if(entity.Position.Y < topLeft.Y)
-		{
-			entity.v = new(entity.v.X, -entity.v.Y);
-			entity.Position = new(entity.Position.X, topLeft.Y);
-		}
-
-		if(entity.Position.Y > bottomRight.Y)
-		{
-			entity.v = new(entity.v.X, -entity.v.Y);
-			entity.Position = new(entity.Position.X, bottomRight.Y);
-		}
+		// Weltgrenzen behandeln
+		foreach(var entitiy in entities.Where(e => !e.IsAbsorbed))
+			HandleCollisionWithWorldBoundaries(world, entitiy);
 	}
 
-	public static void HandleCollisionWithWorldBoundaries(this Entity entity, in Vector2D viewportTopLeft, in Vector2D viewportBottomRight)
-	{
-        ArgumentNullException.ThrowIfNull(entity);
+	#endregion
 
-        var leftX = viewportTopLeft.X + entity.r;
-		var topY = viewportTopLeft.Y + entity.r;
-		var rightX = viewportBottomRight.X - entity.r;
-		var bottomY = viewportBottomRight.Y - entity.r;
+	#region Implementation
+
+	protected Diagnostics Diagnostics { get; } = new();
+
+	protected abstract void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime);
+
+	private static void HandleCollisionWithWorldBoundaries(IWorld world, Entity entity)
+	{
+		var leftX = world.Viewport.TopLeft.X + entity.r;
+		var topY = world.Viewport.TopLeft.Y + entity.r;
+		var rightX = world.Viewport.BottomRight.X - entity.r;
+		var bottomY = world.Viewport.BottomRight.Y - entity.r;
 
 		var pos = entity.Position;
 		var v = entity.v;

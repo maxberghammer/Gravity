@@ -9,30 +9,23 @@ using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Standard;
 
-internal sealed class SimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : SimulationEngineBase
 {
 	#region Fields
 
-	private readonly Diagnostics _diagnostics = new();
-
-	// ReSharper disable once InconsistentNaming
 	private readonly ConcurrentDictionary<int, Vector2D> _positionByEntityId = new();
-
-	// ReSharper disable once InconsistentNaming
 	private readonly ConcurrentDictionary<int, Vector2D> _vByEntityId = new();
 
 	#endregion
 
-	#region Implementation of ISimulationEngine
-
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> _diagnostics;
+	#region Implementation
 
 	/// <inheritdoc/>
-	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden
-		ApplyPhysics(entities.Where(e => !e.IsAbsorbed)
+		ApplyPhysics(world,
+					 entities.Where(e => !e.IsAbsorbed)
 							 .ToArray());
 
 		// Objekte updaten
@@ -47,13 +40,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				   deltaTime);
 	}
 
-	#endregion
-
-	#region Implementation
-
-	// ReSharper disable InconsistentNaming
 	private static void Update(Entity entity, Vector2D? position, Vector2D? v, TimeSpan deltaTime)
-		// ReSharper restore InconsistentNaming
 	{
 		if(entity.IsAbsorbed)
 			return;
@@ -71,12 +58,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 		// Geschwindigkeit aktualisieren
 		entity.v += entity.a * deltaTime.TotalSeconds;
-
-		if(entity.World.ClosedBoundaries)
-			entity.HandleCollisionWithWorldBoundaries();
 	}
 
-	private void ApplyPhysics(Entity entity, IEnumerable<Entity> others)
+	private void ApplyPhysics(IWorld world, Entity entity, IEnumerable<Entity> others)
 	{
 		if(entity.IsAbsorbed)
 			return;
@@ -88,12 +72,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 		foreach(var other in others.Where(e => !e.IsAbsorbed))
 		{
 			// Kollision behandeln
-			(var v1, var v2) = entity.HandleCollision(other, entity.World.ElasticCollisions);
+			(var v1, var v2) = HandleCollision(entity, other, world.ElasticCollisions);
 
 			if(v1.HasValue &&
 			   v2.HasValue)
 			{
-				(var position1, var position2) = entity.CancelOverlap(other);
+				(var position1, var position2) = CancelOverlap(entity, other);
 
 				if(position1.HasValue)
 					_positionByEntityId[entity.Id] = position1.Value;
@@ -120,7 +104,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		entity.a = -IWorld.G * g;
 	}
 
-	private void ApplyPhysics(Entity[] entities)
+	private void ApplyPhysics(IWorld world, Entity[] entities)
 	{
 		_positionByEntityId.Clear();
 		_vByEntityId.Clear();
@@ -135,7 +119,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 									var end = Math.Min(start + chunk, n);
 
 									for(var i = start; i < end; i++)
-										ApplyPhysics(entities[i], entities.Except(entities[i]));
+										ApplyPhysics(world, entities[i], entities.Except(entities[i]));
 								});
 	}
 

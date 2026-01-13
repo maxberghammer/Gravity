@@ -6,11 +6,10 @@ using Gravity.SimulationEngine.Implementation.Integrators;
 
 namespace Gravity.SimulationEngine.Implementation.ClusteredNBody;
 
-internal sealed class SimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : SimulationEngineBase
 {
 	#region Fields
 
-	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
 
 	#endregion
@@ -27,12 +26,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	#endregion
 
-	#region Implementation of ISimulationEngine
+	#region Implementation
 
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> _diagnostics;
-
-	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
+	/// <inheritdoc/>
+	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
 	{
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
 
@@ -54,12 +51,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 				var e1 = entitiesById[a];
 				var e2 = entitiesById[b];
 
-				(var v1, var v2) = e1.HandleCollision(e2, e1.World.ElasticCollisions);
+				(var v1, var v2) = HandleCollision(e1, e2, world.ElasticCollisions);
 
 				if(v1.HasValue &&
 				   v2.HasValue)
 				{
-					(var p1, var p2) = e1.CancelOverlap(e2);
+					(var p1, var p2) = CancelOverlap(e1, e2);
 					if(p1.HasValue)
 						e1.Position = p1.Value;
 					if(p2.HasValue)
@@ -72,28 +69,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 					e2.v = v2.Value;
 			}
 		}
-
-		var vp = entities.Length > 0
-					 ? entities[0].World.Viewport
-					 : null;
-
-		if(vp != null)
-		{
-			var tl = vp.TopLeft;
-			var br = vp.BottomRight;
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries(in tl, in br);
-		}
-		else
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries();
 	}
-
-	#endregion
-
-	#region Implementation
 
 	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
 	{

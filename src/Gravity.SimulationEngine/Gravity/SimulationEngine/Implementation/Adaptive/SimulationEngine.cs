@@ -6,7 +6,7 @@ using Gravity.SimulationEngine.Implementation.Oversamplers;
 
 namespace Gravity.SimulationEngine.Implementation.Adaptive;
 
-internal sealed class SimulationEngine : ISimulationEngine
+internal sealed class SimulationEngine : SimulationEngineBase
 {
 	#region Fields
 
@@ -18,7 +18,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	// Pooled grid buckets to avoid per-substep allocations
 	private static List<int>[]? _sBuckets;
-	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
 	private readonly IOversampler _oversampler;
 
@@ -34,51 +33,23 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	#endregion
 
-	#region Implementation of ISimulationEngine
+	#region Implementation
 
-	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
+	/// <inheritdoc/>
+	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
 	{
-		if(entities.Length == 0 ||
-		   deltaTime <= TimeSpan.Zero)
-			return;
-
 		var steps = _oversampler.Oversample(entities, deltaTime, (e, dt) =>
 																 {
 																	 // Integrator-Step (berechnet a intern wo nötig)
 																	 _integrator.Step(e, dt.TotalSeconds, ComputeAccelerations);
 
 																	 // Kollisionen nach dem Step exakt erkennen und auflösen (Oversampling)
-																	 ResolveCollisions(e);
+																	 ResolveCollisions(world, e);
 																 });
 
 		// Report substeps for diagnostics
-		_diagnostics.SetField("Substeps", steps);
-
-		// Weltgrenzen behandeln (einmal am Ende genügt bei kleinen Substeps)
-		var vp = entities.Length > 0
-					 ? entities[0].World.Viewport
-					 : null;
-
-		if(vp != null)
-		{
-			var tl = vp.TopLeft;
-			var br = vp.BottomRight;
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries(in tl, in br);
-		}
-		else
-			for(var i = 0; i < entities.Length; i++)
-				if(entities[i].World.ClosedBoundaries)
-					entities[i].HandleCollisionWithWorldBoundaries();
+		Diagnostics.SetField("Substeps", steps);
 	}
-
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> _diagnostics;
-
-	#endregion
-
-	#region Implementation
 
 	private static void EnsureBuckets(int cols, int rows)
 	{
@@ -98,7 +69,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				}
 	}
 
-	private static void ResolveCollisions(Entity[] entities)
+	private static void ResolveCollisions(IWorld world, Entity[] entities)
 	{
 		var n = entities.Length;
 
@@ -202,7 +173,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			bucket.Add(i);
 		}
 
-		var elastic = entities[0].World.ElasticCollisions;
+		var elastic = world.ElasticCollisions;
 		_sSeen.Clear();
 
 		for(var i = 0; i < n; i++)
@@ -281,12 +252,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 						if(d.LengthSquared <= sumR * sumR)
 						{
-							(var v1, var v2) = ei.HandleCollision(ej, elastic);
+							(var v1, var v2) = HandleCollision(ei, ej, elastic);
 
 							if(v1.HasValue &&
 							   v2.HasValue)
 							{
-								(var p1, var p2) = ei.CancelOverlap(ej);
+								(var p1, var p2) = CancelOverlap(ei, ej);
 								if(p1.HasValue)
 									ei.Position = p1.Value;
 								if(p2.HasValue)
@@ -387,9 +358,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 		tree.CollectDiagnostics = false;
 		// Update diagnostics locally
 		Parallel.For(0, n, i => { entities[i].a = tree.CalculateGravity(entities[i]); });
-		_diagnostics.SetField("Nodes", tree.NodeCount);
-		_diagnostics.SetField("MaxDepth", tree.MaxDepthReached);
-		_diagnostics.SetField("Visits", tree.TraversalVisitCount);
+		Diagnostics.SetField("Nodes", tree.NodeCount);
+		Diagnostics.SetField("MaxDepth", tree.MaxDepthReached);
+		Diagnostics.SetField("Visits", tree.TraversalVisitCount);
 
 		tree.Release();
 	}

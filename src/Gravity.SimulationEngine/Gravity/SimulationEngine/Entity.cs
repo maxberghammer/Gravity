@@ -23,13 +23,11 @@ public class Entity
 				  double mass,
 				  Vector2D velocity,
 				  Vector2D acceleration,
-				  IWorld world,
 				  Color fill,
 				  Color? stroke,
 				  double strokeWidth)
 		// ReSharper restore InconsistentNaming
 	{
-		World = world;
 		Position = position;
 		v = velocity;
 		Fill = fill;
@@ -46,7 +44,6 @@ public class Entity
 	{
         ArgumentNullException.ThrowIfNull(other);
 
-        World = other.World;
 		Position = other.Position;
 		v = other.v;
 		r = other.r;
@@ -55,6 +52,20 @@ public class Entity
 		a = other.a;
 		Id = other.Id;
 	}
+
+	public Entity Clone(bool cloneAccelleration = false, bool cloneId = false)
+		=> cloneId
+			   ? new(this)
+			   : new(new(Position.X, Position.Y),
+					 r,
+					 m,
+					 new(v.X, v.Y),
+					 cloneAccelleration
+						 ? a
+						 : Vector2D.Zero,
+					 Fill,
+					 Stroke,
+					 StrokeWidth);
 
 	#endregion
 
@@ -69,9 +80,7 @@ public class Entity
 	public Color? Stroke { get; }
 
 	public double StrokeWidth { get; }
-
-	public IWorld World { get; }
-
+	
 	public Vector2D Position { get; set; }
 
 	// ReSharper disable once InconsistentNaming
