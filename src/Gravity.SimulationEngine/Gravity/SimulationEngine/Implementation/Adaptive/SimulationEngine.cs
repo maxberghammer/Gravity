@@ -11,7 +11,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const double _cellScale = 2.0; // clamp median to avoid extremes; pick scale ~ average diameter
 	private const int _maxSubsteps = 64; // Obergrenze pro Frame
 	private const double _minDtSeconds = 1e-6; // Untergrenze für numerische Stabilität
-	private const double _safety = 0.65; // Sicherheitsfaktor für Oversampling-Schrittweite
+	private const double _safety = 0.8; // Leapfrog erlaubt etwas größere Schritte
 	private static readonly object _sBucketsLock = new();
 
 	// Reuse HashSet for collision de-dup
@@ -20,6 +20,19 @@ internal sealed class SimulationEngine : ISimulationEngine
 	// Pooled grid buckets to avoid per-substep allocations
 	private static List<int>[]? _sBuckets;
 	private readonly Diagnostics _diagnostics = new();
+	private readonly IIntegrator _integrator;
+
+	#endregion
+
+	#region Construction
+
+	public SimulationEngine()
+		: this(new LeapfrogIntegrator())
+	{
+	}
+
+	public SimulationEngine(IIntegrator integrator)
+		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion
 
@@ -39,10 +52,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		while(remaining > 0.0 &&
 			  steps < _maxSubsteps)
 		{
-			// 1) Kräfte bzw. Beschleunigungen berechnen (Barnes–Hut via EntityTree2)
-			ComputeAccelerations(entities);
-
-			// 2) dtO bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
+			// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
 			var dtO = double.PositiveInfinity;
 
 			for(var i = 0; i < n; i++)
@@ -68,29 +78,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 				dtO = remaining; // Keine sinnvolle Grenze -> ganzen Rest nehmen
 			dtO = Math.Max(_minDtSeconds, Math.Min(remaining, _safety * dtO));
 
-			// 3) v += a * dtO (semi-implizit stabil)
-			Parallel.For(0, n, i =>
-							   {
-								   var e = entities[i];
-
-								   if(e.IsAbsorbed)
-									   return;
-
-								   e.v += e.a * dtO;
-							   });
-
-			// 4) p += v * dtO
-			Parallel.For(0, n, i =>
-							   {
-								   var e = entities[i];
-
-								   if(e.IsAbsorbed)
-									   return;
-
-								   e.Position += e.v * dtO;
-							   });
-
-			// 5) Kollisionen nach dem Substep exakt erkennen und auflösen
+			// Integrator-Step (berechnet a intern wo nötig)
+			_integrator.Step(entities, dtO, ComputeAccelerations, ResolveCollisions);
+			// Kollisionen nach dem Step exakt erkennen und auflösen (Oversampling)
 			ResolveCollisions(entities);
 
 			remaining -= dtO;
