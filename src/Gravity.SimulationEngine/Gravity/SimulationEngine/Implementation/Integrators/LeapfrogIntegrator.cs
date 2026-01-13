@@ -20,9 +20,8 @@ internal sealed class LeapfrogIntegrator : IIntegrator
 
 	public LeapfrogIntegrator(int maxSubsteps = 8, double maxDisplacementFactor = 0.3)
 	{
-		if(maxSubsteps < 1)
-			throw new ArgumentOutOfRangeException(nameof(maxSubsteps));
-		if(maxDisplacementFactor <= 0 ||
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxSubsteps, 1);
+        if (maxDisplacementFactor <= 0 ||
 		   maxDisplacementFactor > 1)
 			throw new ArgumentOutOfRangeException(nameof(maxDisplacementFactor));
 

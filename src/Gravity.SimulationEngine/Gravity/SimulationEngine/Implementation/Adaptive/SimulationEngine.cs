@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Gravity.SimulationEngine.Implementation.Adaptive.Integrators;
+using Gravity.SimulationEngine.Implementation.Oversamplers;
 
 namespace Gravity.SimulationEngine.Implementation.Adaptive;
 
@@ -9,9 +11,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 	#region Fields
 
 	private const double _cellScale = 2.0; // clamp median to avoid extremes; pick scale ~ average diameter
-	private const int _maxSubsteps = 64; // Obergrenze pro Frame
-	private const double _minDtSeconds = 1e-6; // Untergrenze für numerische Stabilität
-	private const double _safety = 0.8; // Leapfrog erlaubt etwas größere Schritte
 	private static readonly object _sBucketsLock = new();
 
 	// Reuse HashSet for collision de-dup
@@ -21,18 +20,17 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private static List<int>[]? _sBuckets;
 	private readonly Diagnostics _diagnostics = new();
 	private readonly IIntegrator _integrator;
+	private readonly IOversampler _oversampler;
 
 	#endregion
 
 	#region Construction
 
-	public SimulationEngine()
-		: this(new LeapfrogIntegrator())
+	public SimulationEngine(IIntegrator integrator, IOversampler oversampler)
 	{
+		_integrator = integrator;
+		_oversampler = oversampler;
 	}
-
-	public SimulationEngine(IIntegrator integrator)
-		=> _integrator = integrator ?? throw new ArgumentNullException(nameof(integrator));
 
 	#endregion
 
@@ -40,52 +38,18 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	void ISimulationEngine.Simulate(Entity[] entities, TimeSpan deltaTime)
 	{
-		var n = entities.Length;
-
-		if(n == 0 ||
+		if(entities.Length == 0 ||
 		   deltaTime <= TimeSpan.Zero)
 			return;
 
-		var remaining = deltaTime.TotalSeconds;
-		var steps = 0;
+		var steps = _oversampler.Oversample(entities, deltaTime, (e, dt) =>
+																 {
+																	 // Integrator-Step (berechnet a intern wo nötig)
+																	 _integrator.Step(e, dt.TotalSeconds, ComputeAccelerations);
 
-		while(remaining > 0.0 &&
-			  steps < _maxSubsteps)
-		{
-			// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
-			var dtO = double.PositiveInfinity;
-
-			for(var i = 0; i < n; i++)
-			{
-				var e = entities[i];
-
-				if(e.IsAbsorbed)
-					continue;
-
-				var vlen = e.v.Length;
-
-				if(vlen <= 0.0 ||
-				   e.r <= 0.0)
-					continue;
-
-				var candidate = 2.0 * e.r / vlen; // Zeit, um eigenen Durchmesser zu überqueren
-				if(candidate < dtO)
-					dtO = candidate;
-			}
-
-			if(double.IsInfinity(dtO) ||
-			   dtO <= 0.0)
-				dtO = remaining; // Keine sinnvolle Grenze -> ganzen Rest nehmen
-			dtO = Math.Max(_minDtSeconds, Math.Min(remaining, _safety * dtO));
-
-			// Integrator-Step (berechnet a intern wo nötig)
-			_integrator.Step(entities, dtO, ComputeAccelerations, ResolveCollisions);
-			// Kollisionen nach dem Step exakt erkennen und auflösen (Oversampling)
-			ResolveCollisions(entities);
-
-			remaining -= dtO;
-			steps++;
-		}
+																	 // Kollisionen nach dem Step exakt erkennen und auflösen (Oversampling)
+																	 ResolveCollisions(e);
+																 });
 
 		// Report substeps for diagnostics
 		_diagnostics.SetField("Substeps", steps);

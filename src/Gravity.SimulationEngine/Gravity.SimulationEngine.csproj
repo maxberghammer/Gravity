@@ -4,8 +4,11 @@
 	<Import Project="$(CommonProjectSettingsFilePath)" />
 
 	<PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
 		<RootNamespace />
   </PropertyGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\Wellenlib\src\Wellenlib\Wellenlib.csproj" />
+	</ItemGroup>
 
 </Project>

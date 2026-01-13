@@ -44,10 +44,9 @@ public class Entity
 
 	public Entity(Entity other)
 	{
-		if(null == other)
-			throw new ArgumentNullException(nameof(other));
+        ArgumentNullException.ThrowIfNull(other);
 
-		World = other.World;
+        World = other.World;
 		Position = other.Position;
 		v = other.v;
 		r = other.r;
@@ -101,10 +100,9 @@ public class Entity
 
 	public void Absorb(Entity other)
 	{
-		if(null == other)
-			throw new ArgumentNullException(nameof(other));
+        ArgumentNullException.ThrowIfNull(other);
 
-		m += other.m;
+        m += other.m;
 		r = Math.Pow(Math.Pow(r, 3) + Math.Pow(other.r, 3), 1.0d / 3.0d);
 		r2 = r * r;
 		other.IsAbsorbed = true;

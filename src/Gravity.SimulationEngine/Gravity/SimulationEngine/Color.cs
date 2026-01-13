@@ -76,7 +76,7 @@ public struct Color : IEquatable<Color>
 		=> $"#{A:X2}{R:X2}{G:X2}{B:X2}";
 
 	/// <inheritdoc/>
-	public override bool Equals(object obj)
+	public override bool Equals(object? obj)
 		=> obj is Color other && Equals(other);
 
 	/// <inheritdoc/>

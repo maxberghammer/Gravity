@@ -20,10 +20,9 @@ internal sealed class RungeKuttaIntegrator : IIntegrator
 
 	public RungeKuttaIntegrator(int substeps = 1)
 	{
-		if(substeps < 1)
-			throw new ArgumentOutOfRangeException(nameof(substeps));
+        ArgumentOutOfRangeException.ThrowIfLessThan(substeps, 1);
 
-		_substeps = substeps;
+        _substeps = substeps;
 	}
 
 	#endregion

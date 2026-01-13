@@ -15,13 +15,10 @@ public static class EntityExtensions
 	/// </summary>
 	public static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(this Entity entity1, Entity entity2)
 	{
-		if(null==entity1)
-			throw new ArgumentNullException(nameof(entity1));
+        ArgumentNullException.ThrowIfNull(entity1);
+		ArgumentNullException.ThrowIfNull(entity2);
 
-		if(null == entity2)
-			throw new ArgumentNullException(nameof(entity2));
-
-		var dist = entity1.Position - entity2.Position;
+        var dist = entity1.Position - entity2.Position;
 		var minDistAbs = entity1.r + entity2.r;
 
 		if(entity1.m < entity2.m)
@@ -39,13 +36,10 @@ public static class EntityExtensions
 	/// </summary>
 	public static (Vector2D? v1, Vector2D? v2) HandleCollision(this Entity entity1, Entity entity2, bool elastic)
 	{
-		if(null == entity1)
-			throw new ArgumentNullException(nameof(entity1));
+        ArgumentNullException.ThrowIfNull(entity1);
+		ArgumentNullException.ThrowIfNull(entity2);
 
-		if(null == entity2)
-			throw new ArgumentNullException(nameof(entity2));
-
-		if (entity1.IsAbsorbed ||
+        if (entity1.IsAbsorbed ||
 		   entity2.IsAbsorbed)
 			return (null, null);
 
@@ -105,10 +99,9 @@ public static class EntityExtensions
 
 	public static void HandleCollisionWithWorldBoundaries(this Entity entity)
 	{
-		if(null == entity)
-			throw new ArgumentNullException(nameof(entity));
-		
-		var topLeft = entity.World.Viewport.TopLeft + new Vector2D(entity.r, entity.r);
+        ArgumentNullException.ThrowIfNull(entity);
+
+        var topLeft = entity.World.Viewport.TopLeft + new Vector2D(entity.r, entity.r);
 		var bottomRight = entity.World.Viewport.BottomRight - new Vector2D(entity.r, entity.r);
 
 		if(entity.Position.X < topLeft.X)
@@ -138,10 +131,9 @@ public static class EntityExtensions
 
 	public static void HandleCollisionWithWorldBoundaries(this Entity entity, in Vector2D viewportTopLeft, in Vector2D viewportBottomRight)
 	{
-		if(null == entity)
-			throw new ArgumentNullException(nameof(entity));
+        ArgumentNullException.ThrowIfNull(entity);
 
-		var leftX = viewportTopLeft.X + entity.r;
+        var leftX = viewportTopLeft.X + entity.r;
 		var topY = viewportTopLeft.Y + entity.r;
 		var rightX = viewportBottomRight.X - entity.r;
 		var bottomY = viewportBottomRight.Y - entity.r;
