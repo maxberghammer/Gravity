@@ -21,7 +21,7 @@ internal sealed class MinDiameterCrossingTimeOversampler : AdaptiveOversampler
 	{
 		// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
 		var n = entitiesToProcess.Length;
-		var adaptedDtInSeconds = dt.TotalSeconds;
+		var adaptedDtInSeconds = double.PositiveInfinity;
 
 		for(var i = 0; i < n; i++)
 		{
@@ -32,18 +32,16 @@ internal sealed class MinDiameterCrossingTimeOversampler : AdaptiveOversampler
 
 			var vlen = e.v.Length;
 
-			if(vlen <= double.Epsilon ||
-			   e.r <= double.Epsilon)
+			if(vlen <= 0.0 ||
+			   e.r <= 0.0)
 				continue;
 
 			adaptedDtInSeconds = Math.Min(2.0 * e.r / vlen, adaptedDtInSeconds); // Zeit, um eigenen Durchmesser zu überqueren
-
-			if(adaptedDtInSeconds <= double.Epsilon)
-				break;
 		}
 
-		return adaptedDtInSeconds <= double.Epsilon
-				   ? dt
+		return double.IsInfinity(adaptedDtInSeconds) ||
+			   adaptedDtInSeconds <= 0.0
+				   ? dt // Keine sinnvolle Grenze -> ganze dt nehmen
 				   : TimeSpan.FromSeconds(adaptedDtInSeconds);
 	}
 
