@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace Gravity.SimulationEngine.Implementation.Adaptive;
 
-// Highly optimized Barnes–Hut style quadtree focused for AdaptiveSimulationEngine
+// Highly optimized Barnesâ€“Hut style quadtree focused for AdaptiveSimulationEngine
 // - Allocation-light (pooled array-backed nodes)
 // - No collision collection (acceleration-only)
 // - Iterative traversal for CalculateGravity
@@ -213,31 +213,42 @@ internal sealed class BarnesHutTree
 		stack[sp++] = _root;
 		var thetaSq = _theta * _theta;
 		long localVisits = 0;
+		var ePos = e.Position; // cache body position
 
 		while(sp > 0)
 		{
 			var idx = stack[--sp];
 			localVisits++;
-			var n = _nodes[idx];
+			ref var n = ref _nodes[idx]; // use ref to avoid struct copy
 
-			if(n.Mass <= 0.0)
+			var mass = n.Mass;
+			if(mass <= 0.0)
 				continue;
 
-			var dvec = e.Position - n.Com;
-			var dist2 = dvec.LengthSquared;
+			// Cache node center of mass
+			var com = n.Com;
+			var dx = ePos.X - com.X;
+			var dy = ePos.Y - com.Y;
+			var dist2 = dx * dx + dy * dy;
 
 			if(dist2 <= 0.0)
 				continue;
 
-			var leaf = n is { NW: < 0, Body: not null } or { NW: < 0, AggMass: > 0.0 };
+			var hasChildren = n.NW >= 0;
+			var isLeaf = !hasChildren && (n.Body != null || n.AggMass > 0.0);
 
-			if(leaf || n.WidthSq / dist2 < thetaSq)
+			if(isLeaf || n.WidthSq / dist2 < thetaSq)
 			{
-				var invLen3 = 1.0 / (dist2 * Math.Sqrt(dist2));
-				acc += -IWorld.G * n.Mass * invLen3 * dvec;
+				// Fused calculation: avoid separate sqrt and divisions
+				var dist = Math.Sqrt(dist2);
+				var invLen3 = 1.0 / (dist2 * dist);
+				var factor = -IWorld.G * mass * invLen3;
+				acc.X += factor * dx;
+				acc.Y += factor * dy;
 			}
 			else
 			{
+				// Expand children
 				if(sp + 4 >= stack.Length)
 				{
 					var bigger = pool.Rent(stack.Length * 2);
@@ -246,14 +257,20 @@ internal sealed class BarnesHutTree
 					stack = bigger;
 				}
 
-				if(n.NW >= 0)
-					stack[sp++] = n.NW;
-				if(n.NE >= 0)
-					stack[sp++] = n.NE;
-				if(n.SW >= 0)
-					stack[sp++] = n.SW;
-				if(n.SE >= 0)
-					stack[sp++] = n.SE;
+				// Unroll child checks to reduce branching
+				var nw = n.NW;
+				var ne = n.NE;
+				var sw = n.SW;
+				var se = n.SE;
+
+				if(nw >= 0)
+					stack[sp++] = nw;
+				if(ne >= 0)
+					stack[sp++] = ne;
+				if(sw >= 0)
+					stack[sp++] = sw;
+				if(se >= 0)
+					stack[sp++] = se;
 			}
 		}
 
@@ -335,71 +352,98 @@ internal sealed class BarnesHutTree
 
 	private void Insert(int idx, Body e, int depth)
 	{
-		if(depth > MaxDepthReached)
-			MaxDepthReached = depth;
-		var n = _nodes[idx];
-		n.Count++;
-		var hasChildren = n.NW >= 0;
+		// Iterative insertion with explicit stack to avoid recursion overhead
+		var pool = ArrayPool<(int idx, Body body, int depth, int state)>.Shared;
+		var stack = pool.Rent(64);
+		var sp = 0;
+		stack[sp++] = (idx, e, depth, 0);
 
-		if(!hasChildren &&
-		   n.Body == null &&
-		   n.AggMass > 0.0)
+		while(sp > 0)
 		{
-			n.AggMass += e.m;
-			n.AggWeightedCom += e.m * e.Position;
-			_nodes[idx] = n;
+			(var currentIdx, var currentBody, var currentDepth, var state) = stack[--sp];
+			
+			if(currentDepth > MaxDepthReached)
+				MaxDepthReached = currentDepth;
 
-			return;
-		}
-
-		if(!hasChildren &&
-		   n.Body == null &&
-		   n.Count == 1)
-		{
-			n.Body = e;
-			_nodes[idx] = n;
-
-			return;
-		}
-
-		if(!hasChildren)
-		{
-			var widthEdge = Math.Max(EpsilonSize, n.R - n.L);
-			var heightEdge = Math.Max(EpsilonSize, n.B - n.T);
-
-			if(depth >= MaxDepth ||
-			   (widthEdge <= EpsilonSize && heightEdge <= EpsilonSize))
+			ref var n = ref _nodes[currentIdx];
+			
+			if(state == 0)
 			{
-				if(n.Body != null)
+				n.Count++;
+				var hasChildren = n.NW >= 0;
+
+				if(!hasChildren && n.Body == null && n.AggMass > 0.0)
 				{
-					n.AggMass += n.Body.m;
-					n.AggWeightedCom += n.Body.m * n.Body.Position;
-					n.Body = null;
+					n.AggMass += currentBody.m;
+					n.AggWeightedCom += currentBody.m * currentBody.Position;
+					continue;
 				}
 
-				n.AggMass += e.m;
-				n.AggWeightedCom += e.m * e.Position;
-				_nodes[idx] = n;
+				if(!hasChildren && n.Body == null && n.Count == 1)
+				{
+					n.Body = currentBody;
+					continue;
+				}
 
-				return;
-			}
+				if(!hasChildren)
+				{
+					var widthEdge = Math.Max(EpsilonSize, n.R - n.L);
+					var heightEdge = Math.Max(EpsilonSize, n.B - n.T);
 
-			Subdivide(idx);
-			n = _nodes[idx];
+					if(currentDepth >= MaxDepth || (widthEdge <= EpsilonSize && heightEdge <= EpsilonSize))
+					{
+						if(n.Body != null)
+						{
+							n.AggMass += n.Body.m;
+							n.AggWeightedCom += n.Body.m * n.Body.Position;
+							n.Body = null;
+						}
 
-			if(n.Body != null)
-			{
-				var prev = n.Body;
-				n.Body = null;
-				n.Count--;
-				_nodes[idx] = n;
-				Insert(SelectChild(idx, prev.Position), prev, depth + 1);
-				n = _nodes[idx];
+						n.AggMass += currentBody.m;
+						n.AggWeightedCom += currentBody.m * currentBody.Position;
+						continue;
+					}
+
+					// Need to subdivide - push current task back with state=1
+					if(sp + 2 >= stack.Length)
+					{
+						var bigger = pool.Rent(stack.Length * 2);
+						Array.Copy(stack, bigger, sp);
+						pool.Return(stack);
+						stack = bigger;
+					}
+
+					Subdivide(currentIdx);
+					n = ref _nodes[currentIdx]; // refresh ref after subdivide
+
+					if(n.Body != null)
+					{
+						var prev = n.Body;
+						n.Body = null;
+						n.Count--;
+
+						var childIdx = SelectChildIdx(ref n, prev.Position);
+						stack[sp++] = (childIdx, prev, currentDepth + 1, 0);
+					}
+				}
+
+				// Push current body insertion into appropriate child
+				n = ref _nodes[currentIdx]; // refresh
+				var currentChildIdx = SelectChildIdx(ref n, currentBody.Position);
+				stack[sp++] = (currentChildIdx, currentBody, currentDepth + 1, 0);
 			}
 		}
 
-		_nodes[idx] = n;
-		Insert(SelectChild(idx, e.Position), e, depth + 1);
+		pool.Return(stack);
+	}
+
+	private static int SelectChildIdx(ref Node n, Vector2D pos)
+	{
+		var midx = 0.5 * (n.L + n.R);
+		var midy = 0.5 * (n.T + n.B);
+		var east = pos.X >= midx;
+		var south = pos.Y >= midy;
+		return south ? (east ? n.SE : n.SW) : (east ? n.NE : n.NW);
 	}
 
 	private void Subdivide(int idx)
@@ -412,24 +456,6 @@ internal sealed class BarnesHutTree
 		n.SW = NewNode(n.L, midy, midx, n.B);
 		n.SE = NewNode(midx, midy, n.R, n.B);
 		_nodes[idx] = n;
-	}
-
-	private int SelectChild(int idx, in Vector2D p)
-	{
-		var n = _nodes[idx];
-		var midx = 0.5 * (n.L + n.R);
-		var midy = 0.5 * (n.T + n.B);
-		var east = p.X >= midx;
-		var south = p.Y >= midy;
-
-		if(south)
-			return east
-					   ? n.SE
-					   : n.SW;
-
-		return east
-				   ? n.NE
-				   : n.NW;
 	}
 
 	private void Accumulate(ref double mass, ref Vector2D wcom, int childIdx)

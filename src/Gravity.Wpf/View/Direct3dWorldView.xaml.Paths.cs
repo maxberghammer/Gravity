@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System;
@@ -72,6 +72,12 @@ public partial class Direct3dWorldView
 				// overwrite oldest (advance start)
 				_buffer[_start] = v;
 				_start = (_start + 1) % _buffer.Length;
+			}
+
+			public void Clear()
+			{
+				_start = 0;
+				Count = 0;
 			}
 
 			// Copies the logical sequence into dst span in at most two slices
@@ -152,6 +158,7 @@ public partial class Direct3dWorldView
 
 		private const int _maxPathSegments = 10_000;
 		private readonly Dictionary<int, PathBuffer> _pathsByBodyId = new();
+		private bool _lastShowPathState;
 		private ID3D11Buffer? _buffer;
 		private int _bufferCapacity; // in vertices
 		private ID3D11InputLayout? _inputLayout;
@@ -166,6 +173,8 @@ public partial class Direct3dWorldView
 		public Paths(World world)
 			: base(world)
 		{
+			_lastShowPathState = world.ShowPath;
+			world.PropertyChanged += OnWorldPropertyChanged;
 		}
 
 		#endregion
@@ -179,6 +188,11 @@ public partial class Direct3dWorldView
 		/// <inheritdoc/>
 		protected override void OnDraw(DrawEventArgs e)
 		{
+			// Check if ShowPath was toggled off and clear paths
+			if(_lastShowPathState && !World.ShowPath)
+				ClearAllPaths();
+			_lastShowPathState = World.ShowPath;
+
 			if(!World.ShowPath)
 				return;
 
@@ -341,6 +355,8 @@ public partial class Direct3dWorldView
 			if(!disposing)
 				return;
 
+			World.PropertyChanged -= OnWorldPropertyChanged;
+
 			_inputLayout?.Dispose();
 			_inputLayout = null;
 			_vertexShader?.Dispose();
@@ -351,6 +367,19 @@ public partial class Direct3dWorldView
 			_buffer = null;
 			_paramsBuffer?.Dispose();
 			_paramsBuffer = null;
+		}
+
+		private void OnWorldPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+		{
+			if(e.PropertyName == nameof(World.ShowPath) && !World.ShowPath)
+				ClearAllPaths();
+		}
+
+		private void ClearAllPaths()
+		{
+			foreach(var pathBuffer in _pathsByBodyId.Values)
+				pathBuffer.Clear();
+			_pathsByBodyId.Clear();
 		}
 
 		private void EnsureBuffers(ID3D11Device device)
