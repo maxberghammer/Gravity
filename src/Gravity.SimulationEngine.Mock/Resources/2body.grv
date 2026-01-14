@@ -12,7 +12,7 @@
   },
   "TimeScale": 1,
   "ElasticCollisions": true,
-  "ClosedBoundaries": true,
+  "ClosedBoundaries": false,
   "ShowPath": true,
   "AutoCenterViewport": false,
   "SelectedBodyPresetId": "0514f35b-029f-4e91-8071-81fd31c570e0",

@@ -16,16 +16,52 @@ public sealed class KeplerTwoBodyTests
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task StandardTwoBodyKeplerPeriodAccurate()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000, 5e-3, 1e-2);
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
 
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task AdaptiveLeapfrogTwoBodyKeplerPeriodAccurate()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.Adaptive, ResourcePaths.TwoBodiesSimulation, 10000, 1e-2, 2e-2);
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.Adaptive, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
 
 	#endregion
 
 	#region Implementation
+
+	private static double ComputeTheoreticalPeriod(Body primary, Body satellite, double mu)
+	{
+		// Relative position and velocity
+		var r = satellite.Position - primary.Position;
+		var v = satellite.v - primary.v;
+		
+		var rMag = r.Length;
+		var vSq = v.LengthSquared;
+		
+		// Specific orbital energy: E = v²/2 - μ/r
+		var specificEnergy = 0.5 * vSq - mu / rMag;
+		
+		// Semi-major axis: a = -μ / (2E)
+		var a = -mu / (2.0 * specificEnergy);
+		
+		// Kepler's third law: T = 2π √(a³/μ)
+		return 2.0 * Math.PI * Math.Sqrt(Math.Pow(a, 3) / mu);
+	}
+
+	private static double ComputeSpecificEnergy(Body primary, Body satellite, double mu)
+	{
+		var r = satellite.Position - primary.Position;
+		var v = satellite.v - primary.v;
+		var rMag = r.Length;
+		var vSq = v.LengthSquared;
+		return 0.5 * vSq - mu / rMag;
+	}
+
+	private static double ComputeAngularMomentum(Body primary, Body satellite)
+	{
+		var r = satellite.Position - primary.Position;
+		var v = satellite.v - primary.v;
+		// For 2D: L_z = r_x * v_y - r_y * v_x
+		return r.X * v.Y - r.Y * v.X;
+	}
 
 	private static (double Period, double SemiMajor) MeasureOrbit(ISimulationEngine engine, IWorld world, Body primary, Body satellite, TimeSpan dt, int maxSteps)
 	{
@@ -87,7 +123,7 @@ public sealed class KeplerTwoBodyTests
 		return (period, a);
 	}
 
-	private static async Task AssertKeplerAsync(Factory.SimulationEngineType engineType, string resourcePath, int steps, double relPeriodTol, double relRadiusTol)
+	private static async Task AssertKeplerAsync(Factory.SimulationEngineType engineType, string resourcePath, int steps, double relPeriodTol, double relEnergyTol, double relAngularMomentumTol)
 	{
 		var engine = Factory.Create(engineType);
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
@@ -103,26 +139,33 @@ public sealed class KeplerTwoBodyTests
 		var primary = top2[0];
 		var satellite = top2[1];
 
+		// Compute theoretical values from initial conditions
+		var mu = IWorld.G * (primary.m + satellite.m);
+		var periodExpected = ComputeTheoreticalPeriod(primary, satellite, mu);
+		var energyInitial = ComputeSpecificEnergy(primary, satellite, mu);
+		var angularMomentumInitial = ComputeAngularMomentum(primary, satellite);
+
 		// Warmup
 		for(var s = 0; s < steps; s++)
 			engine.Simulate(world, dt);
 
-		// Measure (sampling without extra rescan advance)
-		(var periodMeasured, var aMeasured) = MeasureOrbit(engine, world, primary, satellite, dt, steps);
+		// Measure period
+		(var periodMeasured, var _) = MeasureOrbit(engine, world, primary, satellite, dt, steps);
 		Assert.IsFalse(double.IsNaN(periodMeasured), "Failed to measure orbital period.");
 
-		// Kepler period
-		var mu = IWorld.G * (primary.m + satellite.m);
-		var periodExpected = 2.0 * Math.PI * Math.Sqrt(Math.Pow(aMeasured, 3) / mu);
+		// Compute final energy and angular momentum
+		var energyFinal = ComputeSpecificEnergy(primary, satellite, mu);
+		var angularMomentumFinal = ComputeAngularMomentum(primary, satellite);
+
+		// Relative errors
 		var relPeriodErr = Math.Abs(periodMeasured - periodExpected) / periodExpected;
+		var relEnergyErr = Math.Abs(energyFinal - energyInitial) / Math.Abs(energyInitial);
+		var relAngularMomentumErr = Math.Abs(angularMomentumFinal - angularMomentumInitial) / Math.Abs(angularMomentumInitial);
 
-		// Radius stability
-		var rNow = (satellite.Position - primary.Position).Length;
-		var relRadiusErr = Math.Abs(rNow - aMeasured) / Math.Max(1e-9, aMeasured);
-
-		// Use (tolerance, actual) order
+		// Assertions
 		Assert.IsLessThanOrEqualTo(relPeriodTol, relPeriodErr, $"Period relative error {relPeriodErr} exceeds {relPeriodTol}");
-		Assert.IsLessThanOrEqualTo(relRadiusTol, relRadiusErr, $"Radius relative error {relRadiusErr} exceeds {relRadiusTol}");
+		Assert.IsLessThanOrEqualTo(relEnergyTol, relEnergyErr, $"Energy relative error {relEnergyErr} exceeds {relEnergyTol}");
+		Assert.IsLessThanOrEqualTo(relAngularMomentumTol, relAngularMomentumErr, $"Angular momentum relative error {relAngularMomentumErr} exceeds {relAngularMomentumTol}");
 	}
 
 	#endregion
