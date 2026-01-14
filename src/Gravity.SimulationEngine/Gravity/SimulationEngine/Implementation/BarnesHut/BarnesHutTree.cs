@@ -71,7 +71,7 @@ internal sealed class BarnesHutTree
 				{
 					if((entity.Position - _entity!.Position).Length <= entity.r + _entity.r)
 					{
-						_tree.CollidedEntities.Add(new(entity, _entity));
+						_tree.CollidedBodies.Add(new(entity, _entity));
 
 						return;
 					}
@@ -147,8 +147,8 @@ internal sealed class BarnesHutTree
 				var sumR = entity.r + _entity.r;
 				if(distLenSq < sumR * sumR)
 				{
-					lock(_tree.CollidedEntities)
-						_tree.CollidedEntities.Add(new(_entity, entity));
+					lock(_tree.CollidedBodies)
+						_tree.CollidedBodies.Add(new(_entity, entity));
 
 					if(distLenSq <= double.Epsilon)
 						return Vector2D.Zero;
@@ -197,7 +197,7 @@ internal sealed class BarnesHutTree
 		// Iterative traversal to reduce recursion overhead
 		public Vector2D CalculateGravityIterative(Body entity)
 		{
-			var dummy = _tree.CollidedEntities;
+			var dummy = _tree.CollidedBodies;
 			lock(dummy)
 			{
 				dummy.Clear();
@@ -372,10 +372,10 @@ internal sealed class BarnesHutTree
 
 	#region Interface
 
-	public List<CollisionPair> CollidedEntities { get; } = new(16);
+	public List<CollisionPair> CollidedBodies { get; } = new(16);
 
 	public void ResetCollisions()
-		=> CollidedEntities.Clear();
+		=> CollidedBodies.Clear();
 
 	public void ComputeMassDistribution()
 		=> _rootNode.ComputeMassDistribution();
@@ -392,7 +392,7 @@ internal sealed class BarnesHutTree
 	public void Release()
 	{
 		_rootNode.ReleaseToPool();
-		CollidedEntities.Clear();
+		CollidedBodies.Clear();
 	}
 
 	#endregion

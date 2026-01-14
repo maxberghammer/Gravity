@@ -47,13 +47,13 @@ internal sealed partial class MainWindow
 
 	private void OnUpdateUi(object? sender, EventArgs args)
 	{
-		_lblSelectedEntitym.Visibility = _lblSelectedEntityv.Visibility = null != _viewmodel.SelectedEntity
+		_lblSelectedBodym.Visibility = _lblSelectedBodyv.Visibility = null != _viewmodel.SelectedBody
 																			  ? Visibility.Visible
 																			  : Visibility.Collapsed;
-		_lblSelectedEntityv.Content = _viewmodel.SelectedEntity?.v;
-		_lblSelectedEntitym.Content = _viewmodel.SelectedEntity?.m;
+		_lblSelectedBodyv.Content = _viewmodel.SelectedBody?.v;
+		_lblSelectedBodym.Content = _viewmodel.SelectedBody?.m;
 		_lblCpuUtilizationInPercent.Content = _viewmodel.CpuUtilizationInPercent;
-		_lblRuntimeInSeconds.Content = _viewmodel.RuntimeInSeconds;
+		_lblRuntimeInSeconds.Content = _viewmodel.Runtime;
 	}
 
     [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
@@ -67,17 +67,17 @@ internal sealed partial class MainWindow
 		if (Keyboard.Modifiers == ModifierKeys.None &&
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
-			_viewmodel.SelectEntity(viewportPoint, _viewportSelectionSearchRadius);
+			_viewmodel.SelectBody(viewportPoint, _viewportSelectionSearchRadius);
 
-			if (null != _viewmodel.SelectedEntity)
+			if (null != _viewmodel.SelectedBody)
 			{
-				var entityViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedEntity.Position);
+				var entityViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedBody.Position);
 
 				_viewmodel.Viewport.DragIndicator = new()
 				{
 					Start = new(entityViewportPoint.X, entityViewportPoint.Y),
 					End = new(entityViewportPoint.X, entityViewportPoint.Y),
-					Diameter = (_viewmodel.SelectedEntity.r + _viewmodel.SelectedEntity.StrokeWidth) * 2 * _viewmodel.Viewport.ScaleFactor
+					Diameter = (_viewmodel.SelectedBody.r + _viewmodel.SelectedBody.StrokeWidth) * 2 * _viewmodel.Viewport.ScaleFactor
 				};
 
 				return;
@@ -89,7 +89,7 @@ internal sealed partial class MainWindow
 		{
 			Start = new(viewportPoint.X, viewportPoint.Y),
 			End = new(viewportPoint.X, viewportPoint.Y),
-			Diameter = (_viewmodel.SelectedEntityPreset.r + _viewmodel.SelectedEntityPreset.StrokeWidth) * 2 *
+			Diameter = (_viewmodel.SelectedBodyPreset.r + _viewmodel.SelectedBodyPreset.StrokeWidth) * 2 *
 														   _viewmodel.Viewport.ScaleFactor
 		};
 	}
@@ -114,10 +114,10 @@ internal sealed partial class MainWindow
 			return;
 		}
 
-		if (null != _viewmodel.SelectedEntity)
+		if (null != _viewmodel.SelectedBody)
 			_viewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
-														  ? $"Δv={(position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor}m/s"
-														  : $"v={(position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor}m/s";
+														  ? $"Δv={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s"
+														  : $"v={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s";
 	}
 
     [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
@@ -135,27 +135,27 @@ internal sealed partial class MainWindow
 		{
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				_viewmodel.CreateRandomEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
 
 				return;
 			}
 
-			_viewmodel.CreateEntity(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
+			_viewmodel.CreateBody(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
 			_viewmodel.CurrentRespawnerId = null;
 
 			return;
 		}
 
-		if (null != _viewmodel.SelectedEntity)
+		if (null != _viewmodel.SelectedBody)
 		{
-			if ((position - _viewmodel.SelectedEntity.Position).Length <=
-			   _viewmodel.SelectedEntity.r + _viewportSelectionSearchRadius / _viewmodel.Viewport.ScaleFactor)
+			if ((position - _viewmodel.SelectedBody.Position).Length <=
+			   _viewmodel.SelectedBody.r + _viewportSelectionSearchRadius / _viewmodel.Viewport.ScaleFactor)
 				return;
 
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
-				_viewmodel.SelectedEntity.v += (position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor;
+				_viewmodel.SelectedBody.v += (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
 			else
-				_viewmodel.SelectedEntity.v = (position - _viewmodel.SelectedEntity.Position) / _viewmodel.TimeScaleFactor;
+				_viewmodel.SelectedBody.v = (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
 		}
 	}
 
@@ -174,12 +174,12 @@ internal sealed partial class MainWindow
 		{
 			if (Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				_viewmodel.CreateRandomOrbitEntities(100, Keyboard.IsKeyDown(Key.LeftShift));
+				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
 
 				return;
 			}
 
-			_viewmodel.CreateOrbitEntity(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
+			_viewmodel.CreateOrbitBody(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
 			_viewmodel.CurrentRespawnerId = null;
 		}
 	}
@@ -205,8 +205,8 @@ internal sealed partial class MainWindow
 	private void OnAutoScaleAndCenterViewportClicked(object sender, RoutedEventArgs args)
 		=> _viewmodel.AutoScaleAndCenterViewport();
 
-	private void OnEntityPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
-		=> _viewmodel.IsEntityPresetSelectionVisible = false;
+	private void OnBodyPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
+		=> _viewmodel.IsBodyPresetSelectionVisible = false;
 
     [SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
     private async void OnSaveClicked(object sender, RoutedEventArgs args)

@@ -22,29 +22,27 @@ public static class IWorldExtensions
 			using var ms = new MemoryStream(bytes);
 			using var reader = new StreamReader(ms, Encoding.UTF8, false);
 			var state = await State.DeserializeAsync(reader);
-
 			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y));
+			var bodies = new Body[state.Bodies.Length];
 
-			var entities = new Body[state.Entities.Length];
-
-			for(var i = 0; i < entities.Length; i++)
+			for(var i = 0; i < bodies.Length; i++)
 			{
-				var e = state.Entities[i];
-				entities[i] = new(new(e.Position.X, e.Position.Y),
-								  e.r,
-								  e.m,
-								  new(e.v.X, e.v.Y),
+				var bodyState = state.Bodies[i];
+				bodies[i] = new(new(bodyState.Position.X, bodyState.Position.Y),
+								  bodyState.r,
+								  bodyState.m,
+								  new(bodyState.v.X, bodyState.v.Y),
 								  Vector2D.Zero,
-								  string.IsNullOrEmpty(e.FillColor)
+								  string.IsNullOrEmpty(bodyState.FillColor)
 									  ? Color.Transparent
-									  : Color.Parse(e.FillColor),
-								  string.IsNullOrEmpty(e.StrokeColor)
+									  : Color.Parse(bodyState.FillColor),
+								  string.IsNullOrEmpty(bodyState.StrokeColor)
 									  ? null
-									  : Color.Parse(e.StrokeColor),
-								  e.StrokeWidth);
+									  : Color.Parse(bodyState.StrokeColor),
+								  bodyState.StrokeWidth);
 			}
 
-			return (new WorldMock(vp, state.ClosedBoundaries, state.ElasticCollisions, entities), TimeSpan.FromSeconds(1.0d / 60.0d * Math.Pow(10, state.TimeScale)));
+			return (new WorldMock(vp, state.ClosedBoundaries, state.ElasticCollisions, bodies), TimeSpan.FromSeconds(1.0d / 60.0d * Math.Pow(10, state.TimeScale)));
 		}
 
 		public static async Task<(IWorld World, TimeSpan DeltaTime)> CreateFromJsonResourceAsync(string jsonResourcePath, Assembly? resourceAssembly = null)
@@ -69,7 +67,7 @@ public static class IWorldExtensions
 		}
 
 		public IWorld CreateMock()
-			=> new WorldMock(world.Viewport, world.ClosedBoundaries, world.ElasticCollisions, CloneEntities(world.GetEntities()));
+			=> new WorldMock(world.Viewport, world.ClosedBoundaries, world.ElasticCollisions, CloneBodies(world.GetBodies()));
 
 		#endregion
 	}
@@ -78,15 +76,12 @@ public static class IWorldExtensions
 
 	#region Implementation
 
-	private static Body[] CloneEntities(Body[] baseline)
+	private static Body[] CloneBodies(Body[] baseline)
 	{
 		var copy = new Body[baseline.Length];
 
 		for(var i = 0; i < baseline.Length; i++)
-		{
-			var e = baseline[i];
-			copy[i] = e.Clone();
-		}
+			copy[i] = baseline[i].Clone();
 
 		return copy;
 	}

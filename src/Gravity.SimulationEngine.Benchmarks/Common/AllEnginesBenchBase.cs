@@ -2,6 +2,7 @@
 // Erstellt von: MaxBerghammer
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Gravity.SimulationEngine.Mock;
@@ -56,15 +57,14 @@ public abstract class AllEnginesBenchBase
 	{
 		ArgumentNullException.ThrowIfNull(engine);
 		var world = _world.CreateMock();
-		var entities = world.GetEntities();
+		var bodies = world.GetBodies();
 		var sum = 0d;
 
 		for(var i = 0; i < Steps; i++)
 		{
 			engine.Simulate(world, _dt);
 
-			foreach(var e in entities)
-				sum += e.v.Length;
+			sum += bodies.Sum(body => body.v.Length);
 		}
 
 		return sum;

@@ -48,28 +48,7 @@
 				<Setter Property="FontSize" Value="20"/>
 			</Style>
 		</Grid.Resources>
-
-		<!--<view:WpfWorldView Grid.Row="0"
-                              Grid.RowSpan="3"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Stretch"
-                              Background="Black"
-                              SizeChanged="OnWorldSizeChanged"
-                              MouseWheel="OnWorldMouseWheel"
-                              MouseDown="OnWorldMouseDown"
-                              MouseMove="OnWorldMouseMove"
-                              MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                              MouseRightButtonUp="OnWorldRightButtonUp"/>-->
-		<!--<view:OpenGlWorldView Grid.Row="0"
-                              Grid.RowSpan="3"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Stretch"
-                              SizeChanged="OnWorldSizeChanged"
-                              MouseWheel="OnWorldMouseWheel"
-                              MouseDown="OnWorldMouseDown"
-                              MouseMove="OnWorldMouseMove"
-                              MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
-                              MouseRightButtonUp="OnWorldRightButtonUp"/>-->
+		
 		<view:Direct3dWorldView Grid.Row="0"
                                 Grid.RowSpan="3"
                                 HorizontalAlignment="Stretch"
@@ -103,8 +82,8 @@
 					<TransformGroup>
 						<TranslateTransform X="{Binding Viewport.DragIndicator.Start.X}"
                                             Y="{Binding Viewport.DragIndicator.Start.Y}"/>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.EntityTranslate}"
-                                            Y="{Binding Viewport.DragIndicator.EntityTranslate}"/>
+						<TranslateTransform X="{Binding Viewport.DragIndicator.BodyTranslate}"
+                                            Y="{Binding Viewport.DragIndicator.BodyTranslate}"/>
 					</TransformGroup>
 				</Ellipse.RenderTransform>
 			</Ellipse>
@@ -121,8 +100,8 @@
 					<TransformGroup>
 						<TranslateTransform X="{Binding Viewport.DragIndicator.End.X}"
                                             Y="{Binding Viewport.DragIndicator.End.Y}"/>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.EntityTranslate}"
-                                            Y="{Binding Viewport.DragIndicator.EntityTranslate}"/>
+						<TranslateTransform X="{Binding Viewport.DragIndicator.BodyTranslate}"
+                                            Y="{Binding Viewport.DragIndicator.BodyTranslate}"/>
 					</TransformGroup>
 				</Ellipse.RenderTransform>
 			</Ellipse>
@@ -207,12 +186,12 @@
                           Content="R"
                           ToolTip="Elastische Zusammenstöße an/aus"
                           IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
-			<ToggleButton Name="_btnShowEntityPresetSelectionOnOff"
+			<ToggleButton Name="_btnShowBodyPresetSelectionOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="¡"
                           ToolTip="Auswahl für zu erzeugenden Objekttyp ein-/ausblenden"
-                          IsChecked="{Binding IsEntityPresetSelectionVisible, Mode=TwoWay}"/>
+                          IsChecked="{Binding IsBodyPresetSelectionVisible, Mode=TwoWay}"/>
 			<ToggleButton Name="_btnShowEngineSelectionOnOff"
 										Margin="10,0,0,0"
 										FontFamily="Wingdings"
@@ -224,10 +203,10 @@
 		<ComboBox Grid.Row="1"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
-                  Visibility="{Binding IsEntityPresetSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
-                  ItemsSource="{Binding EntityPresets}"
-                  SelectedItem="{Binding SelectedEntityPreset}"
-                  SelectionChanged="OnEntityPresetSelectionChanged">
+                  Visibility="{Binding IsBodyPresetSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                  ItemsSource="{Binding BodyPresets}"
+                  SelectedItem="{Binding SelectedBodyPreset}"
+                  SelectionChanged="OnBodyPresetSelectionChanged">
 			<ComboBox.ItemTemplate>
 				<DataTemplate>
 					<StackPanel Orientation="Horizontal">
@@ -260,7 +239,7 @@
 							Visibility="{Binding IsEngineSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
 							ItemsSource="{Binding EngineTypes}"
 							SelectedItem="{Binding SelectedEngineType}"
-							SelectionChanged="OnEntityPresetSelectionChanged">
+							SelectionChanged="OnBodyPresetSelectionChanged">
 			<ComboBox.ItemTemplate>
 				<DataTemplate>
 					<StackPanel Orientation="Horizontal">
@@ -304,7 +283,7 @@
                    DockPanel.Dock="Right"
                    ContentStringFormat="t={0}"/>
 			<Label DockPanel.Dock="Right"
-                   Content="{Binding EntityCount}"
+                   Content="{Binding BodyCount}"
                    ContentStringFormat=" {0} Objekte"/>
 		</DockPanel>
 
@@ -316,10 +295,10 @@
 				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
-			<Label Name="_lblSelectedEntityv"
+			<Label Name="_lblSelectedBodyv"
                    Grid.Column="1"
                    ContentStringFormat="v={0}m/s"/>
-			<Label Name="_lblSelectedEntitym"
+			<Label Name="_lblSelectedBodym"
                    Grid.Column="2"
                    ContentStringFormat="m={0}kg"/>
 		</Grid>
@@ -396,7 +375,7 @@
                 <Run Style="{StaticResource Standard}">Steuert, ob die Objekte aneinander abprallen sollen, wenn sie sich berühren, oder ob sie verschmelzen sollen. Dabei absorbiert stets das Objekt mit der größeren Masse dasjenige mit der geringeren.</Run>
                 <LineBreak/>
                 <Run Style="{StaticResource H2}"
-                     Text="{Binding ElementName=_btnShowEntityPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
+                     Text="{Binding ElementName=_btnShowBodyPresetSelectionOnOff, Path=ToolTip, StringFormat={}{0}: }"/>
                 <Run Style="{StaticResource Standard}">Zeigt die Auswahl für den zu erzeugenden Objekttyp an oder blendet sie aus.</Run>
 			</TextBlock>
 

@@ -156,9 +156,9 @@ public partial class Direct3dWorldView
 		/// <inheritdoc/>
 		protected override void OnDraw(DrawEventArgs e)
 		{
-			var entities = World.Entities.ToArrayLocked();
+			var bodies = World.GetBodies();
 
-			var count = entities.Length;
+			var count = bodies.Length;
 
 			if(1 > count)
 				return;
@@ -178,15 +178,15 @@ public partial class Direct3dWorldView
 			//};
 
 			var i = 0;
-			foreach(var entity in entities)
+			foreach(var body in bodies)
 				data[i++] = new()
 							{
-								Position = new((float)entity.Position.X, (float)entity.Position.Y),
-								Radius = (float)entity.r,
-								StrokeWidth = (float)entity.StrokeWidth,
-								FillColor = new(entity.Fill.ScR, entity.Fill.ScG, entity.Fill.ScB),
-								StrokeColor = entity.Stroke.HasValue
-												  ? new(entity.Stroke.Value.ScR, entity.Stroke.Value.ScG, entity.Stroke.Value.ScB)
+								Position = new((float)body.Position.X, (float)body.Position.Y),
+								Radius = (float)body.r,
+								StrokeWidth = (float)body.StrokeWidth,
+								FillColor = new(body.Fill.ScR, body.Fill.ScG, body.Fill.ScB),
+								StrokeColor = body.Stroke.HasValue
+												  ? new(body.Stroke.Value.ScR, body.Stroke.Value.ScG, body.Stroke.Value.ScB)
 												  : Vector3.Zero,
 								Flags = 0
 							};

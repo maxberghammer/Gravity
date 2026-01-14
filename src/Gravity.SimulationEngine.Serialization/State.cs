@@ -14,19 +14,19 @@ public sealed class State
 
 	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
 
-	public sealed record EntityState(string FillColor,
-									 string? StrokeColor,
-									 double StrokeWidth,
-									 Vector Position,
-									 // ReSharper disable once InconsistentNaming
-									 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-									 Vector v,
-									 // ReSharper disable once InconsistentNaming
-									 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-									 double r,
-									 // ReSharper disable once InconsistentNaming
-									 [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-									 double m);
+	public sealed record BodyState(string FillColor,
+								   string? StrokeColor,
+								   double StrokeWidth,
+								   Vector Position,
+								   // ReSharper disable once InconsistentNaming
+								   [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+								   Vector v,
+								   // ReSharper disable once InconsistentNaming
+								   [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+								   double r,
+								   // ReSharper disable once InconsistentNaming
+								   [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
+								   double m);
 
 	#endregion
 
@@ -58,12 +58,16 @@ public sealed class State
 
 	public bool AutoCenterViewport { get; init; }
 
-	public Guid SelectedEntityPresetId { get; init; }
+	public Guid SelectedBodyPresetId { get; init; }
 
 	public Guid? RespawnerId { get; init; }
 
+	public SimpleRng.RngState RngState { get; init; }
+
+	public TimeSpan Runtime { get; init; }
+
 	[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Für die Serialisierung duadses scho")]
-	public required EntityState[] Entities { get; init; }
+	public required BodyState[] Bodies { get; init; }
 
 	public async Task SerializeAsync(StreamWriter swr)
 	{

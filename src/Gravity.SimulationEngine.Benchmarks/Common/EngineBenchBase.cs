@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Gravity.SimulationEngine.Mock;
@@ -50,14 +51,13 @@ public abstract class EngineBenchBase
 
 		world = world.CreateMock();
 		double sum = 0;
-		var entities = world.GetEntities();
+		var bodies = world.GetBodies();
 
 		for(var i = 0; i < steps; i++)
 		{
 			_engine.Simulate(world, dt);
 
-			foreach(var entity in entities)
-				sum += entity.v.Length;
+			sum += bodies.Sum(body => body.v.Length);
 		}
 
 		return sum;

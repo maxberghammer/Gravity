@@ -36,15 +36,15 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] bodies, TimeSpan deltaTime)
 	{
 		// Physik anwenden und integrieren (synchron, aber parallelisiert)
-		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
+		var collisions = _integrator.Integrate(bodies, deltaTime, ApplyPhysics);
 
 		// Kollisionen behandeln
 		if(collisions.Length != 0)
 		{
-			var entitiesById = entities.ToDictionary(e => e.Id);
+			var bodiesById = bodies.ToDictionary(e => e.Id);
 
 			// De-dup collisions using a pooled HashSet<long> with normalized pair key (minId<<32 | maxId)
 			_collisionKeys.Clear();
@@ -59,28 +59,28 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				if(!_collisionKeys.Add(key))
 					continue;
 
-				var entity1 = entitiesById[a];
-				var entity2 = entitiesById[b];
+				var body1 = bodiesById[a];
+				var body2 = bodiesById[b];
 
-				(var v1, var v2) = HandleCollision(entity1, entity2, world.ElasticCollisions);
+				(var v1, var v2) = HandleCollision(body1, body2, world.ElasticCollisions);
 
 				if(v1.HasValue &&
 				   v2.HasValue)
 				{
-					(var position1, var position2) = CancelOverlap(entity1, entity2);
+					(var position1, var position2) = CancelOverlap(body1, body2);
 
 					if(position1.HasValue)
-						entity1.Position = position1.Value;
+						body1.Position = position1.Value;
 
 					if(position2.HasValue)
-						entity2.Position = position2.Value;
+						body2.Position = position2.Value;
 				}
 
 				if(v1.HasValue)
-					entity1.v = v1.Value;
+					body1.v = v1.Value;
 
 				if(v2.HasValue)
-					entity2.v = v2.Value;
+					body2.v = v2.Value;
 			}
 		}
 	}
@@ -107,16 +107,16 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	}
 
 	// Synchronous physics application using fixed-chunk Parallel.For
-	private static Tuple<int, int>[] ApplyPhysics(Body[] entities)
+	private static Tuple<int, int>[] ApplyPhysics(Body[] bodies)
 	{
 		double l = double.PositiveInfinity,
 			   t = double.PositiveInfinity,
 			   r = double.NegativeInfinity,
 			   b = double.NegativeInfinity;
 
-		for(var i = 0; i < entities.Length; i++)
+		for(var i = 0; i < bodies.Length; i++)
 		{
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			if(p.X < l)
 				l = p.X;
 			if(p.Y < t)
@@ -138,7 +138,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		}
 
 		// n-based theta schedule targeting near-constant per-body work, with small-N overrides for accuracy
-		var n = entities.Length;
+		var n = bodies.Length;
 		var width = Math.Max(1e-12, r - l);
 		var height = Math.Max(1e-12, b - t);
 		var span = Math.Max(width, height);
@@ -149,7 +149,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		{
 			for(var j = i + 1; j < Math.Min(n, i + 32); j++)
 			{
-				var d = (entities[j].Position - entities[i].Position).Length;
+				var d = (bodies[j].Position - bodies[i].Position).Length;
 				if(d < minSep)
 					minSep = d;
 			}
@@ -182,8 +182,8 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		var tree = new BarnesHutTree(new(l, t), new(r, b), theta);
 
-		for(var i = 0; i < entities.Length; i++)
-			tree.Add(entities[i]);
+		for(var i = 0; i < bodies.Length; i++)
+			tree.Add(bodies[i]);
 
 		tree.ComputeMassDistribution();
 
@@ -197,15 +197,15 @@ internal sealed class SimulationEngine : SimulationEngineBase
 									 (var start, var end) = range;
 									 var localCollisions = RentCollector();
 									 for(var i = start; i < end; i++)
-										 entities[i].a = tree.CalculateGravity(entities[i], localCollisions);
+										 bodies[i].a = tree.CalculateGravity(bodies[i], localCollisions);
 
 									 if(localCollisions.Count > 0)
-										 lock(tree.CollidedEntities)
-											 tree.CollidedEntities.AddRange(localCollisions);
+										 lock(tree.CollidedBodies)
+											 tree.CollidedBodies.AddRange(localCollisions);
 									 ReturnCollector(localCollisions);
 								 });
 
-		var collisions = tree.CollidedEntities;
+		var collisions = tree.CollidedBodies;
 		var result = new Tuple<int, int>[collisions.Count];
 
 		for(var i = 0; i < collisions.Count; i++)

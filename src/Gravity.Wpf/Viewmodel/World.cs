@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -40,8 +39,10 @@ public class World : NotifyPropertyChanged,
 
 	private static readonly Guid _randomOrbittingRespawnerId = new("F02C36A4-FEC2-49AD-B3DA-C7E9B6E4C361");
 	private static readonly Guid _randomRespawnerId = new("7E4948F8-CFA5-45A3-BB05-48CB4AAB13B1");
+	private readonly List<Body> _bodies = [];
 	private readonly FrameDiagnostics _frameTiming = new();
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
+	private readonly SimpleRng _rng = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
 	private ISimulationEngine? _simulationEngine;
@@ -53,13 +54,12 @@ public class World : NotifyPropertyChanged,
 	[SuppressMessage("Usage", "VSTHRD101:Avoid unsupported async delegates", Justification = "<Pending>")]
 	public World()
 	{
-		SelectedEntityPreset = EntityPresets[0];
+		SelectedBodyPreset = BodyPresets[0];
 		SelectedEngineType = EngineTypes[0];
 
-		_respawnersById[_randomRespawnerId] = () => CreateRandomEntities(1, true);
-		_respawnersById[_randomOrbittingRespawnerId] = () => CreateRandomOrbitEntities(1, true);
+		_respawnersById[_randomRespawnerId] = () => CreateRandomBodies(1, true, false);
+		_respawnersById[_randomOrbittingRespawnerId] = () => CreateRandomBodies(1, true, true);
 
-		Entities.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(EntityCount));
 		Viewport.PropertyChanged += (_, _) => Updated?.Invoke(this, EventArgs.Empty);
 
 		//var d = new Win32.DEVMODE();
@@ -86,12 +86,12 @@ public class World : NotifyPropertyChanged,
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
 
-	public IReadOnlyList<EntityPreset> EntityPresets { get; } =
+	public IReadOnlyList<BodyPreset> BodyPresets { get; } =
 		[
-			EntityPreset.FromDensity("Eisenkugel klein", 7874, 10, Color.DarkGray, Color.White, 2.0d, new("C53FA0C5-AB12-43F7-9548-C098D5C44ADF")),
-			EntityPreset.FromDensity("Eisenkugel mittel", 7874, 20, Color.DarkGray, Color.White, 2.0d,
-									 new("CB30E40F-FB49-4688-94D1-3F1FB5C3F813")),
-			EntityPreset.FromDensity("Eisenkugel groß", 7874, 100, Color.DarkGray, Color.White, 2.0d, new("03F7274E-B6C5-46E8-B8F8-03C969C79B49")),
+			BodyPreset.FromDensity("Eisenkugel klein", 7874, 10, Color.DarkGray, Color.White, 2.0d, new("C53FA0C5-AB12-43F7-9548-C098D5C44ADF")),
+			BodyPreset.FromDensity("Eisenkugel mittel", 7874, 20, Color.DarkGray, Color.White, 2.0d,
+								   new("CB30E40F-FB49-4688-94D1-3F1FB5C3F813")),
+			BodyPreset.FromDensity("Eisenkugel groß", 7874, 100, Color.DarkGray, Color.White, 2.0d, new("03F7274E-B6C5-46E8-B8F8-03C969C79B49")),
 			new("Mittelschwer+Klein", 100000000000, 20, Color.Green, new("98E60B8E-4461-4895-9107-A1FF5C9B9D64")),
 			new("Leicht+Groß", 1000000000, 100, Color.Red, new("B6BBB8AC-109C-4CA1-96E1-976EABED256E")),
 			new("Schwer+Groß", 1000000000000, 100, Color.Yellow, new("4F2D1D6B-0ED2-405E-8617-1B5073425F95")),
@@ -131,9 +131,7 @@ public class World : NotifyPropertyChanged,
 			}
 		];
 
-	public ObservableCollection<Body> Entities { get; } = [];
-
-	public EntityPreset SelectedEntityPreset { get; set => SetProperty(ref field, value); }
+	public BodyPreset SelectedBodyPreset { get; set => SetProperty(ref field, value); }
 
 	public EngineType SelectedEngineType
 	{
@@ -148,7 +146,7 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	public bool IsEntityPresetSelectionVisible { get; set => SetProperty(ref field, value); }
+	public bool IsBodyPresetSelectionVisible { get; set => SetProperty(ref field, value); }
 
 	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
 
@@ -156,16 +154,16 @@ public class World : NotifyPropertyChanged,
 
 	public Viewport Viewport { get; } = new();
 
-	public TimeSpan RuntimeInSeconds { get; private set; }
+	public TimeSpan Runtime { get; private set; }
 
 	public int CpuUtilizationInPercent { get; private set; }
 
-	public int EntityCount
-		=> Entities.Count;
+	public int BodyCount
+		=> GetBodies().Length;
 
 	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
 
-	public Body? SelectedEntity { get; set => SetProperty(ref field, value); }
+	public Body? SelectedBody { get; set => SetProperty(ref field, value); }
 
 	public bool IsRunning { get; set => SetProperty(ref field, value); } = true;
 
@@ -177,99 +175,86 @@ public class World : NotifyPropertyChanged,
 
 	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
 
-	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-	public void CreateRandomEntities(int count, bool enableRespawn)
+	public void CreateRandomBodies(int count, bool enableRespawn, bool stableOrbits)
 	{
-		var rnd = new Random();
 		var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
 
 		for(var i = 0; i < count; i++)
 		{
-			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			var position = new Vector2D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			var bodies = GetBodies();
 
-			var entities = Entities.ToArrayLocked();
+			while(bodies.Any(b => (b.Position - position).Length <= b.r + SelectedBodyPreset.r))
+				position = new Vector2D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
-			while(entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
-				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
-			CreateEntity(position, Vector2D.Zero);
+			if(stableOrbits)
+				CreateOrbitBody(position, Vector2D.Zero);
+			else
+				CreateBody(position, Vector2D.Zero);
+
 			CurrentRespawnerId = enableRespawn
-									 ? _randomRespawnerId
+									 ? stableOrbits
+										   ? _randomOrbittingRespawnerId
+										   : _randomRespawnerId
 									 : null;
 		}
 	}
 
-	[SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "<Pending>")]
-	public void CreateRandomOrbitEntities(int count, bool enableRespawn)
+	public void CreateBody(Vector2D position, Vector2D velocity)
 	{
-		var rnd = new Random();
-		var viewportSize = Viewport.BottomRight - Viewport.TopLeft;
+		_bodies.AddLocked(new(position,
+							  SelectedBodyPreset.r,
+							  SelectedBodyPreset.m,
+							  velocity,
+							  Vector2D.Zero,
+							  SelectedBodyPreset.Fill,
+							  SelectedBodyPreset.Stroke,
+							  SelectedBodyPreset.StrokeWidth));
 
-		for(var i = 0; i < count; i++)
-		{
-			var position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
-			var entities = Entities.ToArrayLocked();
-
-			while(entities.Any(e => (e.Position - position).Length <= e.r + SelectedEntityPreset.r))
-				position = new Vector2D(rnd.NextDouble() * viewportSize.X, rnd.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
-			CreateOrbitEntity(position, Vector2D.Zero);
-			CurrentRespawnerId = enableRespawn
-									 ? _randomOrbittingRespawnerId
-									 : null;
-		}
+		RaisePropertyChanged(nameof(BodyCount));
 	}
 
-	public void CreateEntity(Vector2D position, Vector2D velocity)
-		=> Entities.AddLocked(new(position,
-								  SelectedEntityPreset.r,
-								  SelectedEntityPreset.m,
-								  velocity,
-								  Vector2D.Zero,
-								  SelectedEntityPreset.Fill, 
-								  SelectedEntityPreset.Stroke, 
-								  SelectedEntityPreset.StrokeWidth));
-
-	public void CreateOrbitEntity(Vector2D position, Vector2D velocity)
+	public void CreateOrbitBody(Vector2D position, Vector2D velocity)
 	{
-		var nearestEntity = SelectedEntity
-							?? Entities.ToArrayLocked()
-									   .OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
-									   .FirstOrDefault();
+		var nearestBody = SelectedBody
+						  ?? GetBodies().OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
+										.FirstOrDefault();
 
-		if(null == nearestEntity)
+		if(null == nearestBody)
 		{
-			CreateEntity(position, Vector2D.Zero);
+			CreateBody(position, Vector2D.Zero);
 
 			return;
 		}
 
-		var dist = position - nearestEntity.Position;
+		var dist = position - nearestBody.Position;
 		var direction = (dist.Norm().Unit() - velocity.Unit()).Length > (-dist.Norm().Unit() - velocity.Unit()).Length
 							? -1
 							: 1;
-		var g = IWorld.G * (SelectedEntityPreset.m * nearestEntity.m) / dist.LengthSquared * -dist.Unit();
-		var v = (1 + velocity.Length) * direction * Math.Sqrt(g.Length / SelectedEntityPreset.m * dist.Length) * dist.Norm().Unit() + nearestEntity.v;
-		CreateEntity(position, v);
+		var g = IWorld.G * (SelectedBodyPreset.m * nearestBody.m) / dist.LengthSquared * -dist.Unit();
+		var v = (1 + velocity.Length) * direction * Math.Sqrt(g.Length / SelectedBodyPreset.m * dist.Length) * dist.Norm().Unit() + nearestBody.v;
+		CreateBody(position, v);
 	}
 
-	public void SelectEntity(Point viewportPoint, double viewportSearchRadius)
+	public void SelectBody(Point viewportPoint, double viewportSearchRadius)
 	{
 		var pos = Viewport.ToWorld(viewportPoint);
-		SelectedEntity = Entities.ToArrayLocked()
-								 .Where(e => (e.Position - pos).Length <= e.r + viewportSearchRadius / Viewport.ScaleFactor)
-								 .OrderBy(e => (e.Position - pos).Length - (e.r + viewportSearchRadius / Viewport.ScaleFactor))
-								 .FirstOrDefault();
+
+		SelectedBody = GetBodies().Where(e => (e.Position - pos).Length <= e.r + viewportSearchRadius / Viewport.ScaleFactor)
+								  .OrderBy(e => (e.Position - pos).Length - (e.r + viewportSearchRadius / Viewport.ScaleFactor))
+								  .FirstOrDefault();
 	}
 
 	public void AutoScaleAndCenterViewport()
 	{
-		var entities = Entities.ToArrayLocked();
+		var bodies = GetBodies();
 
-		if(entities.Length == 0)
+		if(bodies.Length == 0)
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(entities.Min(e => e.Position.X - e.r), entities.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector2D(entities.Max(e => e.Position.X + e.r), entities.Max(e => e.Position.Y + e.r));
+		var topLeft = new Vector2D(bodies.Min(e => e.Position.X - e.r), bodies.Min(e => e.Position.Y - e.r));
+		var bottomRight = new Vector2D(bodies.Max(e => e.Position.X + e.r), bodies.Max(e => e.Position.Y + e.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
@@ -283,9 +268,9 @@ public class World : NotifyPropertyChanged,
 
 	public void Reset()
 	{
-		Entities.ClearLocked();
-		RuntimeInSeconds = TimeSpan.Zero;
-		SelectedEntity = null;
+		_bodies.ClearLocked();
+		Runtime = TimeSpan.Zero;
+		SelectedBody = null;
 		var viewportSize = Viewport.Size;
 		Viewport.TopLeft = -viewportSize / 2;
 		Viewport.BottomRight = viewportSize / 2;
@@ -303,16 +288,18 @@ public class World : NotifyPropertyChanged,
 						ElasticCollisions = ElasticCollisions,
 						ShowPath = ShowPath,
 						TimeScale = TimeScale,
-						SelectedEntityPresetId = SelectedEntityPreset.Id,
+						SelectedBodyPresetId = SelectedBodyPreset.Id,
 						RespawnerId = CurrentRespawnerId,
-						Entities = Entities.ToArrayLocked()
-										   .Select(e => new State.EntityState(e.Fill.ToString(), e.Stroke?.ToString(),
-																			  e.StrokeWidth,
-																			  new(e.Position.X, e.Position.Y),
-																			  new(e.v.X, e.v.Y),
-																			  e.r,
-																			  e.m))
-										   .ToArray()
+						RngState = _rng.State,
+						Runtime = Runtime,
+			Bodies = GetBodies().Select(b => new State.BodyState(b.Fill.ToString(),
+																			 b.Stroke?.ToString(),
+																			 b.StrokeWidth,
+																			 new(b.Position.X, b.Position.Y),
+																			 new(b.v.X, b.v.Y),
+																			 b.r,
+																			 b.m))
+											.ToArray()
 					};
 		await using var swr = File.CreateText(filePath);
 		await state.SerializeAsync(swr);
@@ -331,25 +318,30 @@ public class World : NotifyPropertyChanged,
 		AutoCenterViewport = state.AutoCenterViewport;
 		ClosedBoundaries = state.ClosedBoundaries;
 		ElasticCollisions = state.ElasticCollisions;
-		SelectedEntityPreset = EntityPresets.First(p => p.Id == state.SelectedEntityPresetId);
+		SelectedBodyPreset = BodyPresets.First(p => p.Id == state.SelectedBodyPresetId);
 		CurrentRespawnerId = state.RespawnerId;
 		ShowPath = state.ShowPath;
 		TimeScale = state.TimeScale;
+		_rng.State = state.RngState;
+		Runtime = state.Runtime;
 
-		Entities.AddRangeLocked(state.Entities
-									 .Select(e => new Body(new(e.Position.X, e.Position.Y),
-															 e.r,
-															 e.m,
-															 new(e.v.X, e.v.Y),
-															 Vector2D.Zero,
-															 string.IsNullOrEmpty(e.FillColor)
-																 ? Color.Transparent
-																 : Color.Parse(e.FillColor),
-															 string.IsNullOrEmpty(e.StrokeColor)
-																 ? null
-																 : Color.Parse(e.StrokeColor),
-															 e.StrokeWidth)));
+		_bodies.AddRangeLocked(state.Bodies
+									.Select(b => new Body(new(b.Position.X, b.Position.Y),
+														  b.r,
+														  b.m,
+														  new(b.v.X, b.v.Y),
+														  Vector2D.Zero,
+														  string.IsNullOrEmpty(b.FillColor)
+															  ? Color.Transparent
+															  : Color.Parse(b.FillColor),
+														  string.IsNullOrEmpty(b.StrokeColor)
+															  ? null
+															  : Color.Parse(b.StrokeColor),
+														  b.StrokeWidth)));
 	}
+
+	public Body[] GetBodies()
+		=> _bodies.ToArrayLocked();
 
 	#endregion
 
@@ -364,8 +356,8 @@ public class World : NotifyPropertyChanged,
 	bool IWorld.ElasticCollisions
 		=> ElasticCollisions;
 
-	Body[] IWorld.GetEntities()
-		=> Entities.ToArrayLocked();
+	Body[] IWorld.GetBodies()
+		=> GetBodies();
 
 	#endregion
 
@@ -386,12 +378,12 @@ public class World : NotifyPropertyChanged,
 
 			if(IsRunning)
 			{
-				UpdateAllEntities(deltaTime);
+				UpdateAllBodies(deltaTime);
 
 				if(AutoCenterViewport)
 					DoAutoCenterViewport();
 
-				RuntimeInSeconds += deltaTime;
+				Runtime += deltaTime;
 			}
 		}
 
@@ -408,7 +400,7 @@ public class World : NotifyPropertyChanged,
 
 			Trace.TraceInformation($"Frame: {frameDiagnosticsMeasurement.LastFrameDurationInMs:F1} ms" +
 								   $" | CPU: {frameDiagnosticsMeasurement.CpuUtilizationInPercent}%" +
-								   $" | Entities: {EntityCount}" +
+								   $" | Bodies: {BodyCount}" +
 								   $" | AllocDelta: {frameDiagnosticsMeasurement.DeltaAllocated / (1024.0 * 1024.0):F2} MiB" +
 								   (string.IsNullOrEmpty(engineDiagnostics)
 										? string.Empty
@@ -420,11 +412,11 @@ public class World : NotifyPropertyChanged,
 		_isSimulating = 0;
 	}
 
-	private void UpdateAllEntities(TimeSpan deltaTime)
+	private void UpdateAllBodies(TimeSpan deltaTime)
 	{
-		var entities = Entities.ToArrayLocked();
+		var bodies = GetBodies();
 
-		if(entities.Length == 0 ||
+		if(bodies.Length == 0 ||
 		   _simulationEngine == null)
 			return;
 
@@ -434,31 +426,31 @@ public class World : NotifyPropertyChanged,
 							? _respawnersById[CurrentRespawnerId.Value]
 							: null;
 
-		var absorbedEntities = entities.Where(e => e.IsAbsorbed).ToArray();
+		var absorbedBodies = bodies.Where(b => b.IsAbsorbed).ToArray();
 
 		// Absorbierte Objekte entfernen
-		Entities.RemoveRangeLocked(absorbedEntities);
+		_bodies.RemoveRangeLocked(absorbedBodies);
 
 		// Bei Bedarf Respawner aufrufen
 		if(null == respawner)
 			return;
 
-		foreach(var _ in absorbedEntities)
+		foreach(var _ in absorbedBodies)
 			respawner();
 	}
 
 	private void DoAutoCenterViewport()
 	{
-		var entities = Entities.ToArrayLocked();
+		var bodies = GetBodies();
 
-		if(entities.Length == 0)
+		if(bodies.Length == 0)
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(entities.Min(e => e.Position.X - e.r),
-								   entities.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector2D(entities.Max(e => e.Position.X + e.r),
-									   entities.Max(e => e.Position.Y + e.r));
+		var topLeft = new Vector2D(bodies.Min(b => b.Position.X - b.r),
+								   bodies.Min(b => b.Position.Y - b.r));
+		var bottomRight = new Vector2D(bodies.Max(b => b.Position.X + b.r),
+									   bodies.Max(b => b.Position.Y + b.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 
 		Viewport.TopLeft = center - previousSize / 2;

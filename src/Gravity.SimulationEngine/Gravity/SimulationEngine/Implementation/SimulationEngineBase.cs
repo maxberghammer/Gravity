@@ -5,45 +5,70 @@ namespace Gravity.SimulationEngine.Implementation;
 
 internal abstract class SimulationEngineBase : ISimulationEngine
 {
-	#region Interface
+	#region Implementation of ISimulationEngine
+
+	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
+		=> Diagnostics;
+
+	void ISimulationEngine.Simulate(IWorld world, TimeSpan deltaTime)
+	{
+		var bodies = world.GetBodies();
+
+		if(bodies.Length == 0 ||
+		   deltaTime <= TimeSpan.Zero)
+			return;
+
+		OnSimulate(world, bodies, deltaTime);
+
+		if(!world.ClosedBoundaries)
+			return;
+
+		// Weltgrenzen behandeln
+		foreach(var body in bodies.Where(e => !e.IsAbsorbed))
+			HandleCollisionWithWorldBoundaries(world, body);
+	}
+
+	#endregion
+
+	#region Implementation
 
 	/// <summary>
 	///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
 	///     neuen Positionen der beiden Objekte, so dass sie sich nicht mehr überlappen.
 	/// </summary>
-	protected static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Body entity1, Body entity2)
+	protected static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Body body1, Body body2)
 	{
-		ArgumentNullException.ThrowIfNull(entity1);
-		ArgumentNullException.ThrowIfNull(entity2);
+		ArgumentNullException.ThrowIfNull(body1);
+		ArgumentNullException.ThrowIfNull(body2);
 
-		var dist = entity1.Position - entity2.Position;
-		var minDistAbs = entity1.r + entity2.r;
+		var dist = body1.Position - body2.Position;
+		var minDistAbs = body1.r + body2.r;
 
-		if(entity1.m < entity2.m)
-			return (entity2.Position + dist.Unit() * minDistAbs, null);
+		if(body1.m < body2.m)
+			return (body2.Position + dist.Unit() * minDistAbs, null);
 
-		if(entity1.m > entity2.m)
-			return (null, entity2.Position = entity1.Position - dist.Unit() * minDistAbs);
+		if(body1.m > body2.m)
+			return (null, body2.Position = body1.Position - dist.Unit() * minDistAbs);
 
-		return (entity2.Position + (dist + dist.Unit() * minDistAbs) / 2, entity1.Position - (dist + dist.Unit() * minDistAbs) / 2);
+		return (body2.Position + (dist + dist.Unit() * minDistAbs) / 2, body1.Position - (dist + dist.Unit() * minDistAbs) / 2);
 	}
 
 	/// <summary>
 	///     Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die
 	///     neuen Geschwindigkeiten der beiden Objekte.
 	/// </summary>
-	protected static (Vector2D? v1, Vector2D? v2) HandleCollision(Body entity1, Body entity2, bool elastic)
+	protected static (Vector2D? v1, Vector2D? v2) HandleCollision(Body body1, Body body2, bool elastic)
 	{
-		ArgumentNullException.ThrowIfNull(entity1);
-		ArgumentNullException.ThrowIfNull(entity2);
+		ArgumentNullException.ThrowIfNull(body1);
+		ArgumentNullException.ThrowIfNull(body2);
 
-		if(entity1.IsAbsorbed ||
-		   entity2.IsAbsorbed)
+		if(body1.IsAbsorbed ||
+		   body2.IsAbsorbed)
 			return (null, null);
 
-		var dist = entity1.Position - entity2.Position;
+		var dist = body1.Position - body2.Position;
 
-		if(dist.Length >= entity1.r + entity2.r)
+		if(dist.Length >= body1.r + body2.r)
 			return (null, null);
 
 		if(elastic)
@@ -51,13 +76,13 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 			var temp = dist / (dist * dist);
 
 			// Masse Objekt 1
-			var m1 = entity1.m;
+			var m1 = body1.m;
 			// Masse Objekt 2
-			var m2 = entity2.m;
+			var m2 = body2.m;
 			// Geschwindigkeitsvektor Objekt 1
-			var v1 = entity1.v;
+			var v1 = body1.v;
 			// Geschwindigkeitsvektor Objekt 2
-			var v2 = entity2.v;
+			var v2 = body2.v;
 			// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 1
 			var vn1 = temp * (dist * v1);
 			// Geschwindigkeitsvektor auf der Stoßnormalen Objekt 2
@@ -74,69 +99,37 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 			v1 = un1 + vt1;
 			v2 = un2 + vt2;
 
-			//Debug.Assert(aEntity1.p.Length+aEntity2.p.Length==(v1*aEntity1.m).Length+(v2*aEntity2.m).Length);
-			//Debug.Assert(aEntity1.Ekin+aEntity2.Ekin== 0.5d*(aEntity1.m * v1.LengthSquared + aEntity2.m * v2.LengthSquared));
-
 			return (v1, v2);
 		}
 
 		// Vereinigung behandeln
-		var v = (entity1.p + entity2.p) / (entity1.m + entity2.m);
+		var v = (body1.Position + body2.Position) / (body1.m + body2.m);
 
-		if(entity2.m > entity1.m)
+		if(body2.m > body1.m)
 		{
-			entity2.Absorb(entity1);
+			body2.Absorb(body1);
 
 			return (null, v);
 		}
 
-		entity1.Absorb(entity2);
+		body1.Absorb(body2);
 
 		return (v, null);
 	}
 
-	#endregion
-
-	#region Implementation of ISimulationEngine
-
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> Diagnostics;
-
-	void ISimulationEngine.Simulate(IWorld world, TimeSpan deltaTime)
-	{
-		var entities = world.GetEntities();
-
-		if(entities.Length == 0 ||
-		   deltaTime <= TimeSpan.Zero)
-			return;
-
-		OnSimulate(world, entities, deltaTime);
-
-		if(!world.ClosedBoundaries)
-			return;
-
-		// Weltgrenzen behandeln
-		foreach(var entitiy in entities.Where(e => !e.IsAbsorbed))
-			HandleCollisionWithWorldBoundaries(world, entitiy);
-	}
-
-	#endregion
-
-	#region Implementation
-
 	protected Diagnostics Diagnostics { get; } = new();
 
-	protected abstract void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime);
+	protected abstract void OnSimulate(IWorld world, Body[] bodies, TimeSpan deltaTime);
 
-	private static void HandleCollisionWithWorldBoundaries(IWorld world, Body entity)
+	private static void HandleCollisionWithWorldBoundaries(IWorld world, Body body)
 	{
-		var leftX = world.Viewport.TopLeft.X + entity.r;
-		var topY = world.Viewport.TopLeft.Y + entity.r;
-		var rightX = world.Viewport.BottomRight.X - entity.r;
-		var bottomY = world.Viewport.BottomRight.Y - entity.r;
+		var leftX = world.Viewport.TopLeft.X + body.r;
+		var topY = world.Viewport.TopLeft.Y + body.r;
+		var rightX = world.Viewport.BottomRight.X - body.r;
+		var bottomY = world.Viewport.BottomRight.Y - body.r;
 
-		var pos = entity.Position;
-		var v = entity.v;
+		var pos = body.Position;
+		var v = body.v;
 
 		if(pos.X < leftX)
 		{
@@ -160,8 +153,8 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 			pos = new(pos.X, bottomY);
 		}
 
-		entity.v = v;
-		entity.Position = pos;
+		body.v = v;
+		body.Position = pos;
 	}
 
 	#endregion

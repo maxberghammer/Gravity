@@ -151,7 +151,7 @@ public partial class Direct3dWorldView
 									 """;
 
 		private const int _maxPathSegments = 10_000;
-		private readonly Dictionary<int, PathBuffer> _pathsByEntityId = new();
+		private readonly Dictionary<int, PathBuffer> _pathsByBodyId = new();
 		private ID3D11Buffer? _buffer;
 		private int _bufferCapacity; // in vertices
 		private ID3D11InputLayout? _inputLayout;
@@ -182,22 +182,22 @@ public partial class Direct3dWorldView
 			if(!World.ShowPath)
 				return;
 
-			var entities = World.Entities.ToArrayLocked();
+			var bodies = World.GetBodies();
 
-			// Remove paths for entities that no longer exist without LINQ/HashSet churn
-			if(_pathsByEntityId.Count > 0)
+			// Remove paths for bodies that no longer exist without LINQ/HashSet churn
+			if(_pathsByBodyId.Count > 0)
 			{
-				var tmpIds = entities.Length <= 1024
-								 ? stackalloc int[entities.Length]
-								 : new int[entities.Length];
-				for(var i = 0; i < entities.Length; i++)
-					tmpIds[i] = entities[i].Id;
-				var toRemove = entities.Length <= 1024
-								   ? stackalloc int[_pathsByEntityId.Count]
-								   : new int[_pathsByEntityId.Count];
+				var tmpIds = bodies.Length <= 1024
+								 ? stackalloc int[bodies.Length]
+								 : new int[bodies.Length];
+				for(var i = 0; i < bodies.Length; i++)
+					tmpIds[i] = bodies[i].Id;
+				var toRemove = bodies.Length <= 1024
+								   ? stackalloc int[_pathsByBodyId.Count]
+								   : new int[_pathsByBodyId.Count];
 				var rm = 0;
 
-				foreach(var key in _pathsByEntityId.Keys)
+				foreach(var key in _pathsByBodyId.Keys)
 				{
 					var found = false;
 
@@ -214,25 +214,25 @@ public partial class Direct3dWorldView
 				}
 
 				for(var i = 0; i < rm; i++)
-					_pathsByEntityId.Remove(toRemove[i]);
+					_pathsByBodyId.Remove(toRemove[i]);
 			}
 
 			// Append when movement threshold exceeded
 			var moveThreshold = (float)(1.0 / World.Viewport.ScaleFactor);
 
-			for(var i = 0; i < entities.Length; i++)
+			for(var i = 0; i < bodies.Length; i++)
 			{
-				var entity = entities[i];
-				if(!_pathsByEntityId.TryGetValue(entity.Id, out var pathBuf))
-					_pathsByEntityId[entity.Id] = pathBuf = new(_maxPathSegments);
+				var body = bodies[i];
+				if(!_pathsByBodyId.TryGetValue(body.Id, out var pathBuf))
+					_pathsByBodyId[body.Id] = pathBuf = new(_maxPathSegments);
 				var last = pathBuf.LastOrDefault();
-				var pos = new Vector2((float)entity.Position.X, (float)entity.Position.Y);
+				var pos = new Vector2((float)body.Position.X, (float)body.Position.Y);
 				if(pathBuf.Count == 0 ||
 				   Vector2.Distance(pos, last) >= moveThreshold)
 					pathBuf.Add(pos);
 			}
 
-			if(_pathsByEntityId.Count < 1)
+			if(_pathsByBodyId.Count < 1)
 				return;
 
 			EnsureBuffers(e.Device);
@@ -252,7 +252,7 @@ public partial class Direct3dWorldView
 			e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
 
 			// Build compact list of paths to draw
-			var valuesArray = _pathsByEntityId.Values.ToArray();
+			var valuesArray = _pathsByBodyId.Values.ToArray();
 			var pathCount = 0;
 			for(var vi = 0; vi < valuesArray.Length; vi++)
 				if(valuesArray[vi].Count >= 2)

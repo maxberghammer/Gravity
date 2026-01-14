@@ -16,15 +16,15 @@ public abstract class EngineTestsBase
 		(var world, var deltaTime) = await IWorld.CreateFromJsonResourceAsync(jsonResourcePath);
 
 		world = world.CreateMock();
-		var entities = world.GetEntities();
+		var bodies = world.GetBodies();
 
 		for (var s = 0; s < steps; s++)
 			engine.Simulate(world, deltaTime);
 
-		foreach(var entity in entities)
+		foreach(var body in bodies)
 		{
-			Assert.IsFalse(double.IsNaN(entity.Position.X) || double.IsNaN(entity.Position.Y));
-			Assert.IsFalse(double.IsInfinity(entity.Position.X) || double.IsInfinity(entity.Position.Y));
+			Assert.IsFalse(double.IsNaN(body.Position.X) || double.IsNaN(body.Position.Y));
+			Assert.IsFalse(double.IsInfinity(body.Position.X) || double.IsInfinity(body.Position.Y));
 		}
 	}
 

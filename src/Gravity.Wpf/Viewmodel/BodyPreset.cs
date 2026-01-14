@@ -6,16 +6,16 @@ using Gravity.SimulationEngine;
 
 namespace Gravity.Wpf.Viewmodel;
 
-public class EntityPreset
+public class BodyPreset
 {
 	#region Construction
 
-	public EntityPreset(string name, double mass, double radius, Color fill, Guid id)
+	public BodyPreset(string name, double mass, double radius, Color fill, Guid id)
 		: this(name, mass, radius, fill, null, 0, id)
 	{
 	}
 
-	public EntityPreset(string name, double mass, double radius, Color fill, Color? stroke, double strokeWidth, Guid id)
+	public BodyPreset(string name, double mass, double radius, Color fill, Color? stroke, double strokeWidth, Guid id)
 	{
 		Name = name;
 		m = mass;
@@ -30,13 +30,13 @@ public class EntityPreset
 
 	#region Interface
 
-	public static EntityPreset FromDensity(string name,
-										   double density,
-										   double radius,
-										   Color fill,
-										   Color stroke,
-										   double strokeWidth,
-										   Guid id)
+	public static BodyPreset FromDensity(string name,
+										 double density,
+										 double radius,
+										 Color fill,
+										 Color stroke,
+										 double strokeWidth,
+										 Guid id)
 		=> new(name, 4.0d / 3.0d * Math.Pow(radius, 3) * Math.PI * density, radius, fill, stroke, strokeWidth, id);
 
 	public string Name { get; }

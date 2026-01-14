@@ -22,11 +22,11 @@ public class DragIndicator : NotifyPropertyChanged
 		set
 		{
 			if(SetProperty(ref field, value))
-				RaiseOtherPropertyChanged(nameof(EntityTranslate));
+				RaiseOtherPropertyChanged(nameof(BodyTranslate));
 		}
 	}
 
-	public double EntityTranslate
+	public double BodyTranslate
 		=> -Diameter / 2;
 
 	#endregion

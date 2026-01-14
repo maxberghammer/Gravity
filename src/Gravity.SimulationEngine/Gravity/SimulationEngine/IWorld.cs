@@ -16,7 +16,7 @@ public interface IWorld
 
 	IViewport Viewport { get; }
 
-	Body[] GetEntities();
+	Body[] GetBodies();
 
 	// Correct gravitational constant (SI units)
 	public static readonly double G = 6.67430e-11;

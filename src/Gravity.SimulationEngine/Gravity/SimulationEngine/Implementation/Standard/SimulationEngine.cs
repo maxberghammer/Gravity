@@ -13,104 +13,104 @@ internal sealed class SimulationEngine : SimulationEngineBase
 {
 	#region Fields
 
-	private readonly ConcurrentDictionary<int, Vector2D> _positionByEntityId = new();
-	private readonly ConcurrentDictionary<int, Vector2D> _vByEntityId = new();
+	private readonly ConcurrentDictionary<int, Vector2D> _positionByBodyId = new();
+	private readonly ConcurrentDictionary<int, Vector2D> _vByBodyId = new();
 
 	#endregion
 
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] bodies, TimeSpan deltaTime)
 	{
 		// Physik anwenden
 		ApplyPhysics(world,
-					 entities.Where(e => !e.IsAbsorbed)
+					 bodies.Where(e => !e.IsAbsorbed)
 							 .ToArray());
 
 		// Objekte updaten
-		foreach(var entity in entities)
-			Update(entity,
-				   _positionByEntityId.TryGetValue(entity.Id, out var position)
+		foreach(var body in bodies)
+			Update(body,
+				   _positionByBodyId.TryGetValue(body.Id, out var position)
 					   ? position
 					   : null,
-				   _vByEntityId.TryGetValue(entity.Id, out var v)
+				   _vByBodyId.TryGetValue(body.Id, out var v)
 					   ? v
 					   : null,
 				   deltaTime);
 	}
 
-	private static void Update(Body entity, Vector2D? position, Vector2D? v, TimeSpan deltaTime)
+	private static void Update(Body body, Vector2D? position, Vector2D? v, TimeSpan deltaTime)
 	{
-		if(entity.IsAbsorbed)
+		if(body.IsAbsorbed)
 			return;
 
 		// Bei Bedarf neue Position übernehmen
 		if(position.HasValue)
-			entity.Position = position.Value;
+			body.Position = position.Value;
 
 		// Position aktualisieren
-		entity.Position += entity.v * deltaTime.TotalSeconds;
+		body.Position += body.v * deltaTime.TotalSeconds;
 
 		// Bei Bedarf neue Geschwindigkeit übernehmen
 		if(v.HasValue)
-			entity.v = v.Value;
+			body.v = v.Value;
 
 		// Geschwindigkeit aktualisieren
-		entity.v += entity.a * deltaTime.TotalSeconds;
+		body.v += body.a * deltaTime.TotalSeconds;
 	}
 
-	private void ApplyPhysics(IWorld world, Body entity, IEnumerable<Body> others)
+	private void ApplyPhysics(IWorld world, Body body, IEnumerable<Body> others)
 	{
-		if(entity.IsAbsorbed)
+		if(body.IsAbsorbed)
 			return;
 
-		entity.a = Vector2D.Zero;
+		body.a = Vector2D.Zero;
 
 		var g = Vector2D.Zero;
 
 		foreach(var other in others.Where(e => !e.IsAbsorbed))
 		{
 			// Kollision behandeln
-			(var v1, var v2) = HandleCollision(entity, other, world.ElasticCollisions);
+			(var v1, var v2) = HandleCollision(body, other, world.ElasticCollisions);
 
 			if(v1.HasValue &&
 			   v2.HasValue)
 			{
-				(var position1, var position2) = CancelOverlap(entity, other);
+				(var position1, var position2) = CancelOverlap(body, other);
 
 				if(position1.HasValue)
-					_positionByEntityId[entity.Id] = position1.Value;
+					_positionByBodyId[body.Id] = position1.Value;
 
 				if(position2.HasValue)
-					_positionByEntityId[other.Id] = position2.Value;
+					_positionByBodyId[other.Id] = position2.Value;
 			}
 
 			if(v1.HasValue)
-				_vByEntityId[entity.Id] = v1.Value;
+				_vByBodyId[body.Id] = v1.Value;
 
 			if(v2.HasValue)
-				_vByEntityId[other.Id] = v2.Value;
+				_vByBodyId[other.Id] = v2.Value;
 
-			if(entity.IsAbsorbed)
+			if(body.IsAbsorbed)
 				return;
 
-			var dist = entity.Position - other.Position;
+			var dist = body.Position - other.Position;
 
 			// Gravitationsbeschleunigung integrieren
 			g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
 		}
 
-		entity.a = -IWorld.G * g;
+		body.a = -IWorld.G * g;
 	}
 
-	private void ApplyPhysics(IWorld world, Body[] entities)
+	private void ApplyPhysics(IWorld world, Body[] bodies)
 	{
-		_positionByEntityId.Clear();
-		_vByEntityId.Clear();
+		_positionByBodyId.Clear();
+		_vByBodyId.Clear();
 
-		var n = entities.Length;
-		var chunk = Math.Max(1, IWorld.GetPreferredChunkSize(entities));
+		var n = bodies.Length;
+		var chunk = Math.Max(1, IWorld.GetPreferredChunkSize(bodies));
 		var chunks = (n + chunk - 1) / chunk;
 
 		Parallel.For(0, chunks, c =>
@@ -119,7 +119,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 									var end = Math.Min(start + chunk, n);
 
 									for(var i = start; i < end; i++)
-										ApplyPhysics(world, entities[i], entities.Except(entities[i]));
+										ApplyPhysics(world, bodies[i], bodies.Except(bodies[i]));
 								});
 	}
 

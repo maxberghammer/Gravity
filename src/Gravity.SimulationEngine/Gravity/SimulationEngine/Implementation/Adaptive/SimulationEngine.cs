@@ -36,15 +36,15 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] bodies, TimeSpan deltaTime)
 	{
-		var steps = _oversampler.Oversample(entities, deltaTime, (e, dt) =>
+		var steps = _oversampler.Oversample(bodies, deltaTime, (b, dt) =>
 																 {
 																	 // Integrator-Step (berechnet a intern wo nötig)
-																	 _integrator.Step(e, dt.TotalSeconds, ComputeAccelerations);
+																	 _integrator.Step(b, dt.TotalSeconds, ComputeAccelerations);
 
 																	 // Kollisionen nach dem Step exakt erkennen und auflösen (Oversampling)
-																	 ResolveCollisions(world, e);
+																	 ResolveCollisions(world, b);
 																 });
 
 		// Report substeps for diagnostics
@@ -69,9 +69,9 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				}
 	}
 
-	private static void ResolveCollisions(IWorld world, Body[] entities)
+	private static void ResolveCollisions(IWorld world, Body[] bodies)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 
 		if(n <= 1)
 			return;
@@ -90,11 +90,11 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
 			active++;
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			if(p.X < l)
 				l = p.X;
 			if(p.Y < t)
@@ -103,7 +103,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				r = p.X;
 			if(p.Y > b)
 				b = p.Y;
-			var ri = entities[i].r;
+			var ri = bodies[i].r;
 			if(ri > rMax)
 				rMax = ri;
 			rSum += ri;
@@ -158,10 +158,10 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
 			var cy = (int)Math.Floor((p.Y - t) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
@@ -178,23 +178,23 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
-			var ei = entities[i];
-			var p = ei.Position;
+			var body1 = bodies[i];
+			var p = body1.Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
 			var cy = (int)Math.Floor((p.Y - t) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
 			// per-entity neighbor range clamp based on size relative to cell
 			int range;
-			if(ei.r <= 0.5 * cellSize)
+			if(body1.r <= 0.5 * cellSize)
 				range = 1;
-			else if(ei.r <= 1.5 * cellSize)
+			else if(body1.r <= 1.5 * cellSize)
 				range = 2;
 			else
-				range = (int)Math.Ceiling(ei.r / cellSize) + 1;
+				range = (int)Math.Ceiling(body1.r / cellSize) + 1;
 
 			for(var dv = -range; dv <= range; dv++)
 			{
@@ -224,26 +224,26 @@ internal sealed class SimulationEngine : SimulationEngineBase
 						if(j <= i)
 							continue;
 
-						var ej = entities[j];
+						var body2 = bodies[j];
 
-						if(ej.IsAbsorbed)
+						if(body2.IsAbsorbed)
 							continue;
 
-						var a = Math.Min(ei.Id, ej.Id);
-						var bId = Math.Max(ei.Id, ej.Id);
+						var a = Math.Min(body1.Id, body2.Id);
+						var bId = Math.Max(body1.Id, body2.Id);
 						var key = ((long)a << 32) | (uint)bId;
 
 						if(!_sSeen.Add(key))
 							continue;
 
 						// Fast AABB rejection using radii
-						var sumR = ei.r + ej.r;
-						var dx = ei.Position.X - ej.Position.X;
+						var sumR = body1.r + body2.r;
+						var dx = body1.Position.X - body2.Position.X;
 
 						if(Math.Abs(dx) > sumR)
 							continue;
 
-						var dy = ei.Position.Y - ej.Position.Y;
+						var dy = body1.Position.Y - body2.Position.Y;
 
 						if(Math.Abs(dy) > sumR)
 							continue;
@@ -252,22 +252,22 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 						if(d.LengthSquared <= sumR * sumR)
 						{
-							(var v1, var v2) = HandleCollision(ei, ej, elastic);
+							(var v1, var v2) = HandleCollision(body1, body2, elastic);
 
 							if(v1.HasValue &&
 							   v2.HasValue)
 							{
-								(var p1, var p2) = CancelOverlap(ei, ej);
+								(var p1, var p2) = CancelOverlap(body1, body2);
 								if(p1.HasValue)
-									ei.Position = p1.Value;
+									body1.Position = p1.Value;
 								if(p2.HasValue)
-									ej.Position = p2.Value;
+									body2.Position = p2.Value;
 							}
 
 							if(v1.HasValue)
-								ei.v = v1.Value;
+								body1.v = v1.Value;
 							if(v2.HasValue)
-								ej.v = v2.Value;
+								body2.v = v2.Value;
 						}
 					}
 				}
@@ -275,9 +275,9 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		}
 	}
 
-	private static double ComputeTheta(Body[] entities, double l, double t, double r, double b)
+	private static double ComputeTheta(Body[] bodies, double l, double t, double r, double b)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 		var width = Math.Max(1e-12, r - l);
 		var height = Math.Max(1e-12, b - t);
 		var span = Math.Max(width, height);
@@ -287,7 +287,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		{
 			for(var j = i + 1; j < Math.Min(n, i + 32); j++)
 			{
-				var d = (entities[j].Position - entities[i].Position).Length;
+				var d = (bodies[j].Position - bodies[i].Position).Length;
 				if(d < minSep)
 					minSep = d;
 			}
@@ -313,9 +313,9 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		return Math.Clamp(raw, 0.6, 1.0);
 	}
 
-	private void ComputeAccelerations(Body[] entities)
+	private void ComputeAccelerations(Body[] bodies)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 
 		if(n == 0)
 			return;
@@ -328,7 +328,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			if(p.X < l)
 				l = p.X;
 			if(p.Y < t)
@@ -349,15 +349,15 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		}
 
 		// Theta adaptiv wie in Barnes–Hut (inkl. Small-N-Overrides)
-		var theta = ComputeTheta(entities, l, t, r, b);
+		var theta = ComputeTheta(bodies, l, t, r, b);
 
 		var tree = new BarnesHutTree(new(l, t), new(r, b), theta, n);
 		// Presort by Morton-order for better locality
-		tree.AddRange(entities);
+		tree.AddRange(bodies);
 		tree.ComputeMassDistribution();
 		tree.CollectDiagnostics = false;
 		// Update diagnostics locally
-		Parallel.For(0, n, i => { entities[i].a = tree.CalculateGravity(entities[i]); });
+		Parallel.For(0, n, i => { bodies[i].a = tree.CalculateGravity(bodies[i]); });
 		Diagnostics.SetField("Nodes", tree.NodeCount);
 		Diagnostics.SetField("MaxDepth", tree.MaxDepthReached);
 		Diagnostics.SetField("Visits", tree.TraversalVisitCount);

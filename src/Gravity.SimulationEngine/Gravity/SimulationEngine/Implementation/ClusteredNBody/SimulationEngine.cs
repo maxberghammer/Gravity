@@ -29,13 +29,13 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] bodies, TimeSpan deltaTime)
 	{
-		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
+		var collisions = _integrator.Integrate(bodies, deltaTime, ApplyPhysics);
 
 		if(collisions.Length != 0)
 		{
-			var entitiesById = entities.ToDictionary(e => e.Id);
+			var bodiesById = bodies.ToDictionary(e => e.Id);
 			var seen = new HashSet<long>(collisions.Length * 2);
 
 			for(var i = 0; i < collisions.Length; i++)
@@ -48,32 +48,32 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				if(!seen.Add(key))
 					continue;
 
-				var e1 = entitiesById[a];
-				var e2 = entitiesById[b];
+				var b1 = bodiesById[a];
+				var b2 = bodiesById[b];
 
-				(var v1, var v2) = HandleCollision(e1, e2, world.ElasticCollisions);
+				(var v1, var v2) = HandleCollision(b1, b2, world.ElasticCollisions);
 
 				if(v1.HasValue &&
 				   v2.HasValue)
 				{
-					(var p1, var p2) = CancelOverlap(e1, e2);
+					(var p1, var p2) = CancelOverlap(b1, b2);
 					if(p1.HasValue)
-						e1.Position = p1.Value;
+						b1.Position = p1.Value;
 					if(p2.HasValue)
-						e2.Position = p2.Value;
+						b2.Position = p2.Value;
 				}
 
 				if(v1.HasValue)
-					e1.v = v1.Value;
+					b1.v = v1.Value;
 				if(v2.HasValue)
-					e2.v = v2.Value;
+					b2.v = v2.Value;
 			}
 		}
 	}
 
-	private static Tuple<int, int>[] ApplyPhysics(Body[] entities)
+	private static Tuple<int, int>[] ApplyPhysics(Body[] bodies)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 
 		if(n == 0)
 			return Array.Empty<Tuple<int, int>>();
@@ -86,7 +86,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			if(p.X < l)
 				l = p.X;
 			if(p.Y < t)
@@ -121,10 +121,10 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			var u = (int)Math.Round((p.X - l) * qx);
 			var v = (int)Math.Round((p.Y - t) * qy);
 			u = Math.Min(Math.Max(u, 0), gridSide - 1);
@@ -161,13 +161,13 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 			for(var k = iStart; k < iEnd; k++)
 			{
-				var e = entities[idx[k]];
+				var body = bodies[idx[k]];
 
-				if(e.IsAbsorbed)
+				if(body.IsAbsorbed)
 					continue;
 
-				mSum += e.m;
-				pSum += e.m * e.Position;
+				mSum += body.m;
+				pSum += body.m * body.Position;
 			}
 
 			if(mSum > 0)
@@ -201,11 +201,11 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		// Compute accelerations (clustered forces)
 		Parallel.For(0, n, i =>
 						   {
-							   var ei = entities[i];
+							   var body1 = bodies[i];
 
-							   if(ei.IsAbsorbed)
+							   if(body1.IsAbsorbed)
 							   {
-								   ei.a = Vector2D.Zero;
+								   body1.a = Vector2D.Zero;
 
 								   return;
 							   }
@@ -246,15 +246,15 @@ internal sealed class SimulationEngine : SimulationEngineBase
 										   if(j == i)
 											   continue;
 
-										   var ej = entities[j];
+										   var body2 = bodies[j];
 
-										   if(ej.IsAbsorbed)
+										   if(body2.IsAbsorbed)
 											   continue;
 
-										   var d = ei.Position - ej.Position;
+										   var d = body1.Position - body2.Position;
 										   var d2 = d.LengthSquared + 1e-18;
 										   var inv = 1.0 / Math.Pow(d2, 1.5);
-										   ai += -IWorld.G * ej.m * d * inv;
+										   ai += -IWorld.G * body2.m * d * inv;
 									   }
 								   }
 							   }
@@ -270,22 +270,22 @@ internal sealed class SimulationEngine : SimulationEngineBase
 									   continue;
 
 								   var com = clusterCom[c];
-								   var d = ei.Position - com;
+								   var d = body1.Position - com;
 								   var d2 = d.LengthSquared + 1e-18;
 								   var inv = 1.0 / Math.Pow(d2, 1.5);
 								   ai += -IWorld.G * clusterMass[c] * d * inv;
 							   }
 
-							   ei.a = ai;
+							   body1.a = ai;
 						   });
 
 		// High-accuracy collision detection pass (uniform grid, variable neighborhood)
 		var collisions = new List<Tuple<int, int>>(Math.Min(n, 1024));
 		var rMax = 0.0;
 		for(var i = 0; i < n; i++)
-			if(!entities[i].IsAbsorbed &&
-			   entities[i].r > rMax)
-				rMax = entities[i].r;
+			if(!bodies[i].IsAbsorbed &&
+			   bodies[i].r > rMax)
+				rMax = bodies[i].r;
 		var cellSize = Math.Max(1e-12, rMax);
 		var cols = Math.Max(1, (int)Math.Ceiling(spanX / cellSize) + 1);
 		var rows = Math.Max(1, (int)Math.Ceiling(spanY / cellSize) + 1);
@@ -296,10 +296,10 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
-			var p = entities[i].Position;
+			var p = bodies[i].Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
 			var cy = (int)Math.Floor((p.Y - t) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
@@ -313,16 +313,16 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		for(var i = 0; i < n; i++)
 		{
-			if(entities[i].IsAbsorbed)
+			if(bodies[i].IsAbsorbed)
 				continue;
 
-			var ei = entities[i];
-			var p = ei.Position;
+			var body1 = bodies[i];
+			var p = body1.Position;
 			var cx = (int)Math.Floor((p.X - l) / cellSize);
 			var cy = (int)Math.Floor((p.Y - t) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
-			var range = (int)Math.Ceiling(ei.r / cellSize);
+			var range = (int)Math.Ceiling(body1.r / cellSize);
 
 			for(var dv = -range; dv <= range; dv++)
 			{
@@ -352,17 +352,17 @@ internal sealed class SimulationEngine : SimulationEngineBase
 						if(j <= i)
 							continue;
 
-						var ej = entities[j];
+						var body2 = bodies[j];
 
-						if(ej.IsAbsorbed)
+						if(body2.IsAbsorbed)
 							continue;
 
-						var d = ei.Position - ej.Position;
+						var d = body1.Position - body2.Position;
 						var d2 = d.LengthSquared;
-						var sumR = ei.r + ej.r;
+						var sumR = body1.r + body2.r;
 						var sumR2 = sumR * sumR;
 						if(d2 <= sumR2)
-							collisions.Add(Tuple.Create(ei.Id, ej.Id));
+							collisions.Add(Tuple.Create(body1.Id, body2.Id));
 					}
 				}
 			}
