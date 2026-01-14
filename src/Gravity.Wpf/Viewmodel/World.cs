@@ -111,23 +111,8 @@ public class World : NotifyPropertyChanged,
 			},
 			new()
 			{
-				Type = Factory.SimulationEngineType.BarnesHutWithLeapfrog,
-				Name = "Barnes-Hut mit Leapfrog"
-			},
-			new()
-			{
-				Type = Factory.SimulationEngineType.BarnesHutWithRungeKutta,
-				Name = "Barnes-Hut mit Runge-Kutta"
-			},
-			new()
-			{
 				Type = Factory.SimulationEngineType.Standard,
 				Name = "Direkte N-Body"
-			},
-			new()
-			{
-				Type = Factory.SimulationEngineType.ClusteredNBody,
-				Name = "Clustered N-Body"
 			}
 		];
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Gravity.SimulationEngine.Implementation.Adaptive.Integrators;
+using Gravity.SimulationEngine.Implementation.Integrators;
 using Gravity.SimulationEngine.Implementation.Oversamplers;
 
 namespace Gravity.SimulationEngine.Implementation.Adaptive;

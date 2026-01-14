@@ -5,7 +5,7 @@ using System;
 using System.Buffers;
 using System.Threading.Tasks;
 
-namespace Gravity.SimulationEngine.Implementation.Adaptive.Integrators;
+namespace Gravity.SimulationEngine.Implementation.Integrators;
 
 internal sealed class RungeKutta4Integrator : IIntegrator
 {

@@ -9,46 +9,77 @@ namespace Gravity.SimulationEngine.Tests.Accuracy;
 [TestClass]
 public sealed class ConservationTests
 {
+	#region Interface
+
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task AdaptiveLeapfrogConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Adaptive, ResourcePaths.TwoBodiesSimulation, 5000, 5e-4, 1e-10, 1e-10);
+
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task StandardConservesMomentumAngularTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 2000, 5e-2, 1e-9, 1e-9);
+
+	#endregion
+
+	#region Implementation
+
 	private static double TotalKineticEnergy(Body[] bodies)
 		=> bodies.Where(b => !b.IsAbsorbed).Sum(b => 0.5 * b.m * b.v.LengthSquared);
 
 	private static double TotalPotentialEnergy(Body[] bodies)
 	{
 		var e = 0.0;
-		for (var i = 0; i < bodies.Length; i++)
+
+		for(var i = 0; i < bodies.Length; i++)
 		{
 			var bi = bodies[i];
-			if (bi.IsAbsorbed)
+
+			if(bi.IsAbsorbed)
 				continue;
-			for (var j = i + 1; j < bodies.Length; j++)
+
+			for(var j = i + 1; j < bodies.Length; j++)
 			{
 				var bj = bodies[j];
-				if (bj.IsAbsorbed)
+
+				if(bj.IsAbsorbed)
 					continue;
+
 				var r = (bi.Position - bj.Position).Length;
 				var rEff = Math.Max(r, 1e-12);
 				e -= IWorld.G * bi.m * bj.m / rEff;
 			}
 		}
+
 		return e;
 	}
 
 	private static (Vector2D P, double Lz) TotalMomentumAndAngularMomentum(Body[] bodies)
 	{
 		var p = Vector2D.Zero;
-		double lz = 0.0;
-		for (var i = 0; i < bodies.Length; i++)
+		var lz = 0.0;
+
+		for(var i = 0; i < bodies.Length; i++)
 		{
 			var b = bodies[i];
-			if (b.IsAbsorbed)
+
+			if(b.IsAbsorbed)
 				continue;
+
 			p += b.m * b.v;
 			lz += b.m * (b.Position.X * b.v.Y - b.Position.Y * b.v.X);
 		}
+
 		return (p, lz);
 	}
 
-	private static async Task AssertConservationAsync(Factory.SimulationEngineType engineType, string resourcePath, int steps, double relEnergyTol, double relMomentumTol, double relAngularTol)
+	private static async Task AssertConservationAsync(Factory.SimulationEngineType engineType,
+													  string resourcePath,
+													  int steps,
+													  double relEnergyTol,
+													  double relMomentumTol,
+													  double relAngularTol)
 	{
 		var engine = Factory.Create(engineType);
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
@@ -58,7 +89,7 @@ public sealed class ConservationTests
 		var e0 = TotalKineticEnergy(bodies) + TotalPotentialEnergy(bodies);
 		(var p0, var l0) = TotalMomentumAndAngularMomentum(bodies);
 
-		for (var s = 0; s < steps; s++)
+		for(var s = 0; s < steps; s++)
 			engine.Simulate(world, dt);
 
 		var eN = TotalKineticEnergy(bodies) + TotalPotentialEnergy(bodies);
@@ -75,24 +106,5 @@ public sealed class ConservationTests
 		Assert.IsLessThanOrEqualTo(relAngularTol, relL, $"Angular momentum drift {relL} exceeds tolerance {relAngularTol}");
 	}
 
-	[TestMethod]
-	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task LeapfrogBarnesHutConservesInvariantsTwoBody()
-	{
-		await AssertConservationAsync(Factory.SimulationEngineType.BarnesHutWithLeapfrog, Mock.ResourcePaths.TwoBodiesSimulation, steps: 5000, relEnergyTol: 5e-4, relMomentumTol: 1e-10, relAngularTol: 1e-10);
-	}
-
-	[TestMethod]
-	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task RungeKuttaBarnesHutConservesMomentumAngularTwoBody()
-	{
-		await AssertConservationAsync(Factory.SimulationEngineType.BarnesHutWithRungeKutta, Mock.ResourcePaths.TwoBodiesSimulation, steps: 5000, relEnergyTol: 2e-3, relMomentumTol: 1e-10, relAngularTol: 1e-10);
-	}
-
-	[TestMethod]
-	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task StandardConservesMomentumAngularTwoBody()
-	{
-		await AssertConservationAsync(Factory.SimulationEngineType.Standard, Mock.ResourcePaths.TwoBodiesSimulation, steps: 2000, relEnergyTol: 5e-2, relMomentumTol: 1e-9, relAngularTol: 1e-9);
-	}
+	#endregion
 }

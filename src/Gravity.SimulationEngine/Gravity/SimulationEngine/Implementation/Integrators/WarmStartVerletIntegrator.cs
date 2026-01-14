@@ -6,7 +6,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Gravity.SimulationEngine.Implementation.Adaptive.Integrators;
+namespace Gravity.SimulationEngine.Implementation.Integrators;
 
 internal sealed class WarmStartVerletIntegrator : IIntegrator
 {

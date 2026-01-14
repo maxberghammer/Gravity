@@ -29,9 +29,6 @@ public abstract class AllEnginesBenchBase
 		_dt = dt;
 
 		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
-		BarnesHutWithLeapfrog = Factory.Create(Factory.SimulationEngineType.BarnesHutWithLeapfrog);
-		BarnesHutWithRungeKutta = Factory.Create(Factory.SimulationEngineType.BarnesHutWithRungeKutta);
-		ClusteredNBody = Factory.Create(Factory.SimulationEngineType.ClusteredNBody);
 		Adaptive = Factory.Create(Factory.SimulationEngineType.Adaptive);
 	}
 

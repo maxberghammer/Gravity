@@ -1,5 +1,5 @@
-// Erstellt am: 22.01.2021
-// Erstellt von: Max Berghammer
+// Erstellt am: 13.01.2026
+// Erstellt von: MaxBerghammer
 
 using System;
 
@@ -7,5 +7,5 @@ namespace Gravity.SimulationEngine.Implementation.Integrators;
 
 internal interface IIntegrator
 {
-	Tuple<int, int>[] Integrate(Body[] entities, TimeSpan deltaTime, Func<Body[], Tuple<int, int>[]> processFunc);
+	void Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations);
 }

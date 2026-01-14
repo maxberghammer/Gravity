@@ -11,9 +11,6 @@ public static class Factory
 	public enum SimulationEngineType
 	{
 		Standard,
-		BarnesHutWithRungeKutta,
-		BarnesHutWithLeapfrog,
-		ClusteredNBody,
 		Adaptive
 	}
 
@@ -24,11 +21,8 @@ public static class Factory
 	public static ISimulationEngine Create(SimulationEngineType type)
 		=> type switch
 		   {
-			   SimulationEngineType.Standard                => new Implementation.Standard.SimulationEngine(),
-			   SimulationEngineType.BarnesHutWithRungeKutta => new Implementation.BarnesHut.SimulationEngine(new RungeKuttaIntegrator()),
-			   SimulationEngineType.BarnesHutWithLeapfrog   => new Implementation.BarnesHut.SimulationEngine(new LeapfrogIntegrator()),
-			   SimulationEngineType.ClusteredNBody          => new Implementation.ClusteredNBody.SimulationEngine(),
-			   SimulationEngineType.Adaptive => new Implementation.Adaptive.SimulationEngine(new Implementation.Adaptive.Integrators.LeapfrogIntegrator(),
+			   SimulationEngineType.Standard => new Implementation.Standard.SimulationEngine(),
+			   SimulationEngineType.Adaptive => new Implementation.Adaptive.SimulationEngine(new LeapfrogIntegrator(),
 																							 new MinDiameterCrossingTimeOversampler( // Obergrenze pro Frame 
 																																	64,
 																																	// Untergrenze für numerische Stabilität
