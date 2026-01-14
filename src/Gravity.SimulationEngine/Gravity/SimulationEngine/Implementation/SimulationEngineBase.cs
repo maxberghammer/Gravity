@@ -48,7 +48,7 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 			return (body2.Position + dist.Unit() * minDistAbs, null);
 
 		if(body1.m > body2.m)
-			return (null, body2.Position = body1.Position - dist.Unit() * minDistAbs);
+			return (null, body1.Position - dist.Unit() * minDistAbs);
 
 		return (body2.Position + (dist + dist.Unit() * minDistAbs) / 2, body1.Position - (dist + dist.Unit() * minDistAbs) / 2);
 	}
@@ -102,19 +102,20 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 			return (v1, v2);
 		}
 
-		// Vereinigung behandeln
-		var v = (body1.Position + body2.Position) / (body1.m + body2.m);
+		// Vollständig unelastischer Stoß (Vereinigung): Impulserhaltung
+		var mSum = body1.m + body2.m;
+		var vMerged = (body1.m * body1.v + body2.m * body2.v) / mSum;
 
 		if(body2.m > body1.m)
 		{
 			body2.Absorb(body1);
 
-			return (null, v);
+			return (null, vMerged);
 		}
 
 		body1.Absorb(body2);
 
-		return (v, null);
+		return (vMerged, null);
 	}
 
 	protected Diagnostics Diagnostics { get; } = new();
