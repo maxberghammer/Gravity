@@ -4,8 +4,8 @@ using System.Runtime.CompilerServices;
 
 namespace Gravity.SimulationEngine;
 
-[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates", Justification = "Nö, das ist halt Mathe")]
-public struct Vector2D : IEquatable<Vector2D>
+[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates", Justification = "NÃ¶, das ist halt Mathe")]
+public readonly struct Vector2D : IEquatable<Vector2D>
 {
 	#region Fields
 
@@ -62,9 +62,9 @@ public struct Vector2D : IEquatable<Vector2D>
 	public static bool operator!=(Vector2D left, Vector2D right)
 		=> !left.Equals(right);
 
-	public double X { get; set; }
+	public double X { get; }
 
-	public double Y { get; set; }
+	public double Y { get; }
 
 	public double LengthSquared
 		=> X * X + Y * Y;
@@ -83,6 +83,13 @@ public struct Vector2D : IEquatable<Vector2D>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public Vector2D Unit()
 		=> this / Length;
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public (Vector2D unit, double length) UnitWithLength()
+	{
+		var len = Length;
+		return (this / len, len);
+	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public Vector2D Norm()

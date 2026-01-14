@@ -56,6 +56,10 @@ internal sealed class BarnesHutTree
 	private const double EpsilonSize = 1e-12; // minimal node size to avoid endless subdivision
 	private const int MaxDepth = 32; // safety bound for degenerate cases
 
+	// Thread-local stack pool to eliminate contention during parallel CalculateGravity calls
+	[ThreadStatic]
+	private static int[]? _threadLocalStack;
+
 	private readonly double _l,
 							_t,
 							_r,
@@ -207,8 +211,17 @@ internal sealed class BarnesHutTree
 	public Vector2D CalculateGravity(Body e)
 	{
 		var acc = Vector2D.Zero;
-		var pool = ArrayPool<int>.Shared;
-		var stack = pool.Rent(256);
+		
+		// Use thread-local stack to eliminate ArrayPool contention across threads
+#pragma warning disable S2696 // Instance method intentionally sets ThreadStatic field
+		var stack = _threadLocalStack;
+		if(stack == null)
+		{
+			stack = new int[256];
+			_threadLocalStack = stack;
+		}
+#pragma warning restore S2696
+		
 		var sp = 0;
 		stack[sp++] = _root;
 		var thetaSq = _theta * _theta;
@@ -243,18 +256,19 @@ internal sealed class BarnesHutTree
 				var dist = Math.Sqrt(dist2);
 				var invLen3 = 1.0 / (dist2 * dist);
 				var factor = -IWorld.G * mass * invLen3;
-				acc.X += factor * dx;
-				acc.Y += factor * dy;
+				acc = acc + new Vector2D(factor * dx, factor * dy);
 			}
 			else
 			{
-				// Expand children
+				// Expand children - handle stack growth if needed
 				if(sp + 4 >= stack.Length)
 				{
-					var bigger = pool.Rent(stack.Length * 2);
-					Array.Copy(stack, bigger, sp);
-					pool.Return(stack);
-					stack = bigger;
+#pragma warning disable S2696
+					// Grow thread-local stack (rare case for very deep trees)
+					var newStack = new int[stack.Length * 2];
+					Array.Copy(stack, newStack, sp);
+					_threadLocalStack = stack = newStack;
+#pragma warning restore S2696
 				}
 
 				// Unroll child checks to reduce branching
@@ -274,7 +288,6 @@ internal sealed class BarnesHutTree
 			}
 		}
 
-		pool.Return(stack);
 		if(CollectDiagnostics && localVisits != 0)
 			Interlocked.Add(ref _traversalVisitCount, localVisits);
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Gravity.SimulationEngine.Implementation.Integrators;
 using Gravity.SimulationEngine.Implementation.Oversamplers;

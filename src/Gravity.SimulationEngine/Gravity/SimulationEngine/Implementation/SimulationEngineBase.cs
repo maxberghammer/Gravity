@@ -292,14 +292,15 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 
 		var dist = body1.Position - body2.Position;
 		var minDistAbs = body1.r + body2.r;
+		var distUnit = dist.Unit(); // Compute unit vector only once
 
 		if(body1.m < body2.m)
-			return (body2.Position + dist.Unit() * minDistAbs, null);
+			return (body2.Position + distUnit * minDistAbs, null);
 
 		if(body1.m > body2.m)
-			return (null, body1.Position - dist.Unit() * minDistAbs);
+			return (null, body1.Position - distUnit * minDistAbs);
 
-		return (body2.Position + (dist + dist.Unit() * minDistAbs) / 2, body1.Position - (dist + dist.Unit() * minDistAbs) / 2);
+		return (body2.Position + (dist + distUnit * minDistAbs) / 2, body1.Position - (dist + distUnit * minDistAbs) / 2);
 	}
 
 	/// <summary>

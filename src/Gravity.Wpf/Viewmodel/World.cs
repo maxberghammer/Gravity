@@ -81,7 +81,7 @@ public class World : NotifyPropertyChanged,
 
 	public int DisplayFrequency { get; }
 
-	public double TimeScale { get; set => SetProperty(ref field, value); } = 1;
+	public double TimeScale { get => field; set => SetProperty(ref field, value); } = 1;
 
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
@@ -116,7 +116,7 @@ public class World : NotifyPropertyChanged,
 			}
 		];
 
-	public BodyPreset SelectedBodyPreset { get; set => SetProperty(ref field, value); }
+	public BodyPreset SelectedBodyPreset { get => field; set => SetProperty(ref field, value); }
 
 	public EngineType SelectedEngineType
 	{
@@ -131,11 +131,11 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	public bool IsBodyPresetSelectionVisible { get; set => SetProperty(ref field, value); }
+	public bool IsBodyPresetSelectionVisible { get => field; set => SetProperty(ref field, value); }
 
-	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
+	public bool IsEngineSelectionVisible { get => field; set => SetProperty(ref field, value); }
 
-	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
+	public bool ShowPath { get => field; set => SetProperty(ref field, value); } = true;
 
 	public Viewport Viewport { get; } = new();
 
@@ -146,19 +146,19 @@ public class World : NotifyPropertyChanged,
 	public int BodyCount
 		=> GetBodies().Length;
 
-	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
+	public bool AutoCenterViewport { get => field; set => SetProperty(ref field, value); }
 
-	public Body? SelectedBody { get; set => SetProperty(ref field, value); }
+	public Body? SelectedBody { get => field; set => SetProperty(ref field, value); }
 
-	public bool IsRunning { get; set => SetProperty(ref field, value); } = true;
+	public bool IsRunning { get => field; set => SetProperty(ref field, value); } = true;
 
 	public Guid? CurrentRespawnerId { get; set; }
 
-	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
+	public bool IsHelpVisible { get => field; set => SetProperty(ref field, value); }
 
-	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
+	public bool ElasticCollisions { get => field; set => SetProperty(ref field, value); } = true;
 
-	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
+	public bool ClosedBoundaries { get => field; set => SetProperty(ref field, value); } = true;
 
 	public void CreateRandomBodies(int count, bool enableRespawn, bool stableOrbits)
 	{
@@ -243,9 +243,9 @@ public class World : NotifyPropertyChanged,
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
-			newSize.X = newSize.Y * previousSize.X / previousSize.Y;
+			newSize = new Vector2D(newSize.Y * previousSize.X / previousSize.Y, newSize.Y);
 		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
-			newSize.Y = newSize.X * previousSize.Y / previousSize.X;
+			newSize = new Vector2D(newSize.X, newSize.X * previousSize.Y / previousSize.X);
 		Viewport.TopLeft = center - newSize / 2;
 		Viewport.BottomRight = center + newSize / 2;
 		Viewport.Scale += Math.Log10(Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y));
