@@ -106,7 +106,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				_collectorPool.Push(list);
 	}
 
-	// Synchronous physics application using fixed-chunk Parallel.For
+	// Synchronous physics application using Parallel.For with thread-local collectors
 	private static Tuple<int, int>[] ApplyPhysics(Body[] bodies)
 	{
 		double l = double.PositiveInfinity,
@@ -187,26 +187,26 @@ internal sealed class SimulationEngine : SimulationEngineBase
 
 		tree.ComputeMassDistribution();
 
-		// Choose a cache-friendly block size relative to CPU count and entity count
-		var workers = Math.Max(1, Environment.ProcessorCount);
-		var blockSize = Math.Max(256, n / (workers * 8));
-
-		var ranges = Partitioner.Create(0, n, blockSize);
-		Parallel.ForEach(ranges, range =>
-								 {
-									 (var start, var end) = range;
-									 var localCollisions = RentCollector();
-									 for(var i = start; i < end; i++)
-										 bodies[i].a = tree.CalculateGravity(bodies[i], localCollisions);
-
-									 if(localCollisions.Count > 0)
-										 lock(tree.CollidedBodies)
-											 tree.CollidedBodies.AddRange(localCollisions);
-									 ReturnCollector(localCollisions);
-								 });
+		// Parallel.For with thread-local collision collectors
+		Parallel.For(0, n,
+			localInit: () => RentCollector(),
+			body: (i, state, localCollisions) =>
+			{
+				bodies[i].a = tree.CalculateGravity(bodies[i], localCollisions);
+				return localCollisions;
+			},
+			localFinally: localCollisions =>
+			{
+				if(localCollisions.Count > 0)
+				{
+					lock(tree.CollidedBodies)
+						tree.CollidedBodies.AddRange(localCollisions);
+				}
+				ReturnCollector(localCollisions);
+			});
 
 		var collisions = tree.CollidedBodies;
-		var result = new Tuple<int, int>[collisions.Count];
+		var result = collisions.Count == 0 ? Array.Empty<Tuple<int, int>>() : new Tuple<int, int>[collisions.Count];
 
 		for(var i = 0; i < collisions.Count; i++)
 		{
