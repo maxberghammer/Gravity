@@ -36,7 +36,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
 	{
 		var steps = _oversampler.Oversample(entities, deltaTime, (e, dt) =>
 																 {
@@ -69,7 +69,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				}
 	}
 
-	private static void ResolveCollisions(IWorld world, Entity[] entities)
+	private static void ResolveCollisions(IWorld world, Body[] entities)
 	{
 		var n = entities.Length;
 
@@ -275,7 +275,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		}
 	}
 
-	private static double ComputeTheta(Entity[] entities, double l, double t, double r, double b)
+	private static double ComputeTheta(Body[] entities, double l, double t, double r, double b)
 	{
 		var n = entities.Length;
 		var width = Math.Max(1e-12, r - l);
@@ -313,7 +313,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		return Math.Clamp(raw, 0.6, 1.0);
 	}
 
-	private void ComputeAccelerations(Entity[] entities)
+	private void ComputeAccelerations(Body[] entities)
 	{
 		var n = entities.Length;
 

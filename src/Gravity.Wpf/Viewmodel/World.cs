@@ -131,7 +131,7 @@ public class World : NotifyPropertyChanged,
 			}
 		];
 
-	public ObservableCollection<Entity> Entities { get; } = [];
+	public ObservableCollection<Body> Entities { get; } = [];
 
 	public EntityPreset SelectedEntityPreset { get; set => SetProperty(ref field, value); }
 
@@ -165,7 +165,7 @@ public class World : NotifyPropertyChanged,
 
 	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
 
-	public Entity? SelectedEntity { get; set => SetProperty(ref field, value); }
+	public Body? SelectedEntity { get; set => SetProperty(ref field, value); }
 
 	public bool IsRunning { get; set => SetProperty(ref field, value); } = true;
 
@@ -337,7 +337,7 @@ public class World : NotifyPropertyChanged,
 		TimeScale = state.TimeScale;
 
 		Entities.AddRangeLocked(state.Entities
-									 .Select(e => new Entity(new(e.Position.X, e.Position.Y),
+									 .Select(e => new Body(new(e.Position.X, e.Position.Y),
 															 e.r,
 															 e.m,
 															 new(e.v.X, e.v.Y),
@@ -364,7 +364,7 @@ public class World : NotifyPropertyChanged,
 	bool IWorld.ElasticCollisions
 		=> ElasticCollisions;
 
-	Entity[] IWorld.GetEntities()
+	Body[] IWorld.GetEntities()
 		=> Entities.ToArrayLocked();
 
 	#endregion

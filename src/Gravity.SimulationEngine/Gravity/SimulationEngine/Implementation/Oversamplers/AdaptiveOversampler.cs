@@ -25,7 +25,7 @@ internal abstract class AdaptiveOversampler : IOversampler
 
 	#region Implementation of IOversampler
 
-	int IOversampler.Oversample(Entity[] entitiesToProcess, TimeSpan timeSpan, Action<Entity[], TimeSpan> processEntities)
+	int IOversampler.Oversample(Body[] entitiesToProcess, TimeSpan timeSpan, Action<Body[], TimeSpan> processEntities)
 	{
 		var remaining = timeSpan;
 		var steps = 0;
@@ -48,7 +48,7 @@ internal abstract class AdaptiveOversampler : IOversampler
 
 	#region Implementation
 
-	protected abstract TimeSpan AdaptDt(Entity[] entitiesToProcess, TimeSpan dt);
+	protected abstract TimeSpan AdaptDt(Body[] entitiesToProcess, TimeSpan dt);
 
 	#endregion
 }

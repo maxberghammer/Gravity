@@ -25,7 +25,7 @@ public static class IWorldExtensions
 
 			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y));
 
-			var entities = new Entity[state.Entities.Length];
+			var entities = new Body[state.Entities.Length];
 
 			for(var i = 0; i < entities.Length; i++)
 			{
@@ -78,9 +78,9 @@ public static class IWorldExtensions
 
 	#region Implementation
 
-	private static Entity[] CloneEntities(Entity[] baseline)
+	private static Body[] CloneEntities(Body[] baseline)
 	{
-		var copy = new Entity[baseline.Length];
+		var copy = new Body[baseline.Length];
 
 		for(var i = 0; i < baseline.Length; i++)
 		{

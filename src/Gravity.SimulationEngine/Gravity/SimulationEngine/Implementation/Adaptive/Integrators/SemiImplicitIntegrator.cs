@@ -10,27 +10,27 @@ internal sealed class SemiImplicitIntegrator : IIntegrator
 {
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Entity[] entities, double dt, Action<Entity[]> computeAccelerations)
+	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
 	{
-		computeAccelerations(entities);
-		var n = entities.Length;
+		computeAccelerations(bodies);
+		var n = bodies.Length;
 		Parallel.For(0, n, i =>
 						   {
-							   var e = entities[i];
+							   var b = bodies[i];
 
-							   if(e.IsAbsorbed)
+							   if(b.IsAbsorbed)
 								   return;
 
-							   e.v += e.a * dt;
+							   b.v += b.a * dt;
 						   });
 		Parallel.For(0, n, i =>
 						   {
-							   var e = entities[i];
+							   var b = bodies[i];
 
-							   if(e.IsAbsorbed)
+							   if(b.IsAbsorbed)
 								   return;
 
-							   e.Position += e.v * dt;
+							   b.Position += b.v * dt;
 						   });
 	}
 

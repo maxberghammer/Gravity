@@ -29,7 +29,7 @@ internal sealed class RungeKuttaIntegrator : IIntegrator
 
 	#region Implementation of IIntegrator
 
-	Tuple<int, int>[] IIntegrator.Integrate(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Tuple<int, int>[]> processFunc)
+	Tuple<int, int>[] IIntegrator.Integrate(Body[] entities, TimeSpan deltaTime, Func<Body[], Tuple<int, int>[]> processFunc)
 	{
 		var n = entities.Length;
 

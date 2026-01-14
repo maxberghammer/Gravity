@@ -10,42 +10,44 @@ internal sealed class LeapfrogIntegrator : IIntegrator
 {
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Entity[] entities, double dt, Action<Entity[]> computeAccelerations)
+	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 		// a(t)
-		computeAccelerations(entities);
+		computeAccelerations(bodies);
 		// Kick half step
 		Parallel.For(0, n, i =>
 						   {
-							   var e = entities[i];
+							   var b = bodies[i];
 
-							   if(e.IsAbsorbed)
+
+							   // kann das sein?
+							   if(b.IsAbsorbed)
 								   return;
 
-							   e.v += e.a * (0.5 * dt);
+							   b.v += b.a * (0.5 * dt);
 						   });
 		// Drift full step
 		Parallel.For(0, n, i =>
 						   {
-							   var e = entities[i];
+							   var b = bodies[i];
 
-							   if(e.IsAbsorbed)
+							   if(b.IsAbsorbed)
 								   return;
 
-							   e.Position += e.v * dt;
+							   b.Position += b.v * dt;
 						   });
 		// a(t+dt)
-		computeAccelerations(entities);
+		computeAccelerations(bodies);
 		// Kick half step
 		Parallel.For(0, n, i =>
 						   {
-							   var e = entities[i];
+							   var b = bodies[i];
 
-							   if(e.IsAbsorbed)
+							   if(b.IsAbsorbed)
 								   return;
 
-							   e.v += e.a * (0.5 * dt);
+							   b.v += b.a * (0.5 * dt);
 						   });
 	}
 

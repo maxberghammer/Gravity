@@ -36,7 +36,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden und integrieren (synchron, aber parallelisiert)
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
@@ -107,7 +107,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	}
 
 	// Synchronous physics application using fixed-chunk Parallel.For
-	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
+	private static Tuple<int, int>[] ApplyPhysics(Body[] entities)
 	{
 		double l = double.PositiveInfinity,
 			   t = double.PositiveInfinity,

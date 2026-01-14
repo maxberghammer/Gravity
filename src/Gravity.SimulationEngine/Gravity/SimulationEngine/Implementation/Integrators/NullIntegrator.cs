@@ -11,7 +11,7 @@ internal sealed class NullIntegrator : IIntegrator
 	#region Implementation of IIntegrator
 
 	/// <inheritdoc/>
-	Tuple<int, int>[] IIntegrator.Integrate(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Tuple<int, int>[]> processFunc)
+	Tuple<int, int>[] IIntegrator.Integrate(Body[] entities, TimeSpan deltaTime, Func<Body[], Tuple<int, int>[]> processFunc)
 	{
 		var collisions = processFunc(entities);
 
@@ -24,7 +24,7 @@ internal sealed class NullIntegrator : IIntegrator
 
 	#region Implementation
 
-	private static void Integrate(Entity[] entities, TimeSpan h)
+	private static void Integrate(Body[] entities, TimeSpan h)
 	{
 		var dt = h.TotalSeconds;
 

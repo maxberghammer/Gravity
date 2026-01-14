@@ -21,7 +21,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
 	{
 		// Physik anwenden
 		ApplyPhysics(world,
@@ -40,7 +40,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 				   deltaTime);
 	}
 
-	private static void Update(Entity entity, Vector2D? position, Vector2D? v, TimeSpan deltaTime)
+	private static void Update(Body entity, Vector2D? position, Vector2D? v, TimeSpan deltaTime)
 	{
 		if(entity.IsAbsorbed)
 			return;
@@ -60,7 +60,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		entity.v += entity.a * deltaTime.TotalSeconds;
 	}
 
-	private void ApplyPhysics(IWorld world, Entity entity, IEnumerable<Entity> others)
+	private void ApplyPhysics(IWorld world, Body entity, IEnumerable<Body> others)
 	{
 		if(entity.IsAbsorbed)
 			return;
@@ -104,7 +104,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		entity.a = -IWorld.G * g;
 	}
 
-	private void ApplyPhysics(IWorld world, Entity[] entities)
+	private void ApplyPhysics(IWorld world, Body[] entities)
 	{
 		_positionByEntityId.Clear();
 		_vByEntityId.Clear();

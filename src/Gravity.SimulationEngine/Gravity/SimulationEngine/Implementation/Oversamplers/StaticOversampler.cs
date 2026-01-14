@@ -19,7 +19,7 @@ internal sealed class StaticOversampler : IOversampler
 
 	#region Implementation of IOversampler
 
-	int IOversampler.Oversample(Entity[] entitiesToProcess, TimeSpan timeSpan, Action<Entity[], TimeSpan> processEntities)
+	int IOversampler.Oversample(Body[] entitiesToProcess, TimeSpan timeSpan, Action<Body[], TimeSpan> processEntities)
 	{
 		var dt = timeSpan / _steps;
 

@@ -7,5 +7,5 @@ namespace Gravity.SimulationEngine.Implementation.Adaptive.Integrators;
 
 internal interface IIntegrator
 {
-	void Step(Entity[] entities, double dt, Action<Entity[]> computeAccelerations);
+	void Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations);
 }

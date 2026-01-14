@@ -39,7 +39,7 @@ public class Viewport : NotifyPropertyChanged,
 		=> 1 / Math.Pow(10, Scale);
 
 	// ReSharper disable once UnusedMember.Global
-	public void CenterTo(Entity entity)
+	public void CenterTo(Body entity)
 	{
 		ArgumentNullException.ThrowIfNull(entity);
 		var size = BottomRight - TopLeft;

@@ -7,5 +7,5 @@ namespace Gravity.SimulationEngine.Implementation.Integrators;
 
 internal interface IIntegrator
 {
-	Tuple<int, int>[] Integrate(Entity[] entities, TimeSpan deltaTime, Func<Entity[], Tuple<int, int>[]> processFunc);
+	Tuple<int, int>[] Integrate(Body[] entities, TimeSpan deltaTime, Func<Body[], Tuple<int, int>[]> processFunc);
 }

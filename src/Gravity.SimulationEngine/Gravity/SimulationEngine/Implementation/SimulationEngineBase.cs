@@ -11,7 +11,7 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 	///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
 	///     neuen Positionen der beiden Objekte, so dass sie sich nicht mehr überlappen.
 	/// </summary>
-	protected static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Entity entity1, Entity entity2)
+	protected static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Body entity1, Body entity2)
 	{
 		ArgumentNullException.ThrowIfNull(entity1);
 		ArgumentNullException.ThrowIfNull(entity2);
@@ -32,7 +32,7 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 	///     Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die
 	///     neuen Geschwindigkeiten der beiden Objekte.
 	/// </summary>
-	protected static (Vector2D? v1, Vector2D? v2) HandleCollision(Entity entity1, Entity entity2, bool elastic)
+	protected static (Vector2D? v1, Vector2D? v2) HandleCollision(Body entity1, Body entity2, bool elastic)
 	{
 		ArgumentNullException.ThrowIfNull(entity1);
 		ArgumentNullException.ThrowIfNull(entity2);
@@ -126,9 +126,9 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 
 	protected Diagnostics Diagnostics { get; } = new();
 
-	protected abstract void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime);
+	protected abstract void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime);
 
-	private static void HandleCollisionWithWorldBoundaries(IWorld world, Entity entity)
+	private static void HandleCollisionWithWorldBoundaries(IWorld world, Body entity)
 	{
 		var leftX = world.Viewport.TopLeft.X + entity.r;
 		var topY = world.Viewport.TopLeft.Y + entity.r;

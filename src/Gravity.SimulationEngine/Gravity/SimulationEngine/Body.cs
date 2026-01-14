@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Gravity.SimulationEngine;
 
-public class Entity
+public class Body
 {
 	#region Fields
 
@@ -18,7 +18,7 @@ public class Entity
 
 	// ReSharper disable InconsistentNaming
 	[SuppressMessage("Major Code Smell", "S3010:Static fields should not be updated in constructors", Justification = "<Pending>")]
-	public Entity(Vector2D position,
+	public Body(Vector2D position,
 				  double radius,
 				  double mass,
 				  Vector2D velocity,
@@ -40,7 +40,7 @@ public class Entity
 		Id = _maxId++;
 	}
 
-	public Entity(Entity other)
+	public Body(Body other)
 	{
         ArgumentNullException.ThrowIfNull(other);
 
@@ -53,7 +53,7 @@ public class Entity
 		Id = other.Id;
 	}
 
-	public Entity Clone(bool cloneAccelleration = false, bool cloneId = false)
+	public Body Clone(bool cloneAccelleration = false, bool cloneId = false)
 		=> cloneId
 			   ? new(this)
 			   : new(new(Position.X, Position.Y),
@@ -107,7 +107,7 @@ public class Entity
 	public double Ekin
 		=> 0.5d * m * v.LengthSquared;
 
-	public void Absorb(Entity other)
+	public void Absorb(Body other)
 	{
         ArgumentNullException.ThrowIfNull(other);
 

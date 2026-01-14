@@ -19,9 +19,9 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Entity[] entities, double dt, Action<Entity[]> computeAccelerations)
+	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
 	{
-		var n = entities.Length;
+		var n = bodies.Length;
 
 		if(n == 0)
 			return;
@@ -29,12 +29,12 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 		// Prime once to obtain initial accelerations (used as previous a)
 		if(!_primed)
 		{
-			computeAccelerations(entities);
+			computeAccelerations(bodies);
 
 			for(var i = 0; i < n; i++)
 			{
-				var e = entities[i];
-				_lastA[e.Id] = e.a;
+				var b = bodies[i];
+				_lastA[b.Id] = b.a;
 			}
 
 			_primed = true;
@@ -46,47 +46,47 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 		{
 			for(var i = 0; i < n; i++)
 			{
-				var e = entities[i];
-				if(!_lastA.TryGetValue(e.Id, out var ap))
-					ap = e.a; // fallback if new entity appears
+				var b = bodies[i];
+				if(!_lastA.TryGetValue(b.Id, out var ap))
+					ap = b.a; // fallback if new entity appears
 				aPrev[i] = ap;
 			}
 
 			// Half-kick with previous acceleration
 			Parallel.For(0, n, i =>
 							   {
-								   var e = entities[i];
+								   var b = bodies[i];
 
-								   if(e.IsAbsorbed)
+								   if(b.IsAbsorbed)
 									   return;
 
-								   e.v += aPrev[i] * (0.5 * dt);
+								   b.v += aPrev[i] * (0.5 * dt);
 							   });
 
 			// Drift
 			Parallel.For(0, n, i =>
 							   {
-								   var e = entities[i];
+								   var b = bodies[i];
 
-								   if(e.IsAbsorbed)
+								   if(b.IsAbsorbed)
 									   return;
 
-								   e.Position += e.v * dt;
+								   b.Position += b.v * dt;
 							   });
 
 			// Compute new accelerations at t+dt
-			computeAccelerations(entities);
+			computeAccelerations(bodies);
 
 			// Half-kick with new acceleration and store for next step
 			Parallel.For(0, n, i =>
 							   {
-								   var e = entities[i];
+								   var b = bodies[i];
 
-								   if(e.IsAbsorbed)
+								   if(b.IsAbsorbed)
 									   return;
 
-								   e.v += e.a * (0.5 * dt);
-								   _lastA[e.Id] = e.a;
+								   b.v += b.a * (0.5 * dt);
+								   _lastA[b.Id] = b.a;
 							   });
 		}
 		finally

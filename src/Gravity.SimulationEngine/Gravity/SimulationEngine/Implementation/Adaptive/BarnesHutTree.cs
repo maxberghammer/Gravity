@@ -23,7 +23,7 @@ internal sealed class BarnesHutTree
 		public Vector2D AggWeightedCom;
 
 		// Leaf payload
-		public Entity? Body;
+		public Body? Body;
 		public Vector2D Com;
 		public int Count; // number of bodies aggregated in this node
 
@@ -101,17 +101,17 @@ internal sealed class BarnesHutTree
 
 	public int NodeCount { get; private set; }
 
-	public void Add(Entity e)
+	public void Add(Body e)
 		=> Insert(_root, e, 0);
 
-	public void AddRange(Entity[] entities)
+	public void AddRange(Body[] entities)
 	{
 		var width = Math.Max(EpsilonSize, _r - _l);
 		var height = Math.Max(EpsilonSize, _b - _t);
 		var invW = 1.0 / width;
 		var invH = 1.0 / height;
 		var n = entities.Length;
-		var pool = ArrayPool<(uint key, Entity e)>.Shared;
+		var pool = ArrayPool<(uint key, Body e)>.Shared;
 		var arr = pool.Rent(n);
 
 		for(var i = 0; i < n; i++)
@@ -124,7 +124,7 @@ internal sealed class BarnesHutTree
 			arr[i] = (InterleaveBits(x, y), entities[i]);
 		}
 
-		Array.Sort(arr, 0, n, Comparer<(uint key, Entity e)>.Create((a, b) => a.key.CompareTo(b.key)));
+		Array.Sort(arr, 0, n, Comparer<(uint key, Body e)>.Create((a, b) => a.key.CompareTo(b.key)));
 		for(var i = 0; i < n; i++)
 			Insert(_root, arr[i].e, 0);
 		pool.Return(arr);
@@ -204,7 +204,7 @@ internal sealed class BarnesHutTree
 		pool.Return(stack);
 	}
 
-	public Vector2D CalculateGravity(Entity e)
+	public Vector2D CalculateGravity(Body e)
 	{
 		var acc = Vector2D.Zero;
 		var pool = ArrayPool<int>.Shared;
@@ -333,7 +333,7 @@ internal sealed class BarnesHutTree
 		return idx;
 	}
 
-	private void Insert(int idx, Entity e, int depth)
+	private void Insert(int idx, Body e, int depth)
 	{
 		if(depth > MaxDepthReached)
 			MaxDepthReached = depth;

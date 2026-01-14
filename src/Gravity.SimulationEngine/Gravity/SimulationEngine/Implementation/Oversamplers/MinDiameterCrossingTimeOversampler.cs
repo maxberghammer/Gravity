@@ -17,7 +17,7 @@ internal sealed class MinDiameterCrossingTimeOversampler : AdaptiveOversampler
 
 	#region Implementation
 
-	protected override TimeSpan AdaptDt(Entity[] entitiesToProcess, TimeSpan dt)
+	protected override TimeSpan AdaptDt(Body[] entitiesToProcess, TimeSpan dt)
 	{
 		// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
 		var n = entitiesToProcess.Length;

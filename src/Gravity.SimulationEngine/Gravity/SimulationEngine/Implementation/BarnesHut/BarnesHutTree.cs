@@ -11,7 +11,7 @@ internal sealed class BarnesHutTree
 {
 	#region Internal types
 
-	internal record struct CollisionPair(Entity First, Entity Second);
+	internal record struct CollisionPair(Body First, Body Second);
 
 	private sealed class EntityNode
 	{
@@ -24,7 +24,7 @@ internal sealed class BarnesHutTree
 		private BarnesHutTree _tree = null!; // set in Init
 		private Vector2D _centerOfMass;
 		private int _entities;
-		private Entity? _entity;
+		private Body? _entity;
 		private double _mass;
 		private double _gm; // cached -G * mass for aggregated nodes
 
@@ -57,7 +57,7 @@ internal sealed class BarnesHutTree
 				_childNodes[i] = null;
 		}
 
-		public void Add(Entity entity)
+		public void Add(Body entity)
 		{
 			switch(_entities)
 			{
@@ -133,7 +133,7 @@ internal sealed class BarnesHutTree
 		}
 
 		[SuppressMessage("Major Bug", "S1244:Floating point numbers should not be tested for equality", Justification = "<Pending>")]
-		public Vector2D CalculateGravity(Entity entity)
+		public Vector2D CalculateGravity(Body entity)
 		{
 			if(_entities == 1)
 			{
@@ -195,7 +195,7 @@ internal sealed class BarnesHutTree
 		}
 
 		// Iterative traversal to reduce recursion overhead
-		public Vector2D CalculateGravityIterative(Entity entity)
+		public Vector2D CalculateGravityIterative(Body entity)
 		{
 			var dummy = _tree.CollidedEntities;
 			lock(dummy)
@@ -206,7 +206,7 @@ internal sealed class BarnesHutTree
 		}
 
 		[SuppressMessage("Major Bug", "S2681", Justification = "<Pending>")]
-		public Vector2D CalculateGravityIterative(Entity entity, List<CollisionPair> collector)
+		public Vector2D CalculateGravityIterative(Body entity, List<CollisionPair> collector)
 		{
 			var result = Vector2D.Zero;
 			var pool = System.Buffers.ArrayPool<EntityNode>.Shared;
@@ -380,13 +380,13 @@ internal sealed class BarnesHutTree
 	public void ComputeMassDistribution()
 		=> _rootNode.ComputeMassDistribution();
 
-	public void Add(Entity entity)
+	public void Add(Body entity)
 		=> _rootNode.Add(entity);
 
-	public Vector2D CalculateGravity(Entity entity)
+	public Vector2D CalculateGravity(Body entity)
 		=> _rootNode.CalculateGravityIterative(entity);
 
-	public Vector2D CalculateGravity(Entity entity, List<CollisionPair> collector)
+	public Vector2D CalculateGravity(Body entity, List<CollisionPair> collector)
 		=> _rootNode.CalculateGravityIterative(entity, collector);
 
 	public void Release()

@@ -29,7 +29,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override void OnSimulate(IWorld world, Entity[] entities, TimeSpan deltaTime)
+	protected override void OnSimulate(IWorld world, Body[] entities, TimeSpan deltaTime)
 	{
 		var collisions = _integrator.Integrate(entities, deltaTime, ApplyPhysics);
 
@@ -71,7 +71,7 @@ internal sealed class SimulationEngine : SimulationEngineBase
 		}
 	}
 
-	private static Tuple<int, int>[] ApplyPhysics(Entity[] entities)
+	private static Tuple<int, int>[] ApplyPhysics(Body[] entities)
 	{
 		var n = entities.Length;
 
