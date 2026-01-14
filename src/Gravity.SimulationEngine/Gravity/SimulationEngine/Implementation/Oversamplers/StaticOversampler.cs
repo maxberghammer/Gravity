@@ -2,7 +2,7 @@
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
-internal sealed class StaticOversampler : IOversampler
+internal class StaticOversampler : IOversampler
 {
 	#region Fields
 

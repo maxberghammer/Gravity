@@ -21,7 +21,8 @@ public static class Factory
 	public static ISimulationEngine Create(SimulationEngineType type)
 		=> type switch
 		   {
-			   SimulationEngineType.Standard => new Implementation.Standard.SimulationEngine(),
+			   SimulationEngineType.Standard => new Implementation.Standard.SimulationEngine(new SemiImplicitIntegrator(),
+																							 new NoOversampler()),
 			   SimulationEngineType.Adaptive => new Implementation.Adaptive.SimulationEngine(new LeapfrogIntegrator(),
 																							 new MinDiameterCrossingTimeOversampler( // Obergrenze pro Frame 
 																																	64,
