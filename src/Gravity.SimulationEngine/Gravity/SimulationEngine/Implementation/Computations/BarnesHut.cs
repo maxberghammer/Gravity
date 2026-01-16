@@ -1,15 +1,18 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Gravity.SimulationEngine.Implementation.Adaptive;
+namespace Gravity.SimulationEngine.Implementation.Computations;
 
 /// <summary>
-/// Barnes-Hut tree-based acceleration strategy
+/// Barnes-Hut tree-based computation
 /// O(N log N) complexity with adaptive theta parameter
 /// </summary>
-internal sealed class BarnesHutStrategy : IAccelerationStrategy
+internal sealed partial class BarnesHut : SimulationEngine.IComputation
 {
-	public void ComputeAccelerations(Body[] bodies, Diagnostics diagnostics)
+	#region Implementation of IComputation
+
+	/// <inheritdoc/>
+	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
 	{
 		var n = bodies.Length;
 
@@ -47,14 +50,14 @@ internal sealed class BarnesHutStrategy : IAccelerationStrategy
 		// Theta adaptiv wie in Barnes–Hut (inkl. Small-N-Overrides)
 		var theta = ComputeTheta(bodies, l, t, r, b);
 
-		var tree = new BarnesHutTree(new(l, t), new(r, b), theta, n);
+		var tree = new Tree(new(l, t), new(r, b), theta, n);
 		// Presort by Morton-order for better locality
 		tree.AddRange(bodies);
 		tree.ComputeMassDistribution();
 		tree.CollectDiagnostics = false;
 		// Update diagnostics locally
 		Parallel.For(0, n, i => { bodies[i].a = tree.CalculateGravity(bodies[i]); });
-		
+
 		diagnostics.SetField("Strategy", "Barnes-Hut");
 		diagnostics.SetField("Nodes", tree.NodeCount);
 		diagnostics.SetField("MaxDepth", tree.MaxDepthReached);
@@ -63,6 +66,10 @@ internal sealed class BarnesHutStrategy : IAccelerationStrategy
 
 		tree.Release();
 	}
+
+	#endregion
+
+	#region Implementation
 
 	private static double ComputeTheta(Body[] bodies, double l, double t, double r, double b)
 	{
@@ -101,4 +108,6 @@ internal sealed class BarnesHutStrategy : IAccelerationStrategy
 
 		return Math.Clamp(raw, 0.6, 1.0);
 	}
+
+	#endregion
 }

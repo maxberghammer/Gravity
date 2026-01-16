@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
-internal sealed class MinDiameterCrossingTimeOversampler : AdaptiveOversampler
+internal sealed class MinDiameterCrossingTime : Adaptive
 {
 	#region Construction
 
-	public MinDiameterCrossingTimeOversampler(int maxSteps,
+	public MinDiameterCrossingTime(int maxSteps,
 											  TimeSpan minDt,
 											  double safetyFactor)
 		: base(maxSteps, minDt, safetyFactor)
@@ -17,26 +17,27 @@ internal sealed class MinDiameterCrossingTimeOversampler : AdaptiveOversampler
 
 	#region Implementation
 
-	protected override TimeSpan AdaptDt(Body[] entitiesToProcess, TimeSpan dt)
+	/// <inheritdoc />
+	protected override TimeSpan AdaptDt(Body[] bodiesToProcess, TimeSpan dt)
 	{
 		// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
-		var n = entitiesToProcess.Length;
+		var n = bodiesToProcess.Length;
 		var adaptedDtInSeconds = double.PositiveInfinity;
 
 		for(var i = 0; i < n; i++)
 		{
-			var e = entitiesToProcess[i];
+			var b = bodiesToProcess[i];
 
-			if(e.IsAbsorbed)
+			if(b.IsAbsorbed)
 				continue;
 
-			var vlen = e.v.Length;
+			var vlen = b.v.Length;
 
 			if(vlen <= 0.0 ||
-			   e.r <= 0.0)
+			   b.r <= 0.0)
 				continue;
 
-			adaptedDtInSeconds = Math.Min(2.0 * e.r / vlen, adaptedDtInSeconds); // Zeit, um eigenen Durchmesser zu überqueren
+			adaptedDtInSeconds = Math.Min(2.0 * b.r / vlen, adaptedDtInSeconds); // Zeit, um eigenen Durchmesser zu überqueren
 		}
 
 		return double.IsInfinity(adaptedDtInSeconds) ||

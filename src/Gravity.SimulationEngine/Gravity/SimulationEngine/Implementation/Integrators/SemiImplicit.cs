@@ -6,13 +6,14 @@ using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
 
-internal sealed class SemiImplicitIntegrator : IIntegrator
+internal sealed class SemiImplicit : SimulationEngine.IIntegrator
 {
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
+	/// <inheritdoc/>
+	void SimulationEngine.IIntegrator.Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics)
 	{
-		computeAccelerations(bodies);
+		computation(bodies);
 		var n = bodies.Length;
 		Parallel.For(0, n, i =>
 						   {
@@ -21,7 +22,7 @@ internal sealed class SemiImplicitIntegrator : IIntegrator
 							   if(b.IsAbsorbed)
 								   return;
 
-							   b.v += b.a * dt;
+							   b.v += b.a * dtInSeconds;
 						   });
 		Parallel.For(0, n, i =>
 						   {
@@ -30,7 +31,7 @@ internal sealed class SemiImplicitIntegrator : IIntegrator
 							   if(b.IsAbsorbed)
 								   return;
 
-							   b.Position += b.v * dt;
+							   b.Position += b.v * dtInSeconds;
 						   });
 	}
 

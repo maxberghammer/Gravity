@@ -3,13 +3,11 @@ using System.Numerics;
 using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
 
-namespace Gravity.SimulationEngine.Implementation.Adaptive;
+namespace Gravity.SimulationEngine.Implementation.Computations;
 
 /// <summary>
-/// Particle-Mesh (PM) acceleration strategy using FFT
-/// 
+/// Particle-Mesh (PM) computation using FFT
 /// Uses 3D gravity (F ∝ 1/r²) projected onto 2D plane, matching Barnes-Hut physics.
-/// 
 /// Algorithm:
 /// 1. Assign particle masses to grid using CIC interpolation
 /// 2. FFT the mass grid to k-space
@@ -17,25 +15,24 @@ namespace Gravity.SimulationEngine.Implementation.Adaptive;
 /// 4. Compute gradient in k-space: a(k) = -i·k·φ(k)
 /// 5. Inverse FFT to get acceleration field
 /// 6. Interpolate acceleration back to particles using CIC
-/// 
 /// Adaptive grid sizing ensures accuracy for both small and large N.
-/// 
 /// Complexity: O(N + GridSize² log GridSize)
 /// </summary>
-internal sealed class ParticleMeshStrategy : IAccelerationStrategy
+internal sealed class ParticleMesh : SimulationEngine.IComputation
 {
 	#region Fields
 
-	private const int MinGridSize = 32;
-	private const int MaxGridSize = 256;
-	private const int TargetCellsPerSeparation = 8; // Grid cells per typical body separation
-	private const double Eps = 1e-12;
+	private const double _eps = 1e-12;
+	private const int _maxGridSize = 256;
+	private const int _minGridSize = 32;
+	private const int _targetCellsPerSeparation = 8; // Grid cells per typical body separation
 
 	#endregion
 
-	#region Implementation of IAccelerationStrategy
+	#region Implementation of IComputation
 
-	public void ComputeAccelerations(Body[] bodies, Diagnostics diagnostics)
+	/// <inheritdoc/>
+	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
 	{
 		var nBodies = bodies.Length;
 
@@ -56,13 +53,18 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 
 			activeCount++;
 			var p = bodies[i].Position;
-			if(p.X < xMin) xMin = p.X;
-			if(p.Y < yMin) yMin = p.Y;
-			if(p.X > xMax) xMax = p.X;
-			if(p.Y > yMax) yMax = p.Y;
+			if(p.X < xMin)
+				xMin = p.X;
+			if(p.Y < yMin)
+				yMin = p.Y;
+			if(p.X > xMax)
+				xMax = p.X;
+			if(p.Y > yMax)
+				yMax = p.Y;
 		}
 
-		if(activeCount == 0 || double.IsInfinity(xMin))
+		if(activeCount == 0 ||
+		   double.IsInfinity(xMin))
 		{
 			xMin = yMin = -1.0;
 			xMax = yMax = 1.0;
@@ -72,8 +74,8 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		var minSep = ComputeMinSeparation(bodies, activeCount);
 
 		// Add padding and make square
-		var spanX = Math.Max(Eps, xMax - xMin);
-		var spanY = Math.Max(Eps, yMax - yMin);
+		var spanX = Math.Max(_eps, xMax - xMin);
+		var spanY = Math.Max(_eps, yMax - yMin);
 		var span = Math.Max(spanX, spanY) * 1.2; // 20% padding
 		var centerX = (xMin + xMax) / 2;
 		var centerY = (yMin + yMax) / 2;
@@ -124,21 +126,26 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 				continue;
 
 			var innerCount = 0;
+
 			for(var j = i + 1; j < bodies.Length && innerCount < sampleSize; j++)
 			{
 				if(bodies[j].IsAbsorbed)
 					continue;
 
 				var sep = (bodies[i].Position - bodies[j].Position).Length;
-				if(sep > Eps && sep < minSep)
+				if(sep > _eps &&
+				   sep < minSep)
 					minSep = sep;
 
 				innerCount++;
 			}
+
 			count++;
 		}
 
-		return double.IsInfinity(minSep) ? 1.0 : minSep;
+		return double.IsInfinity(minSep)
+				   ? 1.0
+				   : minSep;
 	}
 
 	/// <summary>
@@ -147,7 +154,7 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 	private static int ComputeAdaptiveGridSize(double span, double minSep, int activeCount)
 	{
 		// Target: TargetCellsPerSeparation grid cells per minimum separation
-		var targetH = minSep / TargetCellsPerSeparation;
+		var targetH = minSep / _targetCellsPerSeparation;
 		var targetN = (int)Math.Ceiling(span / targetH);
 
 		// Also consider body count - more bodies need finer grid
@@ -155,12 +162,12 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 
 		// Take maximum and round to power of 2
 		var n = Math.Max(targetN, countBasedN);
-		n = Math.Max(MinGridSize, Math.Min(MaxGridSize, n));
+		n = Math.Max(_minGridSize, Math.Min(_maxGridSize, n));
 
 		// Round up to next power of 2 for FFT efficiency
 		n = (int)Math.Pow(2, Math.Ceiling(Math.Log2(n)));
 
-		return Math.Min(n, MaxGridSize);
+		return Math.Min(n, _maxGridSize);
 	}
 
 	/// <summary>
@@ -187,14 +194,26 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 			for(var di = 0; di <= 1; di++)
 			{
 				var i = i0 + di;
-				if(i < 0 || i >= n) continue;
-				var wx = di == 0 ? (1.0 - dx) : dx;
+
+				if(i < 0 ||
+				   i >= n)
+					continue;
+
+				var wx = di == 0
+							 ? 1.0 - dx
+							 : dx;
 
 				for(var dj = 0; dj <= 1; dj++)
 				{
 					var j = j0 + dj;
-					if(j < 0 || j >= n) continue;
-					var wy = dj == 0 ? (1.0 - dy) : dy;
+
+					if(j < 0 ||
+					   j >= n)
+						continue;
+
+					var wy = dj == 0
+								 ? 1.0 - dy
+								 : dy;
 
 					grid[j * n + i] += body.m * wx * wy;
 				}
@@ -204,13 +223,10 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 
 	/// <summary>
 	/// Compute acceleration field using FFT.
-	/// 
 	/// For 3D gravity (F = G*M/r²) in 2D Fourier space:
 	/// The Green's function for the 3D Laplacian in 2D is G(k) = 1/|k|
-	/// 
 	/// We solve: a = -G * ∇ ∫ ρ(r')/|r-r'| dr'
 	/// In k-space: a(k) = -G * i*k * ρ(k) / |k|
-	/// 
 	/// The discrete FFT includes implicit h² factors from the integration.
 	/// After inverse FFT, we need to scale by h² to get correct units.
 	/// </summary>
@@ -219,18 +235,18 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		// Convert mass grid to complex for FFT
 		var rhoK = new Complex[n * n];
 		for(var i = 0; i < n * n; i++)
-			rhoK[i] = new Complex(massGrid[i], 0);
+			rhoK[i] = new(massGrid[i], 0);
 
 		// Forward 2D FFT
-		FFT2D(rhoK, n, forward: true);
+		FFT2D(rhoK, n, true);
 
 		// Compute acceleration in k-space
 		var axK = new Complex[n * n];
 		var ayK = new Complex[n * n];
 
-		var L = n * h; // Domain size
-		var dk = 2.0 * Math.PI / L;
-		
+		var l = n * h; // Domain size
+		var dk = 2.0 * Math.PI / l;
+
 		// The factor needs careful dimensional analysis:
 		// For 3D gravity in 2D FFT, the correct scaling is:
 		// -G / (h * n) where h*n = L (domain size)
@@ -239,16 +255,20 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 
 		for(var jj = 0; jj < n; jj++)
 		{
-			var ky = jj <= n / 2 ? jj * dk : (jj - n) * dk;
+			var ky = jj <= n / 2
+						 ? jj * dk
+						 : (jj - n) * dk;
 
 			for(var ii = 0; ii < n; ii++)
 			{
-				var kx = ii <= n / 2 ? ii * dk : (ii - n) * dk;
+				var kx = ii <= n / 2
+							 ? ii * dk
+							 : (ii - n) * dk;
 				var kMag = Math.Sqrt(kx * kx + ky * ky);
 
 				var idx = jj * n + ii;
 
-				if(kMag > Eps)
+				if(kMag > _eps)
 				{
 					// a(k) = factor * i*k * ρ(k) / |k|
 					var rho = rhoK[idx];
@@ -267,8 +287,8 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		}
 
 		// Inverse 2D FFT
-		FFT2D(axK, n, forward: false);
-		FFT2D(ayK, n, forward: false);
+		FFT2D(axK, n, false);
+		FFT2D(ayK, n, false);
 
 		// Extract real parts
 		for(var i = 0; i < n * n; i++)
@@ -285,35 +305,35 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 	{
 		// Transform rows
 		Parallel.For(0, n, j =>
-		{
-			var row = new Complex[n];
-			for(var i = 0; i < n; i++)
-				row[i] = data[j * n + i];
+						   {
+							   var row = new Complex[n];
+							   for(var i = 0; i < n; i++)
+								   row[i] = data[j * n + i];
 
-			if(forward)
-				Fourier.Forward(row, FourierOptions.NoScaling);
-			else
-				Fourier.Inverse(row, FourierOptions.NoScaling);
+							   if(forward)
+								   Fourier.Forward(row, FourierOptions.NoScaling);
+							   else
+								   Fourier.Inverse(row, FourierOptions.NoScaling);
 
-			for(var i = 0; i < n; i++)
-				data[j * n + i] = row[i];
-		});
+							   for(var i = 0; i < n; i++)
+								   data[j * n + i] = row[i];
+						   });
 
 		// Transform columns
 		Parallel.For(0, n, i =>
-		{
-			var col = new Complex[n];
-			for(var j = 0; j < n; j++)
-				col[j] = data[j * n + i];
+						   {
+							   var col = new Complex[n];
+							   for(var j = 0; j < n; j++)
+								   col[j] = data[j * n + i];
 
-			if(forward)
-				Fourier.Forward(col, FourierOptions.NoScaling);
-			else
-				Fourier.Inverse(col, FourierOptions.NoScaling);
+							   if(forward)
+								   Fourier.Forward(col, FourierOptions.NoScaling);
+							   else
+								   Fourier.Inverse(col, FourierOptions.NoScaling);
 
-			for(var j = 0; j < n; j++)
-				data[j * n + i] = col[j];
-		});
+							   for(var j = 0; j < n; j++)
+								   data[j * n + i] = col[j];
+						   });
 
 		// Apply normalization for inverse
 		if(!forward)
@@ -327,50 +347,68 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 	/// <summary>
 	/// Interpolate acceleration from grid to particles using CIC.
 	/// </summary>
-	private static void InterpolateAccelerationToParticles(Body[] bodies, double[] accX, double[] accY,
-		int n, double xMin, double yMin, double h)
+	private static void InterpolateAccelerationToParticles(Body[] bodies,
+														   double[] accX,
+														   double[] accY,
+														   int n,
+														   double xMin,
+														   double yMin,
+														   double h)
 	{
 		var invH = 1.0 / h;
 
 		Parallel.For(0, bodies.Length, bodyIdx =>
-		{
-			var body = bodies[bodyIdx];
-			if(body.IsAbsorbed)
-				return;
+									   {
+										   var body = bodies[bodyIdx];
 
-			// Position in grid coordinates (cell-centered)
-			var px = (body.Position.X - xMin) * invH - 0.5;
-			var py = (body.Position.Y - yMin) * invH - 0.5;
+										   if(body.IsAbsorbed)
+											   return;
 
-			var i0 = (int)Math.Floor(px);
-			var j0 = (int)Math.Floor(py);
-			var dx = px - i0;
-			var dy = py - j0;
+										   // Position in grid coordinates (cell-centered)
+										   var px = (body.Position.X - xMin) * invH - 0.5;
+										   var py = (body.Position.Y - yMin) * invH - 0.5;
 
-			var ax = 0.0;
-			var ay = 0.0;
+										   var i0 = (int)Math.Floor(px);
+										   var j0 = (int)Math.Floor(py);
+										   var dx = px - i0;
+										   var dy = py - j0;
 
-			for(var di = 0; di <= 1; di++)
-			{
-				var i = i0 + di;
-				if(i < 0 || i >= n) continue;
-				var wx = di == 0 ? (1.0 - dx) : dx;
+										   var ax = 0.0;
+										   var ay = 0.0;
 
-				for(var dj = 0; dj <= 1; dj++)
-				{
-					var j = j0 + dj;
-					if(j < 0 || j >= n) continue;
-					var wy = dj == 0 ? (1.0 - dy) : dy;
+										   for(var di = 0; di <= 1; di++)
+										   {
+											   var i = i0 + di;
 
-					var w = wx * wy;
-					var cellIdx = j * n + i;
-					ax += w * accX[cellIdx];
-					ay += w * accY[cellIdx];
-				}
-			}
+											   if(i < 0 ||
+												  i >= n)
+												   continue;
 
-			body.a = new Vector2D(ax, ay);
-		});
+											   var wx = di == 0
+															? 1.0 - dx
+															: dx;
+
+											   for(var dj = 0; dj <= 1; dj++)
+											   {
+												   var j = j0 + dj;
+
+												   if(j < 0 ||
+													  j >= n)
+													   continue;
+
+												   var wy = dj == 0
+																? 1.0 - dy
+																: dy;
+
+												   var w = wx * wy;
+												   var cellIdx = j * n + i;
+												   ax += w * accX[cellIdx];
+												   ay += w * accY[cellIdx];
+											   }
+										   }
+
+										   body.a = new(ax, ay);
+									   });
 	}
 
 	#endregion

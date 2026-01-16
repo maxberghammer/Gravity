@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
-internal abstract class AdaptiveOversampler : IOversampler
+internal abstract class Adaptive : SimulationEngine.IOversampler
 {
 	#region Fields
 
@@ -14,7 +14,7 @@ internal abstract class AdaptiveOversampler : IOversampler
 
 	#region Construction
 
-	protected AdaptiveOversampler(int maxSteps, TimeSpan minDt, double safetyFactor)
+	protected Adaptive(int maxSteps, TimeSpan minDt, double safetyFactor)
 	{
 		_maxSteps = maxSteps;
 		_minDt = minDt;
@@ -25,7 +25,8 @@ internal abstract class AdaptiveOversampler : IOversampler
 
 	#region Implementation of IOversampler
 
-	int IOversampler.Oversample(Body[] entitiesToProcess, TimeSpan timeSpan, Action<Body[], TimeSpan> processEntities)
+	/// <inheritdoc/>
+	int SimulationEngine.IOversampler.Oversample(IWorld world, Body[] bodies, TimeSpan timeSpan, Action<Body[], TimeSpan> processBodies, Diagnostics diagnostics)
 	{
 		var remaining = timeSpan;
 		var steps = 0;
@@ -33,9 +34,9 @@ internal abstract class AdaptiveOversampler : IOversampler
 		while(TimeSpan.Zero < remaining &&
 			  steps < _maxSteps)
 		{
-			var dt = TimeSpan.Max(_minDt, TimeSpan.Min(remaining, _safetyFactor * AdaptDt(entitiesToProcess, remaining)));
+			var dt = TimeSpan.Max(_minDt, TimeSpan.Min(remaining, _safetyFactor * AdaptDt(bodies, remaining)));
 
-			processEntities(entitiesToProcess, dt);
+			processBodies(bodies, dt);
 
 			remaining -= dt;
 			steps++;
@@ -48,7 +49,7 @@ internal abstract class AdaptiveOversampler : IOversampler
 
 	#region Implementation
 
-	protected abstract TimeSpan AdaptDt(Body[] entitiesToProcess, TimeSpan dt);
+	protected abstract TimeSpan AdaptDt(Body[] bodiesToProcess, TimeSpan dt);
 
 	#endregion
 }

@@ -1,8 +1,7 @@
-using System;
 using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
-using Gravity.SimulationEngine.Implementation.Adaptive;
 using Microsoft.VSDiagnostics;
+using BarnesHut = Gravity.SimulationEngine.Implementation.Computations.BarnesHut;
 
 namespace Gravity.SimulationEngine.Benchmarks;
 
@@ -58,7 +57,7 @@ public class BarnesHutInsertBench
 	
 	private static double RunInsert(Body[] bodies)
 	{
-		var tree = new BarnesHutTree(new Vector2D(-600, -600), new Vector2D(600, 600), 0.7, bodies.Length);
+		var tree = new BarnesHut.Tree(new Vector2D(-600, -600), new Vector2D(600, 600), 0.7, bodies.Length);
 		tree.AddRange(bodies);
 		tree.ComputeMassDistribution();
 		var nodeCount = tree.NodeCount;

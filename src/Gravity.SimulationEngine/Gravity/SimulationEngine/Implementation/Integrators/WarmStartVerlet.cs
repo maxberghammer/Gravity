@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
 
-internal sealed class WarmStartVerletIntegrator : IIntegrator
+internal sealed class WarmStartVerlet : SimulationEngine.IIntegrator
 {
 	#region Fields
 
@@ -19,7 +19,8 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
+	/// <inheritdoc/>
+	void SimulationEngine.IIntegrator.Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics)
 	{
 		var n = bodies.Length;
 
@@ -29,7 +30,7 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 		// Prime once to obtain initial accelerations (used as previous a)
 		if(!_primed)
 		{
-			computeAccelerations(bodies);
+			computation(bodies);
 
 			for(var i = 0; i < n; i++)
 			{
@@ -60,7 +61,7 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 								   if(b.IsAbsorbed)
 									   return;
 
-								   b.v += aPrev[i] * (0.5 * dt);
+								   b.v += aPrev[i] * (0.5 * dtInSeconds);
 							   });
 
 			// Drift
@@ -71,11 +72,11 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 								   if(b.IsAbsorbed)
 									   return;
 
-								   b.Position += b.v * dt;
+								   b.Position += b.v * dtInSeconds;
 							   });
 
 			// Compute new accelerations at t+dt
-			computeAccelerations(bodies);
+			computation(bodies);
 
 			// Half-kick with new acceleration and store for next step
 			Parallel.For(0, n, i =>
@@ -85,7 +86,7 @@ internal sealed class WarmStartVerletIntegrator : IIntegrator
 								   if(b.IsAbsorbed)
 									   return;
 
-								   b.v += b.a * (0.5 * dt);
+								   b.v += b.a * (0.5 * dtInSeconds);
 								   _lastA[b.Id] = b.a;
 							   });
 		}

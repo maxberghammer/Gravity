@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
-internal class StaticOversampler : IOversampler
+internal class Static : SimulationEngine.IOversampler
 {
 	#region Fields
 
@@ -12,19 +12,20 @@ internal class StaticOversampler : IOversampler
 
 	#region Construction
 
-	public StaticOversampler(int steps)
+	public Static(int steps)
 		=> _steps = steps;
 
 	#endregion
 
 	#region Implementation of IOversampler
 
-	int IOversampler.Oversample(Body[] entitiesToProcess, TimeSpan timeSpan, Action<Body[], TimeSpan> processEntities)
+	/// <inheritdoc/>
+	int SimulationEngine.IOversampler.Oversample(IWorld world, Body[] bodies, TimeSpan timeSpan, Action<Body[], TimeSpan> processBodies, Diagnostics diagnostics)
 	{
 		var dt = timeSpan / _steps;
 
 		for(var i = 0; i < _steps; i++)
-			processEntities(entitiesToProcess, dt);
+			processBodies(bodies, dt);
 
 		return _steps;
 	}

@@ -1,41 +1,40 @@
-// Erstellt am: 22.01.2021
-// Erstellt von: Max Berghammer
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Gravity.SimulationEngine.Implementation.Integrators;
-using Gravity.SimulationEngine.Implementation.Oversamplers;
 
-namespace Gravity.SimulationEngine.Implementation.Standard;
+namespace Gravity.SimulationEngine.Implementation.Computations;
 
-internal sealed class SimulationEngine : SimulationEngineBase
+internal sealed class Direct : SimulationEngine.IComputation
 {
-	#region Construction
+	#region Fields
 
-	public SimulationEngine(IIntegrator integrator, IOversampler oversampler)
-		: base(integrator, oversampler)
-	{
-	}
+	private readonly SimulationEngine.ICollisionResolver _collisionResolver;
 
 	#endregion
 
-	#region Implementation
+	#region Construction
+
+	public Direct(SimulationEngine.ICollisionResolver collisionResolver)
+		=> _collisionResolver = collisionResolver;
+
+	#endregion
+
+	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	protected override void OnComputeAccelerations(IWorld world, Body[] bodies)
+	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
 	{
 		// Kollisionen exakt erkennen und auflösen
-		ResolveCollisions(world, bodies);
+		_collisionResolver.ResolveCollisions(world, bodies, diagnostics);
 
 		// Beschleunigungen berechnen
 		ComputeAccelerations(bodies);
 	}
 
-	/// <inheritdoc/>
-	protected override void OnAfterSimulationStep(IWorld world, Body[] bodies)
-		=> ResolveCollisions(world, bodies);
+	#endregion
+
+	#region Implementation
 
 	private static void ComputeAccelerations(Body[] bodies)
 	{

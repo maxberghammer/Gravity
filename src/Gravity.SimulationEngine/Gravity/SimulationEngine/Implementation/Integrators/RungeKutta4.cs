@@ -7,11 +7,12 @@ using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
 
-internal sealed class RungeKutta4Integrator : IIntegrator
+internal sealed class RungeKutta4 : SimulationEngine.IIntegrator
 {
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
+	/// <inheritdoc/>
+	void SimulationEngine.IIntegrator.Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics)
 	{
 		var n = bodies.Length;
 
@@ -30,8 +31,8 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 		var k3v = ArrayPool<Vector2D>.Shared.Rent(n);
 		var k4v = ArrayPool<Vector2D>.Shared.Rent(n);
 		// ReSharper enable InconsistentNaming
-		var dtHalf = dt * 0.5;
-		var dtBy6 = dt / 6.0;
+		var dtHalf = dtInSeconds * 0.5;
+		var dtBy6 = dtInSeconds / 6.0;
 
 		try
 		{
@@ -45,7 +46,7 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 							   });
 
 			// k1
-			computeAccelerations(bodies); // a(x0)
+			computation(bodies); // a(x0)
 			Parallel.For(0, n, i =>
 							   {
 								   k1x[i] = vel0[i];
@@ -54,7 +55,7 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 
 			// k2: at x0 + dt/2 * k1x
 			Parallel.For(0, n, i => { bodies[i].Position = pos0[i] + dtHalf * k1x[i]; });
-			computeAccelerations(bodies); // a(x0 + dt/2*k1x)
+			computation(bodies); // a(x0 + dt/2*k1x)
 			Parallel.For(0, n, i =>
 							   {
 								   k2x[i] = vel0[i] + dtHalf * k1v[i];
@@ -63,7 +64,7 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 
 			// k3: at x0 + dt/2 * k2x
 			Parallel.For(0, n, i => { bodies[i].Position = pos0[i] + dtHalf * k2x[i]; });
-			computeAccelerations(bodies); // a(x0 + dt/2*k2x)
+			computation(bodies); // a(x0 + dt/2*k2x)
 			Parallel.For(0, n, i =>
 							   {
 								   k3x[i] = vel0[i] + dtHalf * k2v[i];
@@ -71,11 +72,11 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 							   });
 
 			// k4: at x0 + dt * k3x
-			Parallel.For(0, n, i => { bodies[i].Position = pos0[i] + dt * k3x[i]; });
-			computeAccelerations(bodies); // a(x0 + dt*k3x)
+			Parallel.For(0, n, i => { bodies[i].Position = pos0[i] + dtInSeconds * k3x[i]; });
+			computation(bodies); // a(x0 + dt*k3x)
 			Parallel.For(0, n, i =>
 							   {
-								   k4x[i] = vel0[i] + dt * k3v[i];
+								   k4x[i] = vel0[i] + dtInSeconds * k3v[i];
 								   k4v[i] = bodies[i].a;
 							   });
 
@@ -86,7 +87,7 @@ internal sealed class RungeKutta4Integrator : IIntegrator
 
 								   if(b.IsAbsorbed)
 									   return;
-								   
+
 								   var dx = dtBy6 * (k1x[i] + 2.0 * (k2x[i] + k3x[i]) + k4x[i]);
 								   var dv = dtBy6 * (k1v[i] + 2.0 * (k2v[i] + k3v[i]) + k4v[i]);
 								   b.Position = pos0[i] + dx;

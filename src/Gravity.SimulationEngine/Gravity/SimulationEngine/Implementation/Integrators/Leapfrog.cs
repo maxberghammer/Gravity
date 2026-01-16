@@ -6,26 +6,26 @@ using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
 
-internal sealed class LeapfrogIntegrator : IIntegrator
+internal sealed class Leapfrog : SimulationEngine.IIntegrator
 {
 	#region Implementation of IIntegrator
 
-	void IIntegrator.Step(Body[] bodies, double dt, Action<Body[]> computeAccelerations)
+	/// <inheritdoc/>
+	void SimulationEngine.IIntegrator.Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics)
 	{
 		var n = bodies.Length;
 		// a(t)
-		computeAccelerations(bodies);
+		computation(bodies);
 		// Kick half step
 		Parallel.For(0, n, i =>
 						   {
 							   var b = bodies[i];
 
-
 							   // kann das sein?
 							   if(b.IsAbsorbed)
 								   return;
 
-							   b.v += b.a * (0.5 * dt);
+							   b.v += b.a * (0.5 * dtInSeconds);
 						   });
 		// Drift full step
 		Parallel.For(0, n, i =>
@@ -35,10 +35,10 @@ internal sealed class LeapfrogIntegrator : IIntegrator
 							   if(b.IsAbsorbed)
 								   return;
 
-							   b.Position += b.v * dt;
+							   b.Position += b.v * dtInSeconds;
 						   });
 		// a(t+dt)
-		computeAccelerations(bodies);
+		computation(bodies);
 		// Kick half step
 		Parallel.For(0, n, i =>
 						   {
@@ -47,7 +47,7 @@ internal sealed class LeapfrogIntegrator : IIntegrator
 							   if(b.IsAbsorbed)
 								   return;
 
-							   b.v += b.a * (0.5 * dt);
+							   b.v += b.a * (0.5 * dtInSeconds);
 						   });
 	}
 

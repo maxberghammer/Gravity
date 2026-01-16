@@ -1,70 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Gravity.SimulationEngine.Implementation.Integrators;
-using Gravity.SimulationEngine.Implementation.Oversamplers;
 
-namespace Gravity.SimulationEngine.Implementation;
+namespace Gravity.SimulationEngine.Implementation.CollisionResolvers;
 
-internal abstract class SimulationEngineBase : ISimulationEngine
+internal sealed class Simple : SimulationEngine.ICollisionResolver
 {
 	#region Fields
 
 	private const double _cellScale = 2.0; // clamp median to avoid extremes; pick scale ~ average diameter
-	private readonly IIntegrator _integrator;
-	private readonly IOversampler _oversampler;
 
 	#endregion
 
-	#region Construction
+	#region Implementation of ICollisionResolver
 
-	protected SimulationEngineBase(IIntegrator integrator, IOversampler oversampler)
-	{
-		_integrator = integrator;
-		_oversampler = oversampler;
-	}
-
-	#endregion
-
-	#region Implementation of ISimulationEngine
-
-	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
-		=> Diagnostics;
-
-	void ISimulationEngine.Simulate(IWorld world, TimeSpan deltaTime)
-	{
-		var bodies = world.GetBodies();
-
-		if(bodies.Length == 0 ||
-		   deltaTime <= TimeSpan.Zero)
-			return;
-
-		var steps = _oversampler.Oversample(bodies, deltaTime, (b, dt) =>
-									   {
-									   // Integrator-Step (berechnet a intern wo nötig)
-									   _integrator.Step(b,
-													   dt.TotalSeconds,
-													   bs => OnComputeAccelerations(world, bs));
-
-									   OnAfterSimulationStep(world, bodies);
-								   });
-
-		// Report substeps for diagnostics
-		Diagnostics.SetField("Substeps", steps);
-
-		if(!world.ClosedBoundaries)
-			return;
-
-		// Weltgrenzen behandeln
-		foreach(var body in bodies.Where(e => !e.IsAbsorbed))
-			HandleCollisionWithWorldBoundaries(world, body);
-	}
-
-	#endregion
-
-	#region Implementation
-
-	protected static void ResolveCollisions(IWorld world, Body[] bodies)
+	/// <inheritdoc/>
+	void SimulationEngine.ICollisionResolver.ResolveCollisions(IWorld world, Body[] bodies, Diagnostics diagnostics)
 	{
 		var n = bodies.Length;
 
@@ -138,10 +88,10 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 		if(rSample.Length > 0)
 			Array.Sort(rSample);
 		var rMed = rSample.Length > 0
-				   ? rSample[rSample.Length / 2]
-				   : rAvg > 0
-					   ? rAvg
-					   : rMax;
+					   ? rSample[rSample.Length / 2]
+					   : rAvg > 0
+						   ? rAvg
+						   : rMax;
 
 		var baseR = Math.Min(rMax, Math.Max(rMed, 0.25 * rMax));
 		var cellSize = Math.Max(1e-9, _cellScale * baseR);
@@ -216,8 +166,10 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 					// half-plane de-dup: skip buckets strictly above current row
 					if(yy < cy)
 						continue;
+
 					// in the same row, skip buckets left of current cell
-					if(yy == cy && xx < cx)
+					if(yy == cy &&
+					   xx < cx)
 						continue;
 
 					var bucket = buckets[Key(xx, yy, cols)];
@@ -228,7 +180,9 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 					foreach(var j in bucket)
 					{
 						// within same cell ensure j>i to avoid duplicates
-						if(xx == cx && yy == cy && j <= i)
+						if(xx == cx &&
+						   yy == cy &&
+						   j <= i)
 							continue;
 
 						var body2 = bodies[j];
@@ -275,11 +229,9 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 		}
 	}
 
-	protected Diagnostics Diagnostics { get; } = new();
+	#endregion
 
-	protected abstract void OnComputeAccelerations(IWorld world, Body[] bodies);
-
-	protected abstract void OnAfterSimulationStep(IWorld world, Body[] bodies);
+	#region Implementation
 
 	/// <summary>
 	///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
@@ -366,45 +318,6 @@ internal abstract class SimulationEngineBase : ISimulationEngine
 		body1.Absorb(body2);
 
 		return (vMerged, null);
-	}
-
-	/// <summary>
-	///     Behandelt die Kollision eines gegebenen Objekts mit den Grenzen der Welt.
-	/// </summary>
-	private static void HandleCollisionWithWorldBoundaries(IWorld world, Body body)
-	{
-		var leftX = world.Viewport.TopLeft.X + body.r;
-		var topY = world.Viewport.TopLeft.Y + body.r;
-		var rightX = world.Viewport.BottomRight.X - body.r;
-		var bottomY = world.Viewport.BottomRight.Y - body.r;
-
-		var pos = body.Position;
-		var v = body.v;
-
-		if(pos.X < leftX)
-		{
-			v = new(-v.X, v.Y);
-			pos = new(leftX, pos.Y);
-		}
-		else if(pos.X > rightX)
-		{
-			v = new(-v.X, v.Y);
-			pos = new(rightX, pos.Y);
-		}
-
-		if(pos.Y < topY)
-		{
-			v = new(v.X, -v.Y);
-			pos = new(pos.X, topY);
-		}
-		else if(pos.Y > bottomY)
-		{
-			v = new(v.X, -v.Y);
-			pos = new(pos.X, bottomY);
-		}
-
-		body.v = v;
-		body.Position = pos;
 	}
 
 	#endregion
