@@ -22,6 +22,11 @@ public sealed class KeplerTwoBodyTests
 	public async Task TestKeplerAdaptiveAsync()
 		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
 
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task TestKeplerParticleMeshAsync()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 0.5, 1e-12);
+
 	#endregion
 
 	#region Implementation

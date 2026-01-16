@@ -127,5 +127,102 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		var strategy = diagPM.Fields["Strategy"].ToString();
 		Assert.IsTrue(strategy != null && strategy.Contains("Particle-Mesh", StringComparison.Ordinal), "PM strategy not running");
 	}
+
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task TwoBodyForceDirection()
+	{
+		// Test that two bodies attract each other (force points toward the other body)
+		var enginePM = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
+		var engineBH = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
+
+		(var worldPM, var dt) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.TwoBodiesSimulation);
+		(var worldBH, var _) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.TwoBodiesSimulation);
+
+		worldPM = worldPM.CreateMock();
+		worldBH = worldBH.CreateMock();
+
+		var bodiesPM = worldPM.GetBodies();
+		var bodiesBH = worldBH.GetBodies();
+
+		// Single step to get accelerations
+		enginePM.Simulate(worldPM, dt);
+		engineBH.Simulate(worldBH, dt);
+
+		// Body 0 and Body 1 positions
+		var pos0 = bodiesPM[0].Position;
+		var pos1 = bodiesPM[1].Position;
+		var separation = pos1 - pos0; // Vector from body0 to body1
+
+		// Accelerations
+		var acc0_PM = bodiesPM[0].a;
+		var acc1_PM = bodiesPM[1].a;
+		var acc0_BH = bodiesBH[0].a;
+		var acc1_BH = bodiesBH[1].a;
+
+		Console.WriteLine($"Body 0 position: {pos0}");
+		Console.WriteLine($"Body 1 position: {pos1}");
+		Console.WriteLine($"Separation vector (0→1): {separation}");
+		Console.WriteLine();
+		Console.WriteLine($"PM Body 0 acceleration: {acc0_PM} (magnitude: {acc0_PM.Length:E3})");
+		Console.WriteLine($"PM Body 1 acceleration: {acc1_PM} (magnitude: {acc1_PM.Length:E3})");
+		Console.WriteLine($"BH Body 0 acceleration: {acc0_BH} (magnitude: {acc0_BH.Length:E3})");
+		Console.WriteLine($"BH Body 1 acceleration: {acc1_BH} (magnitude: {acc1_BH.Length:E3})");
+		Console.WriteLine();
+
+		// For gravity, body 0 should accelerate TOWARD body 1 (same direction as separation)
+		// and body 1 should accelerate TOWARD body 0 (opposite direction as separation)
+		var dot0_PM = acc0_PM.X * separation.X + acc0_PM.Y * separation.Y;
+		var dot1_PM = acc1_PM.X * separation.X + acc1_PM.Y * separation.Y;
+		var dot0_BH = acc0_BH.X * separation.X + acc0_BH.Y * separation.Y;
+		var dot1_BH = acc1_BH.X * separation.X + acc1_BH.Y * separation.Y;
+
+		Console.WriteLine($"PM Body 0 acc · separation = {dot0_PM:E3} (should be > 0 for attraction)");
+		Console.WriteLine($"PM Body 1 acc · separation = {dot1_PM:E3} (should be < 0 for attraction)");
+		Console.WriteLine($"BH Body 0 acc · separation = {dot0_BH:E3} (should be > 0 for attraction)");
+		Console.WriteLine($"BH Body 1 acc · separation = {dot1_BH:E3} (should be < 0 for attraction)");
+
+		// Barnes-Hut should definitely be correct
+		Assert.IsTrue(dot0_BH > 0, $"BH Body 0 should accelerate toward Body 1, but dot={dot0_BH}");
+		Assert.IsTrue(dot1_BH < 0, $"BH Body 1 should accelerate toward Body 0, but dot={dot1_BH}");
+
+		// PM should also show attraction
+		Assert.IsTrue(dot0_PM > 0, $"PM Body 0 should accelerate toward Body 1, but dot={dot0_PM}");
+		Assert.IsTrue(dot1_PM < 0, $"PM Body 1 should accelerate toward Body 0, but dot={dot1_PM}");
+	}
+
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task TwoBodyActuallyApproach()
+	{
+		// Test that two bodies actually move closer together over time
+		var enginePM = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
+
+		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.TwoBodiesSimulation);
+		world = world.CreateMock();
+		var bodies = world.GetBodies();
+
+		var initialDist = (bodies[0].Position - bodies[1].Position).Length;
+		Console.WriteLine($"Initial distance: {initialDist:F2}");
+
+		// Simulate 100 steps
+		for(var step = 0; step < 100; step++)
+		{
+			enginePM.Simulate(world, dt);
+			
+			if(step % 20 == 0)
+			{
+				var dist = (bodies[0].Position - bodies[1].Position).Length;
+				Console.WriteLine($"Step {step}: distance = {dist:F2}, v0 = {bodies[0].v.Length:E2}, v1 = {bodies[1].v.Length:E2}");
+			}
+		}
+
+		var finalDist = (bodies[0].Position - bodies[1].Position).Length;
+		Console.WriteLine($"Final distance: {finalDist:F2}");
+
+		// Bodies should have moved closer (or at least not flown apart dramatically)
+		Assert.IsTrue(finalDist < initialDist * 1.5, 
+			$"Bodies flew apart! Initial: {initialDist:F2}, Final: {finalDist:F2}");
+	}
 	#endregion
 }

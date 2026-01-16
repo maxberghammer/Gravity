@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Numerics;
 using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
@@ -19,13 +18,17 @@ namespace Gravity.SimulationEngine.Implementation.Adaptive;
 /// 5. Inverse FFT to get acceleration field
 /// 6. Interpolate acceleration back to particles using CIC
 /// 
+/// Adaptive grid sizing ensures accuracy for both small and large N.
+/// 
 /// Complexity: O(N + GridSize² log GridSize)
 /// </summary>
 internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 {
 	#region Fields
 
-	private const int DefaultGridSize = 128; // Power of 2 for FFT
+	private const int MinGridSize = 32;
+	private const int MaxGridSize = 256;
+	private const int TargetCellsPerSeparation = 8; // Grid cells per typical body separation
 	private const double Eps = 1e-12;
 
 	#endregion
@@ -39,17 +42,19 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		if(nBodies == 0)
 			return;
 
-		// Compute bounding box
+		// Count active bodies and compute bounding box
 		var xMin = double.PositiveInfinity;
 		var yMin = double.PositiveInfinity;
 		var xMax = double.NegativeInfinity;
 		var yMax = double.NegativeInfinity;
+		var activeCount = 0;
 
 		for(var i = 0; i < nBodies; i++)
 		{
 			if(bodies[i].IsAbsorbed)
 				continue;
 
+			activeCount++;
 			var p = bodies[i].Position;
 			if(p.X < xMin) xMin = p.X;
 			if(p.Y < yMin) yMin = p.Y;
@@ -57,11 +62,14 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 			if(p.Y > yMax) yMax = p.Y;
 		}
 
-		if(double.IsInfinity(xMin))
+		if(activeCount == 0 || double.IsInfinity(xMin))
 		{
 			xMin = yMin = -1.0;
 			xMax = yMax = 1.0;
 		}
+
+		// Compute minimum separation (sample first 100 body pairs)
+		var minSep = ComputeMinSeparation(bodies, activeCount);
 
 		// Add padding and make square
 		var spanX = Math.Max(Eps, xMax - xMin);
@@ -72,7 +80,8 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		xMin = centerX - span / 2;
 		yMin = centerY - span / 2;
 
-		var n = DefaultGridSize;
+		// Adaptive grid size: ensure enough cells to resolve minimum separation
+		var n = ComputeAdaptiveGridSize(span, minSep, activeCount);
 		var h = span / n;
 
 		// Allocate grids
@@ -80,11 +89,8 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		var accXGrid = new double[n * n];
 		var accYGrid = new double[n * n];
 
-		// Track body contributions for self-exclusion
-		var bodyContribs = new (int cellIdx, double mass)[nBodies][];
-
 		// Step 1: Assign mass to grid using CIC
-		AssignMassToGrid(bodies, massGrid, bodyContribs, n, xMin, yMin, h);
+		AssignMassToGrid(bodies, massGrid, n, xMin, yMin, h);
 
 		// Step 2-5: Solve for acceleration using FFT
 		SolveAccelerationFFT(massGrid, accXGrid, accYGrid, n, h);
@@ -95,6 +101,8 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		diagnostics.SetField("Strategy", "Particle-Mesh-FFT");
 		diagnostics.SetField("GridSize", n);
 		diagnostics.SetField("GridSpacing", h);
+		diagnostics.SetField("MinSeparation", minSep);
+		diagnostics.SetField("CellsPerSep", minSep / h);
 	}
 
 	#endregion
@@ -102,22 +110,70 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 	#region Implementation
 
 	/// <summary>
+	/// Compute minimum separation between bodies (sample first pairs for efficiency)
+	/// </summary>
+	private static double ComputeMinSeparation(Body[] bodies, int activeCount)
+	{
+		var minSep = double.PositiveInfinity;
+		var sampleSize = Math.Min(activeCount, 50);
+		var count = 0;
+
+		for(var i = 0; i < bodies.Length && count < sampleSize; i++)
+		{
+			if(bodies[i].IsAbsorbed)
+				continue;
+
+			var innerCount = 0;
+			for(var j = i + 1; j < bodies.Length && innerCount < sampleSize; j++)
+			{
+				if(bodies[j].IsAbsorbed)
+					continue;
+
+				var sep = (bodies[i].Position - bodies[j].Position).Length;
+				if(sep > Eps && sep < minSep)
+					minSep = sep;
+
+				innerCount++;
+			}
+			count++;
+		}
+
+		return double.IsInfinity(minSep) ? 1.0 : minSep;
+	}
+
+	/// <summary>
+	/// Compute adaptive grid size based on domain size, minimum separation, and body count
+	/// </summary>
+	private static int ComputeAdaptiveGridSize(double span, double minSep, int activeCount)
+	{
+		// Target: TargetCellsPerSeparation grid cells per minimum separation
+		var targetH = minSep / TargetCellsPerSeparation;
+		var targetN = (int)Math.Ceiling(span / targetH);
+
+		// Also consider body count - more bodies need finer grid
+		var countBasedN = (int)Math.Sqrt(activeCount) * 4;
+
+		// Take maximum and round to power of 2
+		var n = Math.Max(targetN, countBasedN);
+		n = Math.Max(MinGridSize, Math.Min(MaxGridSize, n));
+
+		// Round up to next power of 2 for FFT efficiency
+		n = (int)Math.Pow(2, Math.Ceiling(Math.Log2(n)));
+
+		return Math.Min(n, MaxGridSize);
+	}
+
+	/// <summary>
 	/// Assign particle masses to grid using CIC interpolation
 	/// </summary>
-	private static void AssignMassToGrid(Body[] bodies, double[] grid, (int, double)[][] bodyContribs,
-		int n, double xMin, double yMin, double h)
+	private static void AssignMassToGrid(Body[] bodies, double[] grid, int n, double xMin, double yMin, double h)
 	{
 		var invH = 1.0 / h;
 
-		for(var bodyIdx = 0; bodyIdx < bodies.Length; bodyIdx++)
+		foreach(var body in bodies)
 		{
-			var body = bodies[bodyIdx];
-
 			if(body.IsAbsorbed)
-			{
-				bodyContribs[bodyIdx] = [];
 				continue;
-			}
 
 			// Position in grid coordinates (cell-centered)
 			var px = (body.Position.X - xMin) * invH - 0.5;
@@ -127,9 +183,6 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 			var j0 = (int)Math.Floor(py);
 			var dx = px - i0;
 			var dy = py - j0;
-
-			var contribs = new (int, double)[4];
-			var count = 0;
 
 			for(var di = 0; di <= 1; di++)
 			{
@@ -143,24 +196,23 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 					if(j < 0 || j >= n) continue;
 					var wy = dj == 0 ? (1.0 - dy) : dy;
 
-					var cellIdx = j * n + i;
-					var contrib = body.m * wx * wy;
-					grid[cellIdx] += contrib;
-					contribs[count++] = (cellIdx, contrib);
+					grid[j * n + i] += body.m * wx * wy;
 				}
 			}
-
-			bodyContribs[bodyIdx] = contribs[..count];
 		}
 	}
 
 	/// <summary>
 	/// Compute acceleration field using FFT.
 	/// 
-	/// For 3D gravity projected to 2D:
-	/// - Potential: φ(r) = -G·M/|r|
-	/// - In k-space: φ(k) = -2πG · ρ(k) / |k|  (3D Green's function in 2D Fourier space)
-	/// - Acceleration: a(k) = -∇φ = -i·k·φ(k) = 2πG·i·k·ρ(k)/|k|
+	/// For 3D gravity (F = G*M/r²) in 2D Fourier space:
+	/// The Green's function for the 3D Laplacian in 2D is G(k) = 1/|k|
+	/// 
+	/// We solve: a = -G * ∇ ∫ ρ(r')/|r-r'| dr'
+	/// In k-space: a(k) = -G * i*k * ρ(k) / |k|
+	/// 
+	/// The discrete FFT includes implicit h² factors from the integration.
+	/// After inverse FFT, we need to scale by h² to get correct units.
 	/// </summary>
 	private static void SolveAccelerationFFT(double[] massGrid, double[] accX, double[] accY, int n, double h)
 	{
@@ -176,11 +228,14 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 		var axK = new Complex[n * n];
 		var ayK = new Complex[n * n];
 
-		var dk = 2.0 * Math.PI / (n * h);
+		var L = n * h; // Domain size
+		var dk = 2.0 * Math.PI / L;
 		
-		// Factor: 2πG for the Green's function
-		// We need to divide by h² because mass is per cell, not density
-		var factor = 2.0 * Math.PI * IWorld.G / (h * h);
+		// The factor needs careful dimensional analysis:
+		// For 3D gravity in 2D FFT, the correct scaling is:
+		// -G / (h * n) where h*n = L (domain size)
+		// This accounts for the discrete FFT normalization
+		var factor = -IWorld.G / (h * n);
 
 		for(var jj = 0; jj < n; jj++)
 		{
@@ -195,10 +250,9 @@ internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 
 				if(kMag > Eps)
 				{
-					// a(k) = 2πG · i·k · ρ(k) / |k|
-					// i·z = i·(a+bi) = -b + ai
+					// a(k) = factor * i*k * ρ(k) / |k|
 					var rho = rhoK[idx];
-					var iRho = new Complex(-rho.Imaginary, rho.Real);
+					var iRho = new Complex(-rho.Imaginary, rho.Real); // i * rho
 
 					var coeff = factor / kMag;
 					axK[idx] = coeff * kx * iRho;
