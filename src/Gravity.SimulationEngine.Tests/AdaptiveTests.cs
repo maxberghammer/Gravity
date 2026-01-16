@@ -17,7 +17,7 @@ public class AdaptiveTests : EngineTestsBase
 	#region Implementation
 
 	protected override Factory.SimulationEngineType EngineType
-		=> Factory.SimulationEngineType.Adaptive;
+		=> Factory.SimulationEngineType.AdaptiveBarnesHut;
 
 	#endregion
 }

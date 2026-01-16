@@ -14,12 +14,16 @@ public sealed class ConservationTests
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task AdaptiveLeapfrogConservesInvariantsTwoBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.Adaptive, ResourcePaths.TwoBodiesSimulation, 5000, 5e-4, 1e-10, 1e-10);
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 5000, 5e-4, 1e-10, 1e-10);
 
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task StandardConservesMomentumAngularTwoBody()
 		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 2000, 5e-2, 1e-9, 1e-9);
+
+	[TestMethod]
+	public async Task TestConservationAdaptiveAsync()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 5000, 5e-4, 1e-10, 1e-10);
 
 	#endregion
 

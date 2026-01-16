@@ -29,7 +29,7 @@ public abstract class AllEnginesBenchBase
 		_dt = dt;
 
 		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
-		Adaptive = Factory.Create(Factory.SimulationEngineType.Adaptive);
+		Adaptive = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
 	}
 
 	#endregion

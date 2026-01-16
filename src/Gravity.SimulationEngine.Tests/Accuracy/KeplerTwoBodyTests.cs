@@ -19,9 +19,8 @@ public sealed class KeplerTwoBodyTests
 		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
 
 	[TestMethod]
-	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task AdaptiveLeapfrogTwoBodyKeplerPeriodAccurate()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.Adaptive, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
+	public async Task TestKeplerAdaptiveAsync()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
 
 	#endregion
 

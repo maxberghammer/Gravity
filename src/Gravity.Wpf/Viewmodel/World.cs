@@ -106,8 +106,13 @@ public class World : NotifyPropertyChanged,
 		[
 			new()
 			{
-				Type = Factory.SimulationEngineType.Adaptive,
-				Name = "Adaptive"
+				Type = Factory.SimulationEngineType.AdaptiveBarnesHut,
+				Name = "Adaptive (Barnes-Hut)"
+			},
+			new()
+			{
+				Type = Factory.SimulationEngineType.AdaptiveParticleMesh,
+				Name = "Adaptive (Particle-Mesh FFT)"
 			},
 			new()
 			{

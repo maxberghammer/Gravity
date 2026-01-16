@@ -11,7 +11,8 @@ public static class Factory
 	public enum SimulationEngineType
 	{
 		Standard,
-		Adaptive
+		AdaptiveBarnesHut,
+		AdaptiveParticleMesh
 	}
 
 	#endregion
@@ -23,13 +24,16 @@ public static class Factory
 		   {
 			   SimulationEngineType.Standard => new Implementation.Standard.SimulationEngine(new SemiImplicitIntegrator(),
 																							 new NoOversampler()),
-			   SimulationEngineType.Adaptive => new Implementation.Adaptive.SimulationEngine(new LeapfrogIntegrator(),
-																							 new MinDiameterCrossingTimeOversampler( // Obergrenze pro Frame 
-																																	64,
-																																	// Untergrenze für numerische Stabilität
-																																	TimeSpan.FromSeconds(1e-6),
-																																	// Leapfrog erlaubt etwas größere Schritte
-																																	0.8)),
+			   SimulationEngineType.AdaptiveBarnesHut => new Implementation.Adaptive.SimulationEngine(new LeapfrogIntegrator(),
+																										new MinDiameterCrossingTimeOversampler(64,
+																																			   TimeSpan.FromSeconds(1e-6),
+																																			   0.8),
+																										new Implementation.Adaptive.BarnesHutStrategy()),
+			   SimulationEngineType.AdaptiveParticleMesh => new Implementation.Adaptive.SimulationEngine(new LeapfrogIntegrator(),
+																										   new MinDiameterCrossingTimeOversampler(64,
+																																				  TimeSpan.FromSeconds(1e-6),
+																																				  0.8),
+																										   new Implementation.Adaptive.ParticleMeshStrategy()),
 			   var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		   };
 

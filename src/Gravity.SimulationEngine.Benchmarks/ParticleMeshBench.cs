@@ -6,9 +6,12 @@ using Microsoft.VSDiagnostics;
 namespace Gravity.SimulationEngine.Benchmarks;
 
 [CPUUsageDiagnoser]
-public class AdaptiveBench : EngineBenchBase
+public class ParticleMeshBench : EngineBenchBase
 {
-	#region Interface
+	#region Implementation
+
+	protected override Factory.SimulationEngineType EngineType
+		=> Factory.SimulationEngineType.AdaptiveParticleMesh;
 
 	[Benchmark]
 	public double Run2Bodies10Steps()
@@ -45,13 +48,6 @@ public class AdaptiveBench : EngineBenchBase
 	[Benchmark]
 	public double Run10000Bodies1000Steps()
 		=> Run(ResourcePaths.TenKBodiesSimulation, 1000);
-
-	#endregion
-
-	#region Implementation
-
-	protected override Factory.SimulationEngineType EngineType
-		=> Factory.SimulationEngineType.AdaptiveBarnesHut;
 
 	#endregion
 }
