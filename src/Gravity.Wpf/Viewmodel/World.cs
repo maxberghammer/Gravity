@@ -197,9 +197,9 @@ public class World : NotifyPropertyChanged,
 							  SelectedBodyPreset.m,
 							  velocity,
 							  Vector2D.Zero,
-							  SelectedBodyPreset.Fill,
-							  SelectedBodyPreset.Stroke,
-							  SelectedBodyPreset.StrokeWidth));
+							  SelectedBodyPreset.Color,
+							  SelectedBodyPreset.AtmosphereColor,
+							  SelectedBodyPreset.AtmosphereThickness));
 
 		RaisePropertyChanged(nameof(BodyCount));
 	}
@@ -282,9 +282,9 @@ public class World : NotifyPropertyChanged,
 						RespawnerId = CurrentRespawnerId,
 						RngState = _rng.State,
 						Runtime = Runtime,
-			Bodies = GetBodies().Select(b => new State.BodyState(b.Fill.ToString(),
-																			 b.Stroke?.ToString(),
-																			 b.StrokeWidth,
+			Bodies = GetBodies().Select(b => new State.BodyState(b.Color.ToString(),
+																			 b.AtmosphereColor?.ToString(),
+																			 b.AtmosphereThickness,
 																			 new(b.Position.X, b.Position.Y),
 																			 new(b.v.X, b.v.Y),
 																			 b.r,
@@ -321,13 +321,13 @@ public class World : NotifyPropertyChanged,
 														  b.m,
 														  new(b.v.X, b.v.Y),
 														  Vector2D.Zero,
-														  string.IsNullOrEmpty(b.FillColor)
+														  string.IsNullOrEmpty(b.Color)
 															  ? Color.Transparent
-															  : Color.Parse(b.FillColor),
-														  string.IsNullOrEmpty(b.StrokeColor)
+															  : Color.Parse(b.Color),
+														  string.IsNullOrEmpty(b.AtmosphereColor)
 															  ? null
-															  : Color.Parse(b.StrokeColor),
-														  b.StrokeWidth)));
+															  : Color.Parse(b.AtmosphereColor),
+														  b.AtmosphereThickness)));
 	}
 
 	public Body[] GetBodies()

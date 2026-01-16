@@ -24,9 +24,9 @@
   "Runtime": "00:00:00",
   "Bodies": [
     {
-      "FillColor": "#FF000000",
-      "StrokeColor": "#FFFFFFFF",
-      "StrokeWidth": 2,
+      "Color": "#FF000000",
+      "AtmosphereColor": "#FFFFFFFF",
+      "AtmosphereThickness": 2,
       "Position": {
         "X": -50,
         "Y": 0
@@ -39,9 +39,9 @@
       "m": 1000000000000
     },
     {
-      "FillColor": "#FF000000",
-      "StrokeColor": "#FFFFFFFF",
-      "StrokeWidth": 2,
+      "Color": "#FF000000",
+      "AtmosphereColor": "#FFFFFFFF",
+      "AtmosphereThickness": 2,
       "Position": {
         "X": 50,
         "Y": 0

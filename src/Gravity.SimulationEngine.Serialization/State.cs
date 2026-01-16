@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
@@ -14,9 +14,9 @@ public sealed class State
 
 	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
 
-	public sealed record BodyState(string FillColor,
-								   string? StrokeColor,
-								   double StrokeWidth,
+	public sealed record BodyState(string Color,
+								   string? AtmosphereColor,
+								   double AtmosphereThickness,
 								   Vector Position,
 								   // ReSharper disable once InconsistentNaming
 								   [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]

@@ -30,9 +30,9 @@ public class Body
 	{
 		Position = position;
 		v = velocity;
-		Fill = fill;
-		Stroke = stroke;
-		StrokeWidth = strokeWidth;
+		Color = fill;
+		AtmosphereColor = stroke;
+		AtmosphereThickness = strokeWidth;
 		r = radius;
 		r2 = radius * radius;
 		m = mass;
@@ -63,9 +63,9 @@ public class Body
 					 cloneAccelleration
 						 ? a
 						 : Vector2D.Zero,
-					 Fill,
-					 Stroke,
-					 StrokeWidth);
+					 Color,
+					 AtmosphereColor,
+					 AtmosphereThickness);
 
 	#endregion
 
@@ -75,11 +75,11 @@ public class Body
 
 	public bool IsAbsorbed { get; private set; }
 
-	public Color Fill { get; }
+	public Color Color { get; }
 
-	public Color? Stroke { get; }
+	public Color? AtmosphereColor { get; }
 
-	public double StrokeWidth { get; }
+	public double AtmosphereThickness { get; }
 	
 	public Vector2D Position { get; set; }
 

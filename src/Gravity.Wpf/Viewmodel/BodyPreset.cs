@@ -10,19 +10,19 @@ public class BodyPreset
 {
 	#region Construction
 
-	public BodyPreset(string name, double mass, double radius, Color fill, Guid id)
-		: this(name, mass, radius, fill, null, 0, id)
+	public BodyPreset(string name, double mass, double radius, Color color, Guid id)
+		: this(name, mass, radius, color, null, 0, id)
 	{
 	}
 
-	public BodyPreset(string name, double mass, double radius, Color fill, Color? stroke, double strokeWidth, Guid id)
+	public BodyPreset(string name, double mass, double radius, Color color, Color? atmosphereColor, double atmosphereThickness, Guid id)
 	{
 		Name = name;
 		m = mass;
 		r = radius;
-		Fill = fill;
-		Stroke = stroke;
-		StrokeWidth = strokeWidth;
+		Color = color;
+		AtmosphereColor = atmosphereColor;
+		AtmosphereThickness = atmosphereThickness;
 		Id = id;
 	}
 
@@ -33,11 +33,11 @@ public class BodyPreset
 	public static BodyPreset FromDensity(string name,
 										 double density,
 										 double radius,
-										 Color fill,
-										 Color stroke,
-										 double strokeWidth,
+										 Color color,
+										 Color atmosphereColor,
+										 double atmosphereThickness,
 										 Guid id)
-		=> new(name, 4.0d / 3.0d * Math.Pow(radius, 3) * Math.PI * density, radius, fill, stroke, strokeWidth, id);
+		=> new(name, 4.0d / 3.0d * Math.Pow(radius, 3) * Math.PI * density, radius, color, atmosphereColor, atmosphereThickness, id);
 
 	public string Name { get; }
 
@@ -47,11 +47,11 @@ public class BodyPreset
 	// ReSharper disable once InconsistentNaming
 	public double r { get; }
 
-	public Color Fill { get; }
+	public Color Color { get; }
 
-	public Color? Stroke { get; }
+	public Color? AtmosphereColor { get; }
 
-	public double StrokeWidth { get; }
+	public double AtmosphereThickness { get; }
 
 	public Guid Id { get; }
 

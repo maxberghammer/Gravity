@@ -1,4 +1,4 @@
-﻿<Window x:Class="Gravity.Wpf.Windows.MainWindow"
+<Window x:Class="Gravity.Wpf.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -218,9 +218,9 @@
 						<Ellipse Width="20"
                                  Height="20"
                                  VerticalAlignment="Center"
-                                 Fill="{Binding Fill, Converter={StaticResource ColorToSolidBrushConverter}}"
-                                 Stroke="{Binding Stroke, Converter={StaticResource ColorToSolidBrushConverter}}"
-                                 StrokeThickness="{Binding StrokeWidth}"/>
+                                 Fill="{Binding Color, Converter={StaticResource ColorToSolidBrushConverter}}"
+                                 Stroke="{Binding AtmosphereColor, Converter={StaticResource ColorToSolidBrushConverter}}"
+                                 StrokeThickness="{Binding AtmosphereThickness}"/>
 						<Label Margin="10,0,0,0"
                                Content="{Binding Name}"/>
 						<Label Margin="10,0,0,0"
@@ -239,7 +239,7 @@
 							Visibility="{Binding IsEngineSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
 							ItemsSource="{Binding EngineTypes}"
 							SelectedItem="{Binding SelectedEngineType}"
-							SelectionChanged="OnBodyPresetSelectionChanged">
+							SelectionChanged="OnEngineTypeSelectionChanged">
 			<ComboBox.ItemTemplate>
 				<DataTemplate>
 					<StackPanel Orientation="Horizontal">

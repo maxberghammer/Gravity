@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System;
@@ -183,10 +183,10 @@ public partial class Direct3dWorldView
 							{
 								Position = new((float)body.Position.X, (float)body.Position.Y),
 								Radius = (float)body.r,
-								StrokeWidth = (float)body.StrokeWidth,
-								FillColor = new(body.Fill.ScR, body.Fill.ScG, body.Fill.ScB),
-								StrokeColor = body.Stroke.HasValue
-												  ? new(body.Stroke.Value.ScR, body.Stroke.Value.ScG, body.Stroke.Value.ScB)
+								StrokeWidth = (float)body.AtmosphereThickness,
+								FillColor = new(body.Color.ScR, body.Color.ScG, body.Color.ScB),
+								StrokeColor = body.AtmosphereColor.HasValue
+												  ? new(body.AtmosphereColor.Value.ScR, body.AtmosphereColor.Value.ScG, body.AtmosphereColor.Value.ScB)
 												  : Vector3.Zero,
 								Flags = 0
 							};

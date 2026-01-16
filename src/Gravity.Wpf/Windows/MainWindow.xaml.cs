@@ -1,13 +1,11 @@
-﻿using Gravity.SimulationEngine;
-using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using Wellenlib;
+using Gravity.SimulationEngine;
+using Microsoft.Win32;
 
 namespace Gravity.Wpf.Windows;
 
@@ -33,10 +31,10 @@ internal sealed partial class MainWindow
 		InitializeComponent();
 
 		_uiUpdateTimer = new(DispatcherPriority.Render)
-		{
-			Interval = TimeSpan.FromSeconds(1.0d / _viewmodel.DisplayFrequency),
-			IsEnabled = true
-		};
+						 {
+							 Interval = TimeSpan.FromSeconds(1.0d / _viewmodel.DisplayFrequency),
+							 IsEnabled = true
+						 };
 
 		_uiUpdateTimer.Tick += OnUpdateUi;
 	}
@@ -48,37 +46,37 @@ internal sealed partial class MainWindow
 	private void OnUpdateUi(object? sender, EventArgs args)
 	{
 		_lblSelectedBodym.Visibility = _lblSelectedBodyv.Visibility = null != _viewmodel.SelectedBody
-																			  ? Visibility.Visible
-																			  : Visibility.Collapsed;
+																		  ? Visibility.Visible
+																		  : Visibility.Collapsed;
 		_lblSelectedBodyv.Content = _viewmodel.SelectedBody?.v;
 		_lblSelectedBodym.Content = _viewmodel.SelectedBody?.m;
 		_lblCpuUtilizationInPercent.Content = _viewmodel.CpuUtilizationInPercent;
 		_lblRuntimeInSeconds.Content = _viewmodel.Runtime;
 	}
 
-    [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
-    private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
+	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
+	private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
 	{
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 
 		_wasRunning = _viewmodel.IsRunning;
 		_viewmodel.IsRunning = false;
 
-		if (Keyboard.Modifiers == ModifierKeys.None &&
+		if(Keyboard.Modifiers == ModifierKeys.None &&
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
 			_viewmodel.SelectBody(viewportPoint, _viewportSelectionSearchRadius);
 
-			if (null != _viewmodel.SelectedBody)
+			if(null != _viewmodel.SelectedBody)
 			{
 				var entityViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedBody.Position);
 
 				_viewmodel.Viewport.DragIndicator = new()
-				{
-					Start = new(entityViewportPoint.X, entityViewportPoint.Y),
-					End = new(entityViewportPoint.X, entityViewportPoint.Y),
-					Diameter = (_viewmodel.SelectedBody.r + _viewmodel.SelectedBody.StrokeWidth) * 2 * _viewmodel.Viewport.ScaleFactor
-				};
+													{
+														Start = new(entityViewportPoint.X, entityViewportPoint.Y),
+														End = new(entityViewportPoint.X, entityViewportPoint.Y),
+														Diameter = (_viewmodel.SelectedBody.r + _viewmodel.SelectedBody.AtmosphereThickness) * 2 * _viewmodel.Viewport.ScaleFactor
+													};
 
 				return;
 			}
@@ -86,17 +84,17 @@ internal sealed partial class MainWindow
 
 		_referencePosition = _viewmodel.Viewport.ToWorld(viewportPoint);
 		_viewmodel.Viewport.DragIndicator = new()
-		{
-			Start = new(viewportPoint.X, viewportPoint.Y),
-			End = new(viewportPoint.X, viewportPoint.Y),
-			Diameter = (_viewmodel.SelectedBodyPreset.r + _viewmodel.SelectedBodyPreset.StrokeWidth) * 2 *
+											{
+												Start = new(viewportPoint.X, viewportPoint.Y),
+												End = new(viewportPoint.X, viewportPoint.Y),
+												Diameter = (_viewmodel.SelectedBodyPreset.r + _viewmodel.SelectedBodyPreset.AtmosphereThickness) * 2 *
 														   _viewmodel.Viewport.ScaleFactor
-		};
+											};
 	}
 
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
-		if (null == _viewmodel.Viewport.DragIndicator)
+		if(null == _viewmodel.Viewport.DragIndicator)
 			return;
 
 		var viewportPoint = args.GetPosition((IInputElement)sender);
@@ -105,7 +103,7 @@ internal sealed partial class MainWindow
 
 		var position = _viewmodel.Viewport.ToWorld(viewportPoint);
 
-		if (_referencePosition.HasValue)
+		if(_referencePosition.HasValue)
 		{
 			_viewmodel.Viewport.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
 														  ? $"Δv={(position - _referencePosition.Value) / _viewmodel.TimeScaleFactor}m/s"
@@ -114,14 +112,14 @@ internal sealed partial class MainWindow
 			return;
 		}
 
-		if (null != _viewmodel.SelectedBody)
+		if(null != _viewmodel.SelectedBody)
 			_viewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
 														  ? $"Δv={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s"
 														  : $"v={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s";
 	}
 
-    [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
-    private void OnWorldMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
+	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
+	private void OnWorldMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
 	{
 		_viewmodel.IsRunning = _wasRunning;
 
@@ -131,9 +129,9 @@ internal sealed partial class MainWindow
 		_viewmodel.Viewport.DragIndicator = null;
 		_referencePosition = null;
 
-		if (null != referencePosition)
+		if(null != referencePosition)
 		{
-			if (Keyboard.IsKeyDown(Key.LeftAlt))
+			if(Keyboard.IsKeyDown(Key.LeftAlt))
 			{
 				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
 
@@ -146,21 +144,21 @@ internal sealed partial class MainWindow
 			return;
 		}
 
-		if (null != _viewmodel.SelectedBody)
+		if(null != _viewmodel.SelectedBody)
 		{
-			if ((position - _viewmodel.SelectedBody.Position).Length <=
+			if((position - _viewmodel.SelectedBody.Position).Length <=
 			   _viewmodel.SelectedBody.r + _viewportSelectionSearchRadius / _viewmodel.Viewport.ScaleFactor)
 				return;
 
-			if (Keyboard.IsKeyDown(Key.LeftAlt))
+			if(Keyboard.IsKeyDown(Key.LeftAlt))
 				_viewmodel.SelectedBody.v += (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
 			else
 				_viewmodel.SelectedBody.v = (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
 		}
 	}
 
-    [SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
-    private void OnWorldRightButtonUp(object sender, MouseButtonEventArgs args)
+	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
+	private void OnWorldRightButtonUp(object sender, MouseButtonEventArgs args)
 	{
 		_viewmodel.IsRunning = _wasRunning;
 
@@ -170,9 +168,9 @@ internal sealed partial class MainWindow
 		_viewmodel.Viewport.DragIndicator = null;
 		_referencePosition = null;
 
-		if (null != referencePosition)
+		if(null != referencePosition)
 		{
-			if (Keyboard.IsKeyDown(Key.LeftAlt))
+			if(Keyboard.IsKeyDown(Key.LeftAlt))
 			{
 				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
 
@@ -208,30 +206,30 @@ internal sealed partial class MainWindow
 	private void OnBodyPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
 		=> _viewmodel.IsBodyPresetSelectionVisible = false;
 
-    [SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
-    private async void OnSaveClicked(object sender, RoutedEventArgs args)
+	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
+	private async void OnSaveClicked(object sender, RoutedEventArgs args)
 	{
 		var dlg = new SaveFileDialog
-		{
-			DefaultExt = _stateFileExtension,
-			Filter = $"Gravity Files | *.{_stateFileExtension}"
-		};
+				  {
+					  DefaultExt = _stateFileExtension,
+					  Filter = $"Gravity Files | *.{_stateFileExtension}"
+				  };
 		var dlgResult = dlg.ShowDialog(this);
 
-		if (dlgResult is not true)
+		if(dlgResult is not true)
 			return;
 
 		await _viewmodel.SaveAsync(dlg.FileName);
 	}
 
-    [SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
-    private async void OnOpenClicked(object sender, RoutedEventArgs args)
+	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
+	private async void OnOpenClicked(object sender, RoutedEventArgs args)
 	{
 		var dlg = new OpenFileDialog
-		{
-			DefaultExt = _stateFileExtension,
-			Filter = $"Gravity Files | *.{_stateFileExtension}"
-		};
+				  {
+					  DefaultExt = _stateFileExtension,
+					  Filter = $"Gravity Files | *.{_stateFileExtension}"
+				  };
 		var dlgResult = dlg.ShowDialog(this);
 
 		if(dlgResult is not true)
@@ -239,6 +237,9 @@ internal sealed partial class MainWindow
 
 		await _viewmodel.OpenAsync(dlg.FileName);
 	}
+
+	private void OnEngineTypeSelectionChanged(object sender, SelectionChangedEventArgs e)
+		=> _viewmodel.IsEngineSelectionVisible = false;
 
 	#endregion
 }

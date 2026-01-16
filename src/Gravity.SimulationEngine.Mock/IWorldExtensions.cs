@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -33,13 +33,13 @@ public static class IWorldExtensions
 								  bodyState.m,
 								  new(bodyState.v.X, bodyState.v.Y),
 								  Vector2D.Zero,
-								  string.IsNullOrEmpty(bodyState.FillColor)
+								  string.IsNullOrEmpty(bodyState.Color)
 									  ? Color.Transparent
-									  : Color.Parse(bodyState.FillColor),
-								  string.IsNullOrEmpty(bodyState.StrokeColor)
+									  : Color.Parse(bodyState.Color),
+								  string.IsNullOrEmpty(bodyState.AtmosphereColor)
 									  ? null
-									  : Color.Parse(bodyState.StrokeColor),
-								  bodyState.StrokeWidth);
+									  : Color.Parse(bodyState.AtmosphereColor),
+								  bodyState.AtmosphereThickness);
 			}
 
 			return (new WorldMock(vp, state.ClosedBoundaries, state.ElasticCollisions, bodies), TimeSpan.FromSeconds(1.0d / 60.0d * Math.Pow(10, state.TimeScale)));
@@ -50,7 +50,7 @@ public static class IWorldExtensions
 			if(string.IsNullOrWhiteSpace(jsonResourcePath))
 				throw new ArgumentNullException(nameof(jsonResourcePath));
 
-			var asm = resourceAssembly ?? typeof(WorldMockExtensions).Assembly;
+			var asm = resourceAssembly ?? typeof(WorldMock).Assembly;
 			var normalized = jsonResourcePath.Replace('\\', '/').Replace('/', '.');
 			var resourceName = asm.GetManifestResourceNames()
 								  .FirstOrDefault(n => n.EndsWith(normalized, StringComparison.OrdinalIgnoreCase));
