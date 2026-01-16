@@ -52,5 +52,80 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		var strategy = diag.Fields["Strategy"].ToString();
 		Assert.IsTrue(strategy != null && strategy.Contains("Particle-Mesh", StringComparison.Ordinal), "PM strategy not running");
 	}
+	
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task CompareWithBarnesHut()
+	{
+		// Compare PM vs Barnes-Hut accelerations
+		var enginePM = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
+		var engineBH = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
+		
+		(var worldPM, var dt) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.ThousandBodiesSimulation);
+		(var worldBH, var _) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.ThousandBodiesSimulation);
+		
+		worldPM = worldPM.CreateMock();
+		worldBH = worldBH.CreateMock();
+
+		var bodiesPM = worldPM.GetBodies();
+		var bodiesBH = worldBH.GetBodies();
+
+		// Simulate just 1 step to compare accelerations
+		enginePM.Simulate(worldPM, dt);
+		engineBH.Simulate(worldBH, dt);
+
+		// Compare average acceleration magnitudes
+		var avgAccPM = 0.0;
+		var avgAccBH = 0.0;
+		var maxRelError = 0.0;
+		var count = 0;
+
+		for(var i = 0; i < bodiesPM.Length; i++)
+		{
+			if(bodiesPM[i].IsAbsorbed || bodiesBH[i].IsAbsorbed)
+				continue;
+
+			var accPM = bodiesPM[i].a.Length;
+			var accBH = bodiesBH[i].a.Length;
+			
+			avgAccPM += accPM;
+			avgAccBH += accBH;
+			
+			if(accBH > 1e-10)
+			{
+				var relErr = Math.Abs(accPM - accBH) / accBH;
+				if(relErr > maxRelError)
+					maxRelError = relErr;
+			}
+			count++;
+		}
+
+		avgAccPM /= count;
+		avgAccBH /= count;
+
+		var diagPM = enginePM.GetDiagnostics();
+
+		// Log results
+		Console.WriteLine($"PM avg acceleration: {avgAccPM:E3}");
+		Console.WriteLine($"BH avg acceleration: {avgAccBH:E3}");
+		Console.WriteLine($"Relative difference: {Math.Abs(avgAccPM - avgAccBH) / avgAccBH * 100:F1}%");
+		Console.WriteLine($"Max relative error: {maxRelError * 100:F1}%");
+		Console.WriteLine($"Grid size: {diagPM.Fields["GridSize"]}");
+		if(diagPM.Fields.ContainsKey("GridSpacing"))
+			Console.WriteLine($"Grid spacing: {diagPM.Fields["GridSpacing"]}");
+		if(diagPM.Fields.ContainsKey("GridSpacingX"))
+			Console.WriteLine($"Grid spacing X: {diagPM.Fields["GridSpacingX"]}");
+
+		// PM should produce same order of magnitude as Barnes-Hut
+		// With grid-based approximation, expect some error
+		var relDiff = Math.Abs(avgAccPM - avgAccBH) / avgAccBH;
+		Assert.IsTrue(relDiff < 2.0, 
+			$"PM differs too much from BH: avgAccPM={avgAccPM:E3}, avgAccBH={avgAccBH:E3}, relDiff={relDiff*100:F1}%");
+
+		// Verify PM is actually running
+		Assert.IsTrue(diagPM.Fields.ContainsKey("Strategy"), "PM missing Strategy diagnostic");
+		var strategy = diagPM.Fields["Strategy"].ToString();
+		Assert.IsTrue(strategy != null && strategy.Contains("Particle-Mesh", StringComparison.Ordinal), "PM strategy not running");
+	}
 	#endregion
 }

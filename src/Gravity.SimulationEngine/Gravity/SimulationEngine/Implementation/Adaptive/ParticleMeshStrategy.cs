@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
@@ -6,191 +7,316 @@ using MathNet.Numerics.IntegralTransforms;
 namespace Gravity.SimulationEngine.Implementation.Adaptive;
 
 /// <summary>
-/// Particle-Mesh-Ewald acceleration strategy with FFT (fixed numerics)
-/// - Long-range: solve Poisson on a uniform grid in k-space
-/// - Short-range: direct summation within cutoff
+/// Particle-Mesh (PM) acceleration strategy using FFT
+/// 
+/// Uses 3D gravity (F ∝ 1/r²) projected onto 2D plane, matching Barnes-Hut physics.
+/// 
+/// Algorithm:
+/// 1. Assign particle masses to grid using CIC interpolation
+/// 2. FFT the mass grid to k-space
+/// 3. Apply Green's function for 3D gravity: G(k) ∝ 1/|k| (not 1/k² like 2D!)
+/// 4. Compute gradient in k-space: a(k) = -i·k·φ(k)
+/// 5. Inverse FFT to get acceleration field
+/// 6. Interpolate acceleration back to particles using CIC
+/// 
+/// Complexity: O(N + GridSize² log GridSize)
 /// </summary>
 internal sealed class ParticleMeshStrategy : IAccelerationStrategy
 {
 	#region Fields
 
-	private const int DefaultGridSize = 128; // power-of-two for FFT
-	private const double CutoffFactor = 2.5; // cutoffRadius = CutoffFactor * max(dx,dy)
+	private const int DefaultGridSize = 128; // Power of 2 for FFT
 	private const double Eps = 1e-12;
 
 	#endregion
 
-	#region Implementation
+	#region Implementation of IAccelerationStrategy
 
 	public void ComputeAccelerations(Body[] bodies, Diagnostics diagnostics)
 	{
 		var nBodies = bodies.Length;
+
 		if(nBodies == 0)
 			return;
 
-		// Compute bounding box over active bodies
-		double l = double.PositiveInfinity,
-			   t = double.PositiveInfinity,
-			   r = double.NegativeInfinity,
-			   b = double.NegativeInfinity;
+		// Compute bounding box
+		var xMin = double.PositiveInfinity;
+		var yMin = double.PositiveInfinity;
+		var xMax = double.NegativeInfinity;
+		var yMax = double.NegativeInfinity;
 
 		for(var i = 0; i < nBodies; i++)
 		{
 			if(bodies[i].IsAbsorbed)
 				continue;
+
 			var p = bodies[i].Position;
-			if(p.X < l) l = p.X;
-			if(p.Y < t) t = p.Y;
-			if(p.X > r) r = p.X;
-			if(p.Y > b) b = p.Y;
+			if(p.X < xMin) xMin = p.X;
+			if(p.Y < yMin) yMin = p.Y;
+			if(p.X > xMax) xMax = p.X;
+			if(p.Y > yMax) yMax = p.Y;
 		}
 
-		if(double.IsInfinity(l) || double.IsInfinity(t) || double.IsInfinity(r) || double.IsInfinity(b))
+		if(double.IsInfinity(xMin))
 		{
-			l = t = -1.0; r = b = 1.0;
+			xMin = yMin = -1.0;
+			xMax = yMax = 1.0;
 		}
 
-		// Add 10% padding to mitigate boundary effects
-		var pad = 0.1 * Math.Max(r - l, b - t);
-		l -= pad; t -= pad; r += pad; b += pad;
+		// Add padding and make square
+		var spanX = Math.Max(Eps, xMax - xMin);
+		var spanY = Math.Max(Eps, yMax - yMin);
+		var span = Math.Max(spanX, spanY) * 1.2; // 20% padding
+		var centerX = (xMin + xMax) / 2;
+		var centerY = (yMin + yMax) / 2;
+		xMin = centerX - span / 2;
+		yMin = centerY - span / 2;
 
-		var gridSize = DefaultGridSize;
-		var spanX = Math.Max(Eps, r - l);
-		var spanY = Math.Max(Eps, b - t);
-		var dx = spanX / gridSize;
-		var dy = spanY / gridSize;
-		var cellArea = dx * dy;
-		var cutoffRadius = CutoffFactor * Math.Max(dx, dy);
-		var cutoffSq = cutoffRadius * cutoffRadius;
+		var n = DefaultGridSize;
+		var h = span / n;
 
-		// Allocate grid (row-major 1D array) for mass density ρ = m / cellArea
-		var rho = new Complex[gridSize * gridSize];
+		// Allocate grids
+		var massGrid = new double[n * n];
+		var accXGrid = new double[n * n];
+		var accYGrid = new double[n * n];
 
-		// Cloud-in-cell (CIC) mass assignment to grid as density
-		for(var idx = 0; idx < nBodies; idx++)
+		// Track body contributions for self-exclusion
+		var bodyContribs = new (int cellIdx, double mass)[nBodies][];
+
+		// Step 1: Assign mass to grid using CIC
+		AssignMassToGrid(bodies, massGrid, bodyContribs, n, xMin, yMin, h);
+
+		// Step 2-5: Solve for acceleration using FFT
+		SolveAccelerationFFT(massGrid, accXGrid, accYGrid, n, h);
+
+		// Step 6: Interpolate acceleration to particles
+		InterpolateAccelerationToParticles(bodies, accXGrid, accYGrid, n, xMin, yMin, h);
+
+		diagnostics.SetField("Strategy", "Particle-Mesh-FFT");
+		diagnostics.SetField("GridSize", n);
+		diagnostics.SetField("GridSpacing", h);
+	}
+
+	#endregion
+
+	#region Implementation
+
+	/// <summary>
+	/// Assign particle masses to grid using CIC interpolation
+	/// </summary>
+	private static void AssignMassToGrid(Body[] bodies, double[] grid, (int, double)[][] bodyContribs,
+		int n, double xMin, double yMin, double h)
+	{
+		var invH = 1.0 / h;
+
+		for(var bodyIdx = 0; bodyIdx < bodies.Length; bodyIdx++)
 		{
-			var body = bodies[idx];
+			var body = bodies[bodyIdx];
+
 			if(body.IsAbsorbed)
-				continue;
-			var gx = (body.Position.X - l) / dx;
-			var gy = (body.Position.Y - t) / dy;
-			var i0 = (int)Math.Floor(gx);
-			var j0 = (int)Math.Floor(gy);
-			var wx1 = gx - i0; var wx0 = 1.0 - wx1;
-			var wy1 = gy - j0; var wy0 = 1.0 - wy1;
-			var dens = body.m / cellArea;
-			// accumulate to 4 neighbors
-			if(i0 >= 0 && i0 < gridSize && j0 >= 0 && j0 < gridSize)
-				rho[j0 * gridSize + i0] += dens * wx0 * wy0;
-			if(i0 + 1 >= 0 && i0 + 1 < gridSize && j0 >= 0 && j0 < gridSize)
-				rho[j0 * gridSize + (i0 + 1)] += dens * wx1 * wy0;
-			if(i0 >= 0 && i0 < gridSize && j0 + 1 >= 0 && j0 + 1 < gridSize)
-				rho[(j0 + 1) * gridSize + i0] += dens * wx0 * wy1;
-			if(i0 + 1 >= 0 && i0 + 1 < gridSize && j0 + 1 >= 0 && j0 + 1 < gridSize)
-				rho[(j0 + 1) * gridSize + (i0 + 1)] += dens * wx1 * wy1;
-		}
-
-		// 2D FFT of density (forward transform with no normalization)
-		var data = (Complex[])rho.Clone();
-		// rows
-		Parallel.For(0, gridSize, row =>
-		{
-			var rowData = new Complex[gridSize];
-			for(var col = 0; col < gridSize; col++) rowData[col] = data[row * gridSize + col];
-			Fourier.Forward(rowData, FourierOptions.Default);
-			for(var col = 0; col < gridSize; col++) data[row * gridSize + col] = rowData[col];
-		});
-		// cols
-		Parallel.For(0, gridSize, col =>
-		{
-			var colData = new Complex[gridSize];
-			for(var row = 0; row < gridSize; row++) colData[row] = data[row * gridSize + col];
-			Fourier.Forward(colData, FourierOptions.Default);
-			for(var row = 0; row < gridSize; row++) data[row * gridSize + col] = colData[row];
-		});
-
-		// Solve Poisson in k-space: φ(k) = -4πG * ρ(k) / |k|² (k≠0)
-		var phiK = new Complex[gridSize * gridSize];
-		var dkx = 2.0 * Math.PI / (gridSize * dx);
-		var dky = 2.0 * Math.PI / (gridSize * dy);
-		for(var i = 0; i < gridSize; i++)
-		{
-			var kx = i <= gridSize / 2 ? i * dkx : (i - gridSize) * dkx;
-			for(var j = 0; j < gridSize; j++)
 			{
-				var ky = j <= gridSize / 2 ? j * dky : (j - gridSize) * dky;
-				var k2 = kx * kx + ky * ky;
-				phiK[i * gridSize + j] = k2 > Eps ? (-4.0 * Math.PI * IWorld.G) * data[i * gridSize + j] / k2 : Complex.Zero;
+				bodyContribs[bodyIdx] = [];
+				continue;
 			}
-		}
 
-		// Inverse FFT to get φ in real space
-		var phi = (Complex[])phiK.Clone();
-		// rows
-		Parallel.For(0, gridSize, row =>
-		{
-			var rowData = new Complex[gridSize];
-			for(var col = 0; col < gridSize; col++) rowData[col] = phi[row * gridSize + col];
-			Fourier.Inverse(rowData, FourierOptions.Default);
-			for(var col = 0; col < gridSize; col++) phi[row * gridSize + col] = rowData[col];
-		});
-		// cols
-		Parallel.For(0, gridSize, col =>
-		{
-			var colData = new Complex[gridSize];
-			for(var row = 0; row < gridSize; row++) colData[row] = phi[row * gridSize + col];
-			Fourier.Inverse(colData, FourierOptions.Default);
-			for(var row = 0; row < gridSize; row++) phi[row * gridSize + col] = colData[row];
-		});
-		// MathNet's inverse applies 1/N normalization per dimension, so φ is correctly scaled.
+			// Position in grid coordinates (cell-centered)
+			var px = (body.Position.X - xMin) * invH - 0.5;
+			var py = (body.Position.Y - yMin) * invH - 0.5;
 
-		// Interpolate acceleration a = -∇φ back to particles (central differences)
-		var longRange = new Vector2D[nBodies];
-		for(var idx = 0; idx < nBodies; idx++)
-		{
-			var body = bodies[idx];
-			if(body.IsAbsorbed)
-				continue;
-			var gx = (body.Position.X - l) / dx;
-			var gy = (body.Position.Y - t) / dy;
-			var i = (int)Math.Floor(gx);
-			var j = (int)Math.Floor(gy);
-			if(i < 1 || i >= gridSize - 1 || j < 1 || j >= gridSize - 1)
-				continue;
-			var dphidx = (phi[j * gridSize + (i + 1)].Real - phi[j * gridSize + (i - 1)].Real) / (2.0 * dx);
-			var dphidy = (phi[(j + 1) * gridSize + i].Real - phi[(j - 1) * gridSize + i].Real) / (2.0 * dy);
-			longRange[idx] = new Vector2D(-dphidx, -dphidy);
-		}
+			var i0 = (int)Math.Floor(px);
+			var j0 = (int)Math.Floor(py);
+			var dx = px - i0;
+			var dy = py - j0;
 
-		// Short-range direct correction for neighbors within cutoff
-		Parallel.For(0, nBodies, i =>
-		{
-			var bi = bodies[i];
-			if(bi.IsAbsorbed)
-				return;
-			var acc = longRange[i];
-			for(var j = 0; j < nBodies; j++)
+			var contribs = new (int, double)[4];
+			var count = 0;
+
+			for(var di = 0; di <= 1; di++)
 			{
-				if(i == j) continue;
-				var bj = bodies[j];
-				if(bj.IsAbsorbed) continue;
-				var d = bi.Position - bj.Position;
-				var d2 = d.LengthSquared;
-				if(d2 < cutoffSq && d2 > Eps)
+				var i = i0 + di;
+				if(i < 0 || i >= n) continue;
+				var wx = di == 0 ? (1.0 - dx) : dx;
+
+				for(var dj = 0; dj <= 1; dj++)
 				{
-					var dLen = Math.Sqrt(d2);
-					var invd3 = 1.0 / (d2 * dLen);
-					acc += -IWorld.G * bj.m * d * invd3;
+					var j = j0 + dj;
+					if(j < 0 || j >= n) continue;
+					var wy = dj == 0 ? (1.0 - dy) : dy;
+
+					var cellIdx = j * n + i;
+					var contrib = body.m * wx * wy;
+					grid[cellIdx] += contrib;
+					contribs[count++] = (cellIdx, contrib);
 				}
 			}
-			bodies[i].a = acc;
+
+			bodyContribs[bodyIdx] = contribs[..count];
+		}
+	}
+
+	/// <summary>
+	/// Compute acceleration field using FFT.
+	/// 
+	/// For 3D gravity projected to 2D:
+	/// - Potential: φ(r) = -G·M/|r|
+	/// - In k-space: φ(k) = -2πG · ρ(k) / |k|  (3D Green's function in 2D Fourier space)
+	/// - Acceleration: a(k) = -∇φ = -i·k·φ(k) = 2πG·i·k·ρ(k)/|k|
+	/// </summary>
+	private static void SolveAccelerationFFT(double[] massGrid, double[] accX, double[] accY, int n, double h)
+	{
+		// Convert mass grid to complex for FFT
+		var rhoK = new Complex[n * n];
+		for(var i = 0; i < n * n; i++)
+			rhoK[i] = new Complex(massGrid[i], 0);
+
+		// Forward 2D FFT
+		FFT2D(rhoK, n, forward: true);
+
+		// Compute acceleration in k-space
+		var axK = new Complex[n * n];
+		var ayK = new Complex[n * n];
+
+		var dk = 2.0 * Math.PI / (n * h);
+		
+		// Factor: 2πG for the Green's function
+		// We need to divide by h² because mass is per cell, not density
+		var factor = 2.0 * Math.PI * IWorld.G / (h * h);
+
+		for(var jj = 0; jj < n; jj++)
+		{
+			var ky = jj <= n / 2 ? jj * dk : (jj - n) * dk;
+
+			for(var ii = 0; ii < n; ii++)
+			{
+				var kx = ii <= n / 2 ? ii * dk : (ii - n) * dk;
+				var kMag = Math.Sqrt(kx * kx + ky * ky);
+
+				var idx = jj * n + ii;
+
+				if(kMag > Eps)
+				{
+					// a(k) = 2πG · i·k · ρ(k) / |k|
+					// i·z = i·(a+bi) = -b + ai
+					var rho = rhoK[idx];
+					var iRho = new Complex(-rho.Imaginary, rho.Real);
+
+					var coeff = factor / kMag;
+					axK[idx] = coeff * kx * iRho;
+					ayK[idx] = coeff * ky * iRho;
+				}
+				else
+				{
+					axK[idx] = Complex.Zero;
+					ayK[idx] = Complex.Zero;
+				}
+			}
+		}
+
+		// Inverse 2D FFT
+		FFT2D(axK, n, forward: false);
+		FFT2D(ayK, n, forward: false);
+
+		// Extract real parts
+		for(var i = 0; i < n * n; i++)
+		{
+			accX[i] = axK[i].Real;
+			accY[i] = ayK[i].Real;
+		}
+	}
+
+	/// <summary>
+	/// 2D FFT using separable 1D FFTs
+	/// </summary>
+	private static void FFT2D(Complex[] data, int n, bool forward)
+	{
+		// Transform rows
+		Parallel.For(0, n, j =>
+		{
+			var row = new Complex[n];
+			for(var i = 0; i < n; i++)
+				row[i] = data[j * n + i];
+
+			if(forward)
+				Fourier.Forward(row, FourierOptions.NoScaling);
+			else
+				Fourier.Inverse(row, FourierOptions.NoScaling);
+
+			for(var i = 0; i < n; i++)
+				data[j * n + i] = row[i];
 		});
 
-		diagnostics.SetField("Strategy", "Particle-Mesh");
-		diagnostics.SetField("GridSize", gridSize);
-		diagnostics.SetField("dx", dx);
-		diagnostics.SetField("dy", dy);
-		diagnostics.SetField("Cutoff", cutoffRadius);
+		// Transform columns
+		Parallel.For(0, n, i =>
+		{
+			var col = new Complex[n];
+			for(var j = 0; j < n; j++)
+				col[j] = data[j * n + i];
+
+			if(forward)
+				Fourier.Forward(col, FourierOptions.NoScaling);
+			else
+				Fourier.Inverse(col, FourierOptions.NoScaling);
+
+			for(var j = 0; j < n; j++)
+				data[j * n + i] = col[j];
+		});
+
+		// Apply normalization for inverse
+		if(!forward)
+		{
+			var scale = 1.0 / (n * n);
+			for(var i = 0; i < n * n; i++)
+				data[i] *= scale;
+		}
+	}
+
+	/// <summary>
+	/// Interpolate acceleration from grid to particles using CIC.
+	/// </summary>
+	private static void InterpolateAccelerationToParticles(Body[] bodies, double[] accX, double[] accY,
+		int n, double xMin, double yMin, double h)
+	{
+		var invH = 1.0 / h;
+
+		Parallel.For(0, bodies.Length, bodyIdx =>
+		{
+			var body = bodies[bodyIdx];
+			if(body.IsAbsorbed)
+				return;
+
+			// Position in grid coordinates (cell-centered)
+			var px = (body.Position.X - xMin) * invH - 0.5;
+			var py = (body.Position.Y - yMin) * invH - 0.5;
+
+			var i0 = (int)Math.Floor(px);
+			var j0 = (int)Math.Floor(py);
+			var dx = px - i0;
+			var dy = py - j0;
+
+			var ax = 0.0;
+			var ay = 0.0;
+
+			for(var di = 0; di <= 1; di++)
+			{
+				var i = i0 + di;
+				if(i < 0 || i >= n) continue;
+				var wx = di == 0 ? (1.0 - dx) : dx;
+
+				for(var dj = 0; dj <= 1; dj++)
+				{
+					var j = j0 + dj;
+					if(j < 0 || j >= n) continue;
+					var wy = dj == 0 ? (1.0 - dy) : dy;
+
+					var w = wx * wy;
+					var cellIdx = j * n + i;
+					ax += w * accX[cellIdx];
+					ay += w * accY[cellIdx];
+				}
+			}
+
+			body.a = new Vector2D(ax, ay);
+		});
 	}
 
 	#endregion
