@@ -13,6 +13,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Gravity.SimulationEngine;
 using Gravity.SimulationEngine.Serialization;
+using Wellenlib;
 using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
@@ -45,7 +46,9 @@ public class World : NotifyPropertyChanged,
 	private readonly SimpleRng _rng = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
+	private TimeSpan _lastSimulationStep = TimeSpan.Zero;
 	private ISimulationEngine? _simulationEngine;
+	private readonly Stopwatch _simulationTime = new();
 
 	#endregion
 
@@ -68,6 +71,8 @@ public class World : NotifyPropertyChanged,
 
 		DisplayFrequency = 60; //d.dmDisplayFrequency;
 
+		_simulationTime.Start();
+
 		_timer.Tick += async (_, _) => await SimulateAsync();
 		_timer.Interval = TimeSpan.FromSeconds(1.0d / DisplayFrequency);
 		_timer.Start();
@@ -81,7 +86,7 @@ public class World : NotifyPropertyChanged,
 
 	public int DisplayFrequency { get; }
 
-	public double TimeScale { get => field; set => SetProperty(ref field, value); } = 1;
+	public double TimeScale { get; set => SetProperty(ref field, value); } = 1;
 
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
@@ -121,7 +126,7 @@ public class World : NotifyPropertyChanged,
 			}
 		];
 
-	public BodyPreset SelectedBodyPreset { get => field; set => SetProperty(ref field, value); }
+	public BodyPreset SelectedBodyPreset { get; set => SetProperty(ref field, value); }
 
 	public EngineType SelectedEngineType
 	{
@@ -136,11 +141,11 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	public bool IsBodyPresetSelectionVisible { get => field; set => SetProperty(ref field, value); }
+	public bool IsBodyPresetSelectionVisible { get; set => SetProperty(ref field, value); }
 
-	public bool IsEngineSelectionVisible { get => field; set => SetProperty(ref field, value); }
+	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
 
-	public bool ShowPath { get => field; set => SetProperty(ref field, value); } = true;
+	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
 
 	public Viewport Viewport { get; } = new();
 
@@ -151,19 +156,32 @@ public class World : NotifyPropertyChanged,
 	public int BodyCount
 		=> GetBodies().Length;
 
-	public bool AutoCenterViewport { get => field; set => SetProperty(ref field, value); }
+	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
 
-	public Body? SelectedBody { get => field; set => SetProperty(ref field, value); }
+	public Body? SelectedBody { get; set => SetProperty(ref field, value); }
 
-	public bool IsRunning { get => field; set => SetProperty(ref field, value); } = true;
+	public bool IsRunning
+	{
+		get;
+		set
+		{
+			if(!SetProperty(ref field, value))
+				return;
+
+			if(value)
+				_simulationTime.Start();
+			else
+				_simulationTime.Stop();
+		}
+	} = true;
 
 	public Guid? CurrentRespawnerId { get; set; }
 
-	public bool IsHelpVisible { get => field; set => SetProperty(ref field, value); }
+	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
 
-	public bool ElasticCollisions { get => field; set => SetProperty(ref field, value); } = true;
+	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
 
-	public bool ClosedBoundaries { get => field; set => SetProperty(ref field, value); } = true;
+	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
 
 	public void CreateRandomBodies(int count, bool enableRespawn, bool stableOrbits)
 	{
@@ -248,9 +266,9 @@ public class World : NotifyPropertyChanged,
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
-			newSize = new Vector2D(newSize.Y * previousSize.X / previousSize.Y, newSize.Y);
+			newSize = new(newSize.Y * previousSize.X / previousSize.Y, newSize.Y);
 		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
-			newSize = new Vector2D(newSize.X, newSize.X * previousSize.Y / previousSize.X);
+			newSize = new(newSize.X, newSize.X * previousSize.Y / previousSize.X);
 		Viewport.TopLeft = center - newSize / 2;
 		Viewport.BottomRight = center + newSize / 2;
 		Viewport.Scale += Math.Log10(Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y));
@@ -282,7 +300,7 @@ public class World : NotifyPropertyChanged,
 						RespawnerId = CurrentRespawnerId,
 						RngState = _rng.State,
 						Runtime = Runtime,
-			Bodies = GetBodies().Select(b => new State.BodyState(b.Color.ToString(),
+						Bodies = GetBodies().Select(b => new State.BodyState(b.Color.ToString(),
 																			 b.AtmosphereColor?.ToString(),
 																			 b.AtmosphereThickness,
 																			 new(b.Position.X, b.Position.Y),
@@ -362,44 +380,57 @@ public class World : NotifyPropertyChanged,
 		   1 == Interlocked.CompareExchange(ref _isSimulating, 1, 0))
 			return;
 
-		using(_frameTiming.Measure())
+		using var exit = new DisposableAction(() =>
+											  {
+												  var frameDiagnosticsMeasurement = _frameTiming.LastMeasurement;
+
+												  CpuUtilizationInPercent = (int)Math.Round(frameDiagnosticsMeasurement.CpuUtilizationEmaInPercent);
+
+												  // Log every ~60 frames; use TraceInformation for explicit event type
+												  if(frameDiagnosticsMeasurement.FrameCount % 60 == 0)
+												  {
+													  var engineDiagnostics = string.Join(" | ", _simulationEngine!.GetDiagnostics()
+																												   .Fields
+																												   .Select(p => $"{p.Key}: {p.Value}"));
+
+													  Trace.TraceInformation($"Frame: {frameDiagnosticsMeasurement.LastFrameDurationInMs:F1} ms" +
+																			 $" | CPU: {frameDiagnosticsMeasurement.CpuUtilizationInPercent}%" +
+																			 $" | Bodies: {BodyCount}" +
+																			 $" | AllocDelta: {frameDiagnosticsMeasurement.DeltaAllocated / (1024.0 * 1024.0):F2} MiB" +
+																			 (string.IsNullOrEmpty(engineDiagnostics)
+																				  ? string.Empty
+																				  : $" | {engineDiagnostics}"));
+												  }
+
+												  Updated?.Invoke(this, EventArgs.Empty);
+
+												  _isSimulating = 0;
+											  });
+
+		using var measure = _frameTiming.Measure();
+
+		if(!IsRunning)
+			return;
+
+		var now = _simulationTime.Elapsed;
+
+		if(_lastSimulationStep == TimeSpan.Zero)
 		{
-			var deltaTime = TimeSpan.FromSeconds(1.0d / DisplayFrequency * TimeScaleFactor);
+			_lastSimulationStep = now;
 
-			if(IsRunning)
-			{
-				UpdateAllBodies(deltaTime);
-
-				if(AutoCenterViewport)
-					DoAutoCenterViewport();
-
-				Runtime += deltaTime;
-			}
+			return;
 		}
 
-		var frameDiagnosticsMeasurement = _frameTiming.LastMeasurement;
+		var deltaTime = (now - _lastSimulationStep) * TimeScaleFactor;
 
-		CpuUtilizationInPercent = (int)Math.Round(frameDiagnosticsMeasurement.CpuUtilizationEmaInPercent);
+		_lastSimulationStep = now;
 
-		// Log every ~60 frames; use TraceInformation for explicit event type
-		if(frameDiagnosticsMeasurement.FrameCount % 60 == 0)
-		{
-			var engineDiagnostics = string.Join(" | ", _simulationEngine.GetDiagnostics()
-																		.Fields
-																		.Select(p => $"{p.Key}: {p.Value}"));
+		UpdateAllBodies(deltaTime);
 
-			Trace.TraceInformation($"Frame: {frameDiagnosticsMeasurement.LastFrameDurationInMs:F1} ms" +
-								   $" | CPU: {frameDiagnosticsMeasurement.CpuUtilizationInPercent}%" +
-								   $" | Bodies: {BodyCount}" +
-								   $" | AllocDelta: {frameDiagnosticsMeasurement.DeltaAllocated / (1024.0 * 1024.0):F2} MiB" +
-								   (string.IsNullOrEmpty(engineDiagnostics)
-										? string.Empty
-										: $" | {engineDiagnostics}"));
-		}
+		if(AutoCenterViewport)
+			DoAutoCenterViewport();
 
-		Updated?.Invoke(this, EventArgs.Empty);
-
-		_isSimulating = 0;
+		Runtime += deltaTime;
 	}
 
 	private void UpdateAllBodies(TimeSpan deltaTime)
