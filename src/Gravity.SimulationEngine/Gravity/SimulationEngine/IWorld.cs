@@ -6,6 +6,11 @@ public interface IWorld
 
 	bool ElasticCollisions { get; }
 
+	/// <summary>
+	/// The time scale factor applied to the simulation (1.0 = realtime).
+	/// </summary>
+	double TimeScaleFactor { get; }
+
 	IViewport Viewport { get; }
 
 	Body[] GetBodies();

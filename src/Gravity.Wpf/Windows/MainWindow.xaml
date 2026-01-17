@@ -266,25 +266,28 @@
 					<Setter Property="IsHitTestVisible" Value="False"/>
 				</Style>
 			</DockPanel.Resources>
+			<Label Name="_lblFps"
+						 DockPanel.Dock="Left"
+						 ContentStringFormat="FPS={0}"/>
 			<Label Name="_lblCpuUtilizationInPercent"
                    DockPanel.Dock="Left"
                    ContentStringFormat="CPU={0}%"/>
 			<Slider Name="_sldTimeScale"
                     DockPanel.Dock="Right"
                     ToolTip="Zeit-Skalierung"
-                    Width="100"
+                    Width="300"
                     IsSnapToTickEnabled="True"
-                    Minimum="0"
+                    Minimum="-10"
                     Maximum="10"
                     TickFrequency="1"
                     TickPlacement="Both"
                     Value="{Binding TimeScale}"/>
-			<Label Name="_lblRuntimeInSeconds"
+			<Label Name="_lblRuntime"
                    DockPanel.Dock="Right"
                    ContentStringFormat="t={0}"/>
-			<Label DockPanel.Dock="Right"
-                   Content="{Binding BodyCount}"
-                   ContentStringFormat=" {0} Objekte"/>
+			<Label Name="_lblBodyCount"
+						 DockPanel.Dock="Right"
+						 ContentStringFormat=" {0} Objekte"/>
 		</DockPanel>
 
 		<Grid Grid.Row="2"

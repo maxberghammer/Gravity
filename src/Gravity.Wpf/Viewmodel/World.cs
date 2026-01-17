@@ -44,11 +44,11 @@ public class World : NotifyPropertyChanged,
 	private readonly FrameDiagnostics _frameTiming = new();
 	private readonly Dictionary<Guid, Action> _respawnersById = new();
 	private readonly SimpleRng _rng = new();
+	private readonly Stopwatch _simulationTime = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
 	private int _isSimulating;
 	private TimeSpan _lastSimulationStep = TimeSpan.Zero;
 	private ISimulationEngine? _simulationEngine;
-	private readonly Stopwatch _simulationTime = new();
 
 	#endregion
 
@@ -62,8 +62,6 @@ public class World : NotifyPropertyChanged,
 
 		_respawnersById[_randomRespawnerId] = () => CreateRandomBodies(1, true, false);
 		_respawnersById[_randomOrbittingRespawnerId] = () => CreateRandomBodies(1, true, true);
-
-		Viewport.PropertyChanged += (_, _) => Updated?.Invoke(this, EventArgs.Empty);
 
 		//var d = new Win32.DEVMODE();
 
@@ -82,11 +80,57 @@ public class World : NotifyPropertyChanged,
 
 	#region Interface
 
-	public event EventHandler? Updated;
+	public double TimeScale { get; set => SetProperty(ref field, value); }
+
+	public int FramesPerSecond { get; set => SetProperty(ref field, value); }
+
+	public BodyPreset SelectedBodyPreset { get; set => SetProperty(ref field, value); }
+
+	public EngineType SelectedEngineType
+	{
+		get;
+		set
+		{
+			if(!SetProperty(ref field, value))
+				return;
+
+			ArgumentNullException.ThrowIfNull(value);
+			_simulationEngine = Factory.Create(value.Type);
+		}
+	}
+
+	public bool IsBodyPresetSelectionVisible { get; set => SetProperty(ref field, value); }
+
+	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
+
+	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
+
+	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
+
+	public Body? SelectedBody { get; set => SetProperty(ref field, value); }
+
+	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
+
+	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
+
+	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
+
+	public bool IsRunning
+	{
+		get;
+		set
+		{
+			if(!SetProperty(ref field, value))
+				return;
+
+			if(value)
+				_simulationTime.Start();
+			else
+				_simulationTime.Stop();
+		}
+	} = true;
 
 	public int DisplayFrequency { get; }
-
-	public double TimeScale { get; set => SetProperty(ref field, value); } = 1;
 
 	public double TimeScaleFactor
 		=> Math.Pow(10, TimeScale);
@@ -126,27 +170,6 @@ public class World : NotifyPropertyChanged,
 			}
 		];
 
-	public BodyPreset SelectedBodyPreset { get; set => SetProperty(ref field, value); }
-
-	public EngineType SelectedEngineType
-	{
-		get;
-		set
-		{
-			if(!SetProperty(ref field, value))
-				return;
-
-			ArgumentNullException.ThrowIfNull(value);
-			_simulationEngine = Factory.Create(value.Type);
-		}
-	}
-
-	public bool IsBodyPresetSelectionVisible { get; set => SetProperty(ref field, value); }
-
-	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
-
-	public bool ShowPath { get; set => SetProperty(ref field, value); } = true;
-
 	public Viewport Viewport { get; } = new();
 
 	public TimeSpan Runtime { get; private set; }
@@ -156,32 +179,7 @@ public class World : NotifyPropertyChanged,
 	public int BodyCount
 		=> GetBodies().Length;
 
-	public bool AutoCenterViewport { get; set => SetProperty(ref field, value); }
-
-	public Body? SelectedBody { get; set => SetProperty(ref field, value); }
-
-	public bool IsRunning
-	{
-		get;
-		set
-		{
-			if(!SetProperty(ref field, value))
-				return;
-
-			if(value)
-				_simulationTime.Start();
-			else
-				_simulationTime.Stop();
-		}
-	} = true;
-
 	public Guid? CurrentRespawnerId { get; set; }
-
-	public bool IsHelpVisible { get; set => SetProperty(ref field, value); }
-
-	public bool ElasticCollisions { get; set => SetProperty(ref field, value); } = true;
-
-	public bool ClosedBoundaries { get; set => SetProperty(ref field, value); } = true;
 
 	public void CreateRandomBodies(int count, bool enableRespawn, bool stableOrbits)
 	{
@@ -364,6 +362,9 @@ public class World : NotifyPropertyChanged,
 	bool IWorld.ElasticCollisions
 		=> ElasticCollisions;
 
+	double IWorld.TimeScaleFactor
+		=> TimeScaleFactor;
+
 	Body[] IWorld.GetBodies()
 		=> GetBodies();
 
@@ -385,6 +386,7 @@ public class World : NotifyPropertyChanged,
 												  var frameDiagnosticsMeasurement = _frameTiming.LastMeasurement;
 
 												  CpuUtilizationInPercent = (int)Math.Round(frameDiagnosticsMeasurement.CpuUtilizationEmaInPercent);
+												  FramesPerSecond = (int)Math.Round(1000.0d / frameDiagnosticsMeasurement.LastFrameDurationInMs);
 
 												  // Log every ~60 frames; use TraceInformation for explicit event type
 												  if(frameDiagnosticsMeasurement.FrameCount % 60 == 0)
@@ -401,8 +403,6 @@ public class World : NotifyPropertyChanged,
 																				  ? string.Empty
 																				  : $" | {engineDiagnostics}"));
 												  }
-
-												  Updated?.Invoke(this, EventArgs.Empty);
 
 												  _isSimulating = 0;
 											  });

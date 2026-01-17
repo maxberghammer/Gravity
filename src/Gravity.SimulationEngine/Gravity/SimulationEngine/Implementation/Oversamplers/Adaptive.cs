@@ -6,7 +6,7 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 {
 	#region Fields
 
-	private readonly int _maxSteps;
+	private readonly int _baseMaxSteps;
 	private readonly TimeSpan _minDt;
 	private readonly double _safetyFactor;
 
@@ -14,9 +14,9 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 
 	#region Construction
 
-	protected Adaptive(int maxSteps, TimeSpan minDt, double safetyFactor)
+	protected Adaptive(int baseMaxSteps, TimeSpan minDt, double safetyFactor)
 	{
-		_maxSteps = maxSteps;
+		_baseMaxSteps = baseMaxSteps;
 		_minDt = minDt;
 		_safetyFactor = safetyFactor;
 	}
@@ -31,8 +31,11 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 		var remaining = timeSpan;
 		var steps = 0;
 
+		// Scale maxSteps with TimeScaleFactor: more time acceleration = more substeps needed
+		var maxSteps = (int)Math.Min(_baseMaxSteps * Math.Max(1.0, world.TimeScaleFactor), 4096);
+
 		while(TimeSpan.Zero < remaining &&
-			  steps < _maxSteps)
+			  steps < maxSteps)
 		{
 			var dt = TimeSpan.Max(_minDt, TimeSpan.Min(remaining, _safetyFactor * AdaptDt(bodies, remaining)));
 

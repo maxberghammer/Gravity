@@ -50,8 +50,10 @@ internal sealed partial class MainWindow
 																		  : Visibility.Collapsed;
 		_lblSelectedBodyv.Content = _viewmodel.SelectedBody?.v;
 		_lblSelectedBodym.Content = _viewmodel.SelectedBody?.m;
+		_lblFps.Content = _viewmodel.FramesPerSecond;
 		_lblCpuUtilizationInPercent.Content = _viewmodel.CpuUtilizationInPercent;
-		_lblRuntimeInSeconds.Content = _viewmodel.Runtime;
+		_lblRuntime.Content = _viewmodel.Runtime;
+		_lblBodyCount.Content = _viewmodel.BodyCount;
 	}
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
