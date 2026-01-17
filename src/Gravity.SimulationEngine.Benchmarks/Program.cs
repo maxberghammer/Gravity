@@ -37,8 +37,8 @@ internal static class Program
 			.Where(a => !(a.StartsWith("--resource=", StringComparison.OrdinalIgnoreCase) || a.StartsWith("--steps=", StringComparison.OrdinalIgnoreCase)))
 			.ToArray();
 
-		// Force warmup and iteration counts to 10 for all benchmarks
-		var config = DefaultConfig.Instance.AddJob(Job.Default.WithWarmupCount(10).WithIterationCount(10));
+		// Force warmup and iteration counts to 5 for faster baseline runs
+		var config = DefaultConfig.Instance.AddJob(Job.Default.WithWarmupCount(5).WithIterationCount(5));
 
 		BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(filteredArgs, config);
 	}
