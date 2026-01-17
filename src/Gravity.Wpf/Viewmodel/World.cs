@@ -187,11 +187,11 @@ public class World : NotifyPropertyChanged,
 
 		for(var i = 0; i < count; i++)
 		{
-			var position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			var position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y, _rng.NextDouble() * viewportSize.Z) + Viewport.TopLeft;
 			var bodies = GetBodies();
 
 			while(bodies.Any(b => (b.Position - position).Length <= b.r + SelectedBodyPreset.r))
-				position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+				position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y, _rng.NextDouble() * viewportSize.Z) + Viewport.TopLeft;
 
 			if(stableOrbits)
 				CreateOrbitBody(position, Vector3D.Zero);
@@ -234,11 +234,51 @@ public class World : NotifyPropertyChanged,
 		}
 
 		var dist = position - nearestBody.Position;
-		var direction = (dist.Norm().Unit() - velocity.Unit()).Length > (-dist.Norm().Unit() - velocity.Unit()).Length
+		var distLen = dist.Length;
+
+		if(distLen < 1e-12)
+		{
+			CreateBody(position, Vector3D.Zero);
+
+			return;
+		}
+
+		var distUnit = dist / distLen;
+
+		// Compute orbit tangent using two cross products
+		var up = new Vector3D(0, 0, 1);
+		var orbitNormal = distUnit.Cross(up);
+
+		if(orbitNormal.LengthSquared < 1e-12)
+		{
+			up = new Vector3D(1, 0, 0);
+			orbitNormal = distUnit.Cross(up);
+		}
+
+		// Tangent is perpendicular to both orbitNormal and dist (double cross product)
+		var tangent = orbitNormal.Cross(distUnit);
+		var tangentLen = tangent.Length;
+		
+		if(tangentLen < 1e-12)
+		{
+			CreateBody(position, Vector3D.Zero);
+			return;
+		}
+		
+		tangent = tangent / tangentLen;
+
+		// Determine orbit direction: which tangent direction is closer to velocity?
+		// Same logic as the 2D version: compare distance to +tangent vs -tangent
+		var velocityUnit = velocity.Length > 1e-12 ? velocity / velocity.Length : Vector3D.Zero;
+		var direction = (tangent - velocityUnit).Length > (-tangent - velocityUnit).Length
 							? -1
 							: 1;
-		var g = IWorld.G * (SelectedBodyPreset.m * nearestBody.m) / dist.LengthSquared * -dist.Unit();
-		var v = (1 + velocity.Length) * direction * Math.Sqrt(g.Length / SelectedBodyPreset.m * dist.Length) * dist.Norm().Unit() + nearestBody.v;
+
+		// Calculate orbital velocity for circular orbit: v = sqrt(G * M / r)
+		var orbitalSpeed = Math.Sqrt(IWorld.G * nearestBody.m / distLen);
+
+		// Scale with (1 + velocity.Length) like in 2D version
+		var v = (1 + velocity.Length) * direction * orbitalSpeed * tangent + nearestBody.v;
 		CreateBody(position, v);
 	}
 
@@ -258,17 +298,22 @@ public class World : NotifyPropertyChanged,
 		if(bodies.Length == 0)
 			return;
 
-		var previousSize = Viewport.Size;
-		var topLeft = new Vector3D(bodies.Min(e => e.Position.X - e.r), bodies.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector3D(bodies.Max(e => e.Position.X + e.r), bodies.Max(e => e.Position.Y + e.r));
+		var previousSize = Viewport.Size3D;
+		var topLeft = new Vector3D(bodies.Min(e => e.Position.X - e.r), 
+								   bodies.Min(e => e.Position.Y - e.r),
+								   bodies.Min(e => e.Position.Z - e.r));
+		var bottomRight = new Vector3D(bodies.Max(e => e.Position.X + e.r), 
+									   bodies.Max(e => e.Position.Y + e.r),
+									   bodies.Max(e => e.Position.Z + e.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
+		// Maintain aspect ratio (width:height)
 		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
-			newSize = new(newSize.Y * previousSize.X / previousSize.Y, newSize.Y);
+			newSize = new(newSize.Y * previousSize.X / previousSize.Y, newSize.Y, newSize.Z);
 		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
-			newSize = new(newSize.X, newSize.X * previousSize.Y / previousSize.X);
-		Viewport.TopLeft = center - newSize / 2;
-		Viewport.BottomRight = center + newSize / 2;
+			newSize = new(newSize.X, newSize.X * previousSize.Y / previousSize.X, newSize.Z);
+		
+		Viewport.SetBoundsAroundCenter(center, newSize);
 		Viewport.Scale += Math.Log10(Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y));
 	}
 
@@ -277,17 +322,15 @@ public class World : NotifyPropertyChanged,
 		_bodies.ClearLocked();
 		Runtime = TimeSpan.Zero;
 		SelectedBody = null;
-		var viewportSize = Viewport.Size;
-		Viewport.TopLeft = -viewportSize / 2;
-		Viewport.BottomRight = viewportSize / 2;
+		Viewport.SetBoundsAroundCenter(Vector3D.Zero, Viewport.Size3D);
 	}
 
 	public async Task SaveAsync(string filePath)
 	{
 		var state = new State
 					{
-						Viewport = new(new(Viewport.TopLeft.X, Viewport.TopLeft.Y),
-									   new(Viewport.BottomRight.X, Viewport.BottomRight.Y),
+						Viewport = new(new(Viewport.TopLeft.X, Viewport.TopLeft.Y, Viewport.TopLeft.Z),
+									   new(Viewport.BottomRight.X, Viewport.BottomRight.Y, Viewport.BottomRight.Z),
 									   Viewport.Scale),
 						AutoCenterViewport = AutoCenterViewport,
 						ClosedBoundaries = ClosedBoundaries,
@@ -318,8 +361,11 @@ public class World : NotifyPropertyChanged,
 
 		Reset();
 
-		Viewport.TopLeft = new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y);
-		Viewport.BottomRight = new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y);
+		var isFlat = state.Viewport.TopLeft.Z.Equals(state.Viewport.BottomRight.Z);
+		Viewport.TopLeft = new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, isFlat ? state.Viewport.TopLeft.Y : state.Viewport.TopLeft.Z);
+		Viewport.BottomRight = new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y, isFlat
+																								   ? -state.Viewport.BottomRight.Y
+																								   : state.Viewport.BottomRight.Z);
 		Viewport.Scale = state.Viewport.Scale;
 		AutoCenterViewport = state.AutoCenterViewport;
 		ClosedBoundaries = state.ClosedBoundaries;
@@ -467,15 +513,15 @@ public class World : NotifyPropertyChanged,
 		if(bodies.Length == 0)
 			return;
 
-		var previousSize = Viewport.Size;
 		var topLeft = new Vector3D(bodies.Min(b => b.Position.X - b.r),
-								   bodies.Min(b => b.Position.Y - b.r));
+								   bodies.Min(b => b.Position.Y - b.r),
+								   bodies.Min(b => b.Position.Z - b.r));
 		var bottomRight = new Vector3D(bodies.Max(b => b.Position.X + b.r),
-									   bodies.Max(b => b.Position.Y + b.r));
+									   bodies.Max(b => b.Position.Y + b.r),
+									   bodies.Max(b => b.Position.Z + b.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 
-		Viewport.TopLeft = center - previousSize / 2;
-		Viewport.BottomRight = center + previousSize / 2;
+		Viewport.SetCenter(center);
 	}
 
 	#endregion

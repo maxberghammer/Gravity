@@ -104,32 +104,48 @@ internal sealed class SimulationEngine : ISimulationEngine
 	{
 		var leftX = world.Viewport.TopLeft.X + body.r;
 		var topY = world.Viewport.TopLeft.Y + body.r;
+		var frontZ = world.Viewport.TopLeft.Z + body.r;
 		var rightX = world.Viewport.BottomRight.X - body.r;
 		var bottomY = world.Viewport.BottomRight.Y - body.r;
+		var backZ = world.Viewport.BottomRight.Z - body.r;
 
 		var pos = body.Position;
 		var v = body.v;
 
+		// X boundaries
 		if(pos.X < leftX)
 		{
-			v = new(-v.X, v.Y);
-			pos = new(leftX, pos.Y);
+			v = new(-v.X, v.Y, v.Z);
+			pos = new(leftX, pos.Y, pos.Z);
 		}
 		else if(pos.X > rightX)
 		{
-			v = new(-v.X, v.Y);
-			pos = new(rightX, pos.Y);
+			v = new(-v.X, v.Y, v.Z);
+			pos = new(rightX, pos.Y, pos.Z);
 		}
 
+		// Y boundaries
 		if(pos.Y < topY)
 		{
-			v = new(v.X, -v.Y);
-			pos = new(pos.X, topY);
+			v = new(v.X, -v.Y, v.Z);
+			pos = new(pos.X, topY, pos.Z);
 		}
 		else if(pos.Y > bottomY)
 		{
-			v = new(v.X, -v.Y);
-			pos = new(pos.X, bottomY);
+			v = new(v.X, -v.Y, v.Z);
+			pos = new(pos.X, bottomY, pos.Z);
+		}
+
+		// Z boundaries (3D)
+		if(pos.Z < frontZ)
+		{
+			v = new(v.X, v.Y, -v.Z);
+			pos = new(pos.X, pos.Y, frontZ);
+		}
+		else if(pos.Z > backZ)
+		{
+			v = new(v.X, v.Y, -v.Z);
+			pos = new(pos.X, pos.Y, backZ);
 		}
 
 		body.v = v;

@@ -28,7 +28,7 @@ public partial class Direct3dWorldView
 		{
 			#region Fields
 
-			private readonly Vector2[] _buffer;
+			private readonly Vector3[] _buffer;
 			private int _start;
 
 			#endregion
@@ -37,7 +37,7 @@ public partial class Direct3dWorldView
 
 			public PathBuffer(int capacity)
 			{
-				_buffer = new Vector2[capacity];
+				_buffer = new Vector3[capacity];
 				_start = 0;
 				Count = 0;
 			}
@@ -48,7 +48,7 @@ public partial class Direct3dWorldView
 
 			public int Count { get; private set; }
 
-			public Vector2 LastOrDefault()
+			public Vector3 LastOrDefault()
 			{
 				if(Count == 0)
 					return default;
@@ -58,7 +58,7 @@ public partial class Direct3dWorldView
 				return _buffer[idx];
 			}
 
-			public void Add(Vector2 v)
+			public void Add(Vector3 v)
 			{
 				if(Count < _buffer.Length)
 				{
@@ -81,7 +81,7 @@ public partial class Direct3dWorldView
 			}
 
 			// Copies the logical sequence into dst span in at most two slices
-			public void CopyTo(Span<Vector2> dst)
+			public void CopyTo(Span<Vector3> dst)
 			{
 				var firstLen = Math.Min(Count, _buffer.Length - _start);
 				_buffer.AsSpan(_start, firstLen).CopyTo(dst);
@@ -97,64 +97,61 @@ public partial class Direct3dWorldView
 		#region Fields
 
 		private const string _hlsl = """
-									 cbuffer Camera : register(b0)
-									 {
-									     float2 TopLeft;     // Welt
-									     float2 ScreenSize;  // DIU (ActualWidth, ActualHeight)
-									     float  Scale;       // Zoom
-									     float  _pad0;
-									     float2 _pad1;
-									 };
+			cbuffer Camera : register(b0)
+			{
+			    float4x4 ViewProj;     // Combined View * Projection matrix
+			    float3 CameraRight;    // For billboard orientation
+			    float _pad0;
+			    float3 CameraUp;       // For billboard orientation
+			    float _pad1;
+			    float2 ScreenSize;     // Screen dimensions
+			    float  Scale;          // Zoom factor
+			    float _pad2;
+			};
 
-									 // Pfad-Parameter (pro Draw gesetzt)
-									 cbuffer PathParams : register(b1)
-									 {
-									     uint  PathVertexCount;
-									     float3 _padParams;
-									 };
+			// Pfad-Parameter (pro Draw gesetzt)
+			cbuffer PathParams : register(b1)
+			{
+			    uint  PathVertexCount;
+			    float3 _padParams;
+			};
 
-									 // ------------- Pfade (Linien) -------------
-									 struct VSIn
-									 {
-									     float2 Pos : POSITION;      // Welt-Koordinate (X,Y)
-									     uint   Vid : SV_VertexID;   // Laufindex im aktuellen Pfad
-									 };
+			// ------------- Pfade (Linien) -------------
+			struct VSIn
+			{
+			    float3 Pos : POSITION;      // 3D Welt-Koordinate
+			    uint   Vid : SV_VertexID;   // Laufindex im aktuellen Pfad
+			};
 
-									 struct VSOut
-									 {
-									     float4 Pos : SV_POSITION;
-									     float  T   : TEXCOORD0;     // 0..1 entlang des Pfades
-									 };
+			struct VSOut
+			{
+			    float4 Pos : SV_POSITION;
+			    float  T   : TEXCOORD0;     // 0..1 entlang des Pfades
+			};
 
-									 VSOut VS(VSIn i)
-									 {
-									     VSOut o;
+			VSOut VS(VSIn i)
+			{
+			    VSOut o;
 
-									     // Welt -> Screen
-									     float2 screen = (i.Pos - TopLeft) * Scale;
+			    // Transform to clip space using ViewProj matrix
+			    o.Pos = mul(float4(i.Pos, 1.0), ViewProj);
 
-									     // Screen -> NDC
-									     float2 ndc;
-									     ndc.x = screen.x * (2.0 / ScreenSize.x) - 1.0;
-									     ndc.y = 1.0 - screen.y * (2.0 / ScreenSize.y);
+			    // Pfad-Interpolation 0..1 (Start->Ende)
+			    float denom = max(1.0, (float)(PathVertexCount - 1));
+			    o.T = saturate((float)i.Vid / denom);
 
-									     // Pfad-Interpolation 0..1 (Start->Ende)
-									     float denom = max(1.0, (float)(PathVertexCount - 1));
-									     o.T = saturate((float)i.Vid / denom);
+			    return o;
+			}
 
-									     o.Pos = float4(ndc, 0, 1);
-									     return o;
-									 }
-
-									 float4 PS(VSOut i) : SV_Target
-									 {
-									     // Verlauf: Start nahezu schwarz, Ende weiß
-									     const float3 startCol = float3(0.05, 0.05, 0.05);
-									     const float3 endCol   = float3(1.0, 1.0, 1.0);
-									     float3 col = lerp(startCol, endCol, i.T);
-									     return float4(col, 1);
-									 }
-									 """;
+			float4 PS(VSOut i) : SV_Target
+			{
+			    // Verlauf: Start nahezu schwarz, Ende weiß
+			    const float3 startCol = float3(0.05, 0.05, 0.05);
+			    const float3 endCol   = float3(1.0, 1.0, 1.0);
+			    float3 col = lerp(startCol, endCol, i.T);
+			    return float4(col, 1);
+			}
+			""";
 
 		private const int _maxPathSegments = 10_000;
 		private readonly Dictionary<int, PathBuffer> _pathsByBodyId = new();
@@ -240,9 +237,9 @@ public partial class Direct3dWorldView
 				if(!_pathsByBodyId.TryGetValue(body.Id, out var pathBuf))
 					_pathsByBodyId[body.Id] = pathBuf = new(_maxPathSegments);
 				var last = pathBuf.LastOrDefault();
-				var pos = new Vector2((float)body.Position.X, (float)body.Position.Y);
+				var pos = new Vector3((float)body.Position.X, (float)body.Position.Y, (float)body.Position.Z);
 				if(pathBuf.Count == 0 ||
-				   Vector2.Distance(pos, last) >= moveThreshold)
+				   Vector3.Distance(pos, last) >= moveThreshold)
 					pathBuf.Add(pos);
 			}
 
@@ -260,8 +257,8 @@ public partial class Direct3dWorldView
 			// ConstantBuffer b1 for path params
 			e.Context.VSSetConstantBuffer(1, _paramsBuffer);
 
-			// Bind vertex buffer (stride = float2)
-			var stride = (uint)Marshal.SizeOf<Vector2>();
+			// Bind vertex buffer (stride = float3)
+			var stride = (uint)Marshal.SizeOf<Vector3>();
 			var offset = 0u;
 			e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
 
@@ -303,14 +300,14 @@ public partial class Direct3dWorldView
 			{
 				_eDisposeBuffer();
 				_bufferCapacity = Math.Max(totalVerts, _bufferCapacity * 2);
-				_buffer = e.Device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector2>()), BindFlags.VertexBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write));
+				_buffer = e.Device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector3>()), BindFlags.VertexBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write));
 				// Re-bind vertex buffer with new capacity
 				e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
 			}
 
 			e.Context.Map(_buffer, 0, MapMode.WriteDiscard, MapFlags.None, out var box);
-			var byteSpanAll = box.AsSpan(totalVerts * Marshal.SizeOf<Vector2>());
-			var dstAll = MemoryMarshal.Cast<byte, Vector2>(byteSpanAll);
+			var byteSpanAll = box.AsSpan(totalVerts * Marshal.SizeOf<Vector3>());
+			var dstAll = MemoryMarshal.Cast<byte, Vector3>(byteSpanAll);
 			var writeIdx = 0;
 
 			for(var vi = 0; vi < valuesArray.Length; vi++)
@@ -387,7 +384,7 @@ public partial class Direct3dWorldView
 			if(_buffer == null)
 			{
 				_bufferCapacity = _maxPathSegments;
-				_buffer = device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector2>()),
+				_buffer = device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector3>()),
 												  BindFlags.VertexBuffer,
 												  ResourceUsage.Dynamic,
 												  CpuAccessFlags.Write));
@@ -407,7 +404,7 @@ public partial class Direct3dWorldView
 
 			_vertexShader = device.CreateVertexShader(vsCode);
 			_pixelShader = device.CreatePixelShader(psCode);
-			_inputLayout = device.CreateInputLayout([new("POSITION", 0, Format.R32G32_Float, 0)], vsCode);
+			_inputLayout = device.CreateInputLayout([new("POSITION", 0, Format.R32G32B32_Float, 0)], vsCode);
 		}
 
 		#endregion

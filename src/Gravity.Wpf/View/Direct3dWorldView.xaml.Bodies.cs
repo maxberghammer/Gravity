@@ -24,106 +24,104 @@ public partial class Direct3dWorldView
 
 		private const string _hlsl = """
 			
-									 struct Body
-									 {
-									     float2 Position;
-									     float Radius;
-									     float StrokeWidth;
-									     float3 FillColor;
-									     uint Flags;
-									     float3 StrokeColor;
-									     float _pad;
-									 };
+			struct Body
+			{
+			    float3 Position;      // 3D world position
+			    float Radius;
+			    float StrokeWidth;
+			    float3 FillColor;
+			    uint Flags;
+			    float3 StrokeColor;
+			};
 
-									 StructuredBuffer<Body> Bodies : register(t0);
+			StructuredBuffer<Body> Bodies : register(t0);
 
-									 cbuffer Camera : register(b0)
-									 {
-									     float2 TopLeft;     // Welt
-									     float2 ScreenSize;  // DIU (ActualWidth, ActualHeight)
-									     float  Scale;       // Zoom
-									     float  _pad0;
-									     float2 _pad1;
-									 };
+			cbuffer Camera : register(b0)
+			{
+			    float4x4 ViewProj;     // Combined View * Projection matrix
+			    float3 CameraRight;    // For billboard orientation
+			    float _pad0;
+			    float3 CameraUp;       // For billboard orientation
+			    float _pad1;
+			    float2 ScreenSize;     // Screen dimensions
+			    float  Scale;          // Zoom factor
+			    float _pad2;
+			};
 
-									 struct VSIn
-									 {
-									     float2 Pos : POSITION;
-									     uint   InstanceID : SV_InstanceID;
-									 };
+			struct VSIn
+			{
+			    float2 Pos : POSITION;    // Quad vertex (-1..1)
+			    uint   InstanceID : SV_InstanceID;
+			};
 
-									 struct VSOut
-									 {
-									     float4 Pos : SV_POSITION;
-									     float2 UV  : TEXCOORD;
-									     float  Radius : RADIUS;
-									     float  Stroke : STROKE;
-									     float3 Fill   : FILL;
-									     float3 StrokeCol : STROKECOL;
-									     uint   Flags  : FLAGS;
-									 };
+			struct VSOut
+			{
+			    float4 Pos : SV_POSITION;
+			    float2 UV  : TEXCOORD;
+			    float  Radius : RADIUS;
+			    float  Stroke : STROKE;
+			    float3 Fill   : FILL;
+			    float3 StrokeCol : STROKECOL;
+			    uint   Flags  : FLAGS;
+			};
 
-									 VSOut VS(VSIn i)
-									 {
-									     Body e = Bodies[i.InstanceID];
+			VSOut VS(VSIn i)
+			{
+			    Body e = Bodies[i.InstanceID];
 
-									     VSOut o;
+			    VSOut o;
 
-									     // Weltposition des Pixels (Kreis-Quad)
-									     float2 world = e.Position + i.Pos * (e.Radius + e.StrokeWidth);
+			    // Billboard: expand quad in camera-aligned plane
+			    float size = e.Radius + e.StrokeWidth;
+			    float3 worldPos = e.Position 
+			                    + CameraRight * (i.Pos.x * size)
+			                    + CameraUp * (i.Pos.y * size);
 
-									     // Welt -> Screen (oben links ist (0,0))
-									     float2 screen = (world - TopLeft) * Scale;
+			    // Transform to clip space
+			    o.Pos = mul(float4(worldPos, 1.0), ViewProj);
+			    o.UV  = i.Pos;
+			    o.Radius = e.Radius;
+			    o.Stroke = e.StrokeWidth;
+			    o.Fill   = e.FillColor;
+			    o.StrokeCol = e.StrokeColor;
+			    o.Flags  = e.Flags;
 
-									     // Screen -> NDC (Ortho wie in OpenGL: gl.Ortho(0,w,h,0,...))
-									     float2 ndc;
-									     ndc.x = screen.x * (2.0 / ScreenSize.x) - 1.0;
-									     ndc.y = 1.0 - screen.y * (2.0 / ScreenSize.y);
+			    return o;
+			}
 
-									     o.Pos = float4(ndc, 0, 1);
-									     o.UV  = i.Pos;
-									     o.Radius = e.Radius;
-									     o.Stroke = e.StrokeWidth;
-									     o.Fill   = e.FillColor;
-									     o.StrokeCol = e.StrokeColor;
-									     o.Flags  = e.Flags;
-
-									     return o;
-									 }
-
-									float4 PS(VSOut i) : SV_Target
-									{
-									    // Kreismaske
-									    float d = dot(i.UV, i.UV);
-									    if (d > 1) discard;
-									
-									    // "Kugel"-Normal aus UV (Z zeigt zur Kamera)
-									    float z = sqrt(1 - d);
-									    float3 n = normalize(float3(i.UV, z));
-									
-									    // Vorderlicht (zur Kamera): front = n.z
-									    float front = saturate(n.z);
-									
-									    // Sanfter Verlauf: Ambient + Diffuse (Half-Lambert-ähnlich)
-									    const float ambient = 0.15;
-									    float diffuse = front * 0.85;
-									    float shade = ambient + diffuse; // 0.15..1.0
-									
-									    // Dezentes Specular-Hotspot in der Mitte
-									    float spec = pow(front, 32.0) * 0.15;
-									
-									    // Innen- vs. Außenfarbe (Stroke)
-									    float inner = i.Radius / (i.Radius + i.Stroke);
-									    float3 baseCol = (d > inner * inner) ? i.StrokeCol : i.Fill;
-									
-									    // Selektion übersteuern (wie bisher)
-									    if ((i.Flags & 1) != 0 && d > 0.85)
-									        baseCol = float3(1,1,0);
-									
-									    float3 col = baseCol * shade + spec;
-									
-									    return float4(col, 1);
-									}
+			float4 PS(VSOut i) : SV_Target
+			{
+			    // Kreismaske
+			    float d = dot(i.UV, i.UV);
+			    if (d > 1) discard;
+			
+			    // "Kugel"-Normal aus UV (Z zeigt zur Kamera)
+			    float z = sqrt(1 - d);
+			    float3 n = normalize(float3(i.UV, z));
+			
+			    // Vorderlicht (zur Kamera): front = n.z
+			    float front = saturate(n.z);
+			
+			    // Sanfter Verlauf: Ambient + Diffuse (Half-Lambert-ähnlich)
+			    const float ambient = 0.15;
+			    float diffuse = front * 0.85;
+			    float shade = ambient + diffuse; // 0.15..1.0
+			
+			    // Dezentes Specular-Hotspot in der Mitte
+			    float spec = pow(front, 32.0) * 0.15;
+			
+			    // Innen- vs. Außenfarbe (Stroke)
+			    float inner = i.Radius / (i.Radius + i.Stroke);
+			    float3 baseCol = (d > inner * inner) ? i.StrokeCol : i.Fill;
+			
+			    // Selektion übersteuern (wie bisher)
+			    if ((i.Flags & 1) != 0 && d > 0.85)
+			        baseCol = float3(1,1,0);
+			
+			    float3 col = baseCol * shade + spec;
+			
+			    return float4(col, 1);
+			}
 			
 			""";
 
@@ -167,21 +165,11 @@ public partial class Direct3dWorldView
 
 			Span<BodyGpu> data = stackalloc BodyGpu[count];
 
-			//data[0] = new BodyGpu
-			//{
-			//	Position = new Vector2(0,0),
-			//	Radius = 10,
-			//	StrokeWidth = 2,
-			//	FillColor = new Vector3(0f, 0f, 0f),
-			//	StrokeColor = new Vector3(1f, 1f, 1f),
-			//	Flags = 0
-			//};
-
 			var i = 0;
 			foreach(var body in bodies)
 				data[i++] = new()
 							{
-								Position = new((float)body.Position.X, (float)body.Position.Y),
+								Position = new((float)body.Position.X, (float)body.Position.Y, (float)body.Position.Z),
 								Radius = (float)body.r,
 								StrokeWidth = (float)body.AtmosphereThickness,
 								FillColor = new(body.Color.ScR, body.Color.ScG, body.Color.ScB),

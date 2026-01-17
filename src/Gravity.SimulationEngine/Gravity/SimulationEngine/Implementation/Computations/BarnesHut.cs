@@ -19,38 +19,46 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 		if(n == 0)
 			return;
 
-		// Bounds bestimmen
-		double l = double.PositiveInfinity,
-			   t = double.PositiveInfinity,
-			   r = double.NegativeInfinity,
-			   b = double.NegativeInfinity;
+		// Bounds bestimmen (3D)
+		double minX = double.PositiveInfinity,
+			   minY = double.PositiveInfinity,
+			   minZ = double.PositiveInfinity,
+			   maxX = double.NegativeInfinity,
+			   maxY = double.NegativeInfinity,
+			   maxZ = double.NegativeInfinity;
 
 		for(var i = 0; i < n; i++)
 		{
 			var p = bodies[i].Position;
-			if(p.X < l)
-				l = p.X;
-			if(p.Y < t)
-				t = p.Y;
-			if(p.X > r)
-				r = p.X;
-			if(p.Y > b)
-				b = p.Y;
+			if(p.X < minX)
+				minX = p.X;
+			if(p.Y < minY)
+				minY = p.Y;
+			if(p.Z < minZ)
+				minZ = p.Z;
+			if(p.X > maxX)
+				maxX = p.X;
+			if(p.Y > maxY)
+				maxY = p.Y;
+			if(p.Z > maxZ)
+				maxZ = p.Z;
 		}
 
-		if(double.IsInfinity(l) ||
-		   double.IsInfinity(t) ||
-		   double.IsInfinity(r) ||
-		   double.IsInfinity(b))
+		if(double.IsInfinity(minX) ||
+		   double.IsInfinity(minY) ||
+		   double.IsInfinity(minZ) ||
+		   double.IsInfinity(maxX) ||
+		   double.IsInfinity(maxY) ||
+		   double.IsInfinity(maxZ))
 		{
-			l = t = -1.0;
-			r = b = 1.0;
+			minX = minY = minZ = -1.0;
+			maxX = maxY = maxZ = 1.0;
 		}
 
 		// Theta adaptiv wie in Barnes–Hut (inkl. Small-N-Overrides)
-		var theta = ComputeTheta(bodies, l, t, r, b);
+		var theta = ComputeTheta(bodies, minX, minY, minZ, maxX, maxY, maxZ);
 
-		var tree = new Tree(new(l, t), new(r, b), theta, n);
+		var tree = new Tree(new(minX, minY, minZ), new(maxX, maxY, maxZ), theta, n);
 		// Presort by Morton-order for better locality
 		tree.AddRange(bodies);
 		tree.ComputeMassDistribution();
@@ -71,12 +79,13 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 
 	#region Implementation
 
-	private static double ComputeTheta(Body[] bodies, double l, double t, double r, double b)
+	private static double ComputeTheta(Body[] bodies, double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
 	{
 		var n = bodies.Length;
-		var width = Math.Max(1e-12, r - l);
-		var height = Math.Max(1e-12, b - t);
-		var span = Math.Max(width, height);
+		var width = Math.Max(1e-12, maxX - minX);
+		var height = Math.Max(1e-12, maxY - minY);
+		var depth = Math.Max(1e-12, maxZ - minZ);
+		var span = Math.Max(width, Math.Max(height, depth));
 		var minSep = double.PositiveInfinity;
 
 		for(var i = 0; i < Math.Min(n, 32); i++)

@@ -16,7 +16,7 @@ public readonly struct Vector3D : IEquatable<Vector3D>
 	#region Construction
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public Vector3D(double x, double y, double z = 0)
+	public Vector3D(double x, double y, double z)
 	{
 		X = x;
 		Y = y;
@@ -93,15 +93,7 @@ public readonly struct Vector3D : IEquatable<Vector3D>
 		var len = Length;
 		return (this / len, len);
 	}
-
-	/// <summary>
-	/// Returns the 2D normal (perpendicular) vector in the XY plane.
-	/// For 3D cross products, use Cross() method instead.
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public Vector3D Norm()
-		=> new(Y, -X, 0);
-
+	
 	/// <summary>
 	/// Returns the cross product of two 3D vectors.
 	/// </summary>

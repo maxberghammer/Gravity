@@ -407,7 +407,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 											   }
 										   }
 
-										   body.a = new(ax, ay);
+										   body.a = new(ax, ay, 0);
 									   });
 	}
 

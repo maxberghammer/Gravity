@@ -29,8 +29,9 @@ public class BarnesHutInsertBench
 		{
 			var x = RandomNumberGenerator.GetInt32(-500, 500);
 			var y = RandomNumberGenerator.GetInt32(-500, 500);
+			var z = RandomNumberGenerator.GetInt32(-500, 500);
 			bodies[i] = new Body(
-				new Vector3D(x, y),
+			new Vector3D(x, y, z),
 				10.0,
 				1e12,
 				Vector3D.Zero,
@@ -57,7 +58,7 @@ public class BarnesHutInsertBench
 	
 	private static double RunInsert(Body[] bodies)
 	{
-		var tree = new BarnesHut.Tree(new Vector3D(-600, -600), new Vector3D(600, 600), 0.7, bodies.Length);
+		var tree = new BarnesHut.Tree(new Vector3D(-600, -600, -600), new Vector3D(600, 600, 600), 0.7, bodies.Length);
 		tree.AddRange(bodies);
 		tree.ComputeMassDistribution();
 		var nodeCount = tree.NodeCount;

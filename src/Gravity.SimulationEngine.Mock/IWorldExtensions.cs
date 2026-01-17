@@ -22,7 +22,7 @@ public static class IWorldExtensions
 			using var ms = new MemoryStream(bytes);
 			using var reader = new StreamReader(ms, Encoding.UTF8, false);
 			var state = await State.DeserializeAsync(reader);
-			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y));
+			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, state.Viewport.TopLeft.Z), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y, state.Viewport.BottomRight.Z));
 			var bodies = new Body[state.Bodies.Length];
 
 		for(var i = 0; i < bodies.Length; i++)

@@ -56,6 +56,7 @@
                                 SizeChanged="OnWorldSizeChanged"
                                 MouseWheel="OnWorldMouseWheel"
                                 MouseDown="OnWorldMouseDown"
+                                MouseUp="OnWorldMouseUp"
                                 MouseMove="OnWorldMouseMove"
                                 MouseLeftButtonUp="OnWorldMouseLeftButtonUp"
                                 MouseRightButtonUp="OnWorldRightButtonUp"/>

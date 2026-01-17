@@ -7,7 +7,7 @@ namespace Gravity.SimulationEngine.Implementation.Computations;
 
 internal sealed partial class BarnesHut
 {
-	// Highly optimized Barnes–Hut style quadtree
+	// Highly optimized Barnes–Hut style octree (3D)
 	// - Allocation-light (pooled array-backed nodes)
 	// - No collision collection (acceleration-only)
 	// - Iterative traversal for CalculateGravity
@@ -15,7 +15,6 @@ internal sealed partial class BarnesHut
 	{
 		#region Internal types
 
-		// ReSharper disable InconsistentNaming
 		private struct Node
 		{
 			#region Fields
@@ -29,27 +28,48 @@ internal sealed partial class BarnesHut
 			public Vector3D Com;
 			public int Count; // number of bodies aggregated in this node
 
-			// Bounds
-			public double L,
-						  T,
-						  R,
-						  B;
+			// 3D Bounds (Left, Top, Front to Right, Bottom, Back)
+			public double MinX, MinY, MinZ;
+			public double MaxX, MaxY, MaxZ;
 
 			// Mass and center of mass
 			public double Mass;
 
-			// Children indices (-1 if none)
-			public int NW,
-					   NE,
-					   SW,
-					   SE;
+			// 8 Children indices for octree (-1 if none)
+			// Named by octant: [X < mid][Y < mid][Z < mid]
+			public int Child0; // X<, Y<, Z< (front-top-left)
+			public int Child1; // X>=, Y<, Z< (front-top-right)
+			public int Child2; // X<, Y>=, Z< (front-bottom-left)
+			public int Child3; // X>=, Y>=, Z< (front-bottom-right)
+			public int Child4; // X<, Y<, Z>= (back-top-left)
+			public int Child5; // X>=, Y<, Z>= (back-top-right)
+			public int Child6; // X<, Y>=, Z>= (back-bottom-left)
+			public int Child7; // X>=, Y>=, Z>= (back-bottom-right)
 
 			// Cached squared width for traversal criterion
 			public double WidthSq;
 
 			#endregion
+
+			#region Interface
+
+			public readonly bool HasChildren => Child0 >= 0;
+
+			public readonly int GetChild(int index) => index switch
+			{
+				0 => Child0,
+				1 => Child1,
+				2 => Child2,
+				3 => Child3,
+				4 => Child4,
+				5 => Child5,
+				6 => Child6,
+				7 => Child7,
+				_ => -1
+			};
+
+			#endregion
 		}
-		// ReSharper disable InconsistentNaming
 
 		#endregion
 
@@ -61,10 +81,8 @@ internal sealed partial class BarnesHut
 		// Thread-local stack pool to eliminate contention during parallel CalculateGravity calls
 		[ThreadStatic] private static int[]? _threadLocalStack;
 
-		private readonly double _l,
-								_t,
-								_r,
-								_b; // store bounds for Morton
+		private readonly double _minX, _minY, _minZ;
+		private readonly double _maxX, _maxY, _maxZ;
 
 		private readonly int _root;
 		private readonly double _theta;
@@ -78,14 +96,16 @@ internal sealed partial class BarnesHut
 		public Tree(in Vector3D topLeft, in Vector3D bottomRight, double theta, int estimatedBodies)
 		{
 			_theta = theta;
-			_l = topLeft.X;
-			_t = topLeft.Y;
-			_r = bottomRight.X;
-			_b = bottomRight.Y;
-			var initialCapacity = Math.Max(1024, Math.Min(estimatedBodies * 4, 1_000_000));
+			_minX = topLeft.X;
+			_minY = topLeft.Y;
+			_minZ = topLeft.Z;
+			_maxX = bottomRight.X;
+			_maxY = bottomRight.Y;
+			_maxZ = bottomRight.Z;
+			var initialCapacity = Math.Max(1024, Math.Min(estimatedBodies * 8, 2_000_000));
 			_nodes = ArrayPool<Node>.Shared.Rent(initialCapacity);
 			NodeCount = 0;
-			_root = NewNode(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y);
+			_root = NewNode(_minX, _minY, _minZ, _maxX, _maxY, _maxZ);
 		}
 
 		public Tree(in Vector3D topLeft, in Vector3D bottomRight, double theta)
@@ -108,25 +128,30 @@ internal sealed partial class BarnesHut
 
 		public void AddRange(Body[] entities)
 		{
-			var width = Math.Max(EpsilonSize, _r - _l);
-			var height = Math.Max(EpsilonSize, _b - _t);
+			var width = Math.Max(EpsilonSize, _maxX - _minX);
+			var height = Math.Max(EpsilonSize, _maxY - _minY);
+			var depth = Math.Max(EpsilonSize, _maxZ - _minZ);
 			var invW = 1.0 / width;
 			var invH = 1.0 / height;
+			var invD = 1.0 / depth;
 			var n = entities.Length;
-			var pool = ArrayPool<(uint key, Body e)>.Shared;
+			var pool = ArrayPool<(ulong key, Body e)>.Shared;
 			var arr = pool.Rent(n);
 
+			// Compute 3D Morton code for spatial sorting
 			for(var i = 0; i < n; i++)
 			{
 				var p = entities[i].Position;
-				var nx = Math.Clamp((p.X - _l) * invW, 0.0, 1.0);
-				var ny = Math.Clamp((p.Y - _t) * invH, 0.0, 1.0);
-				var x = (uint)(nx * uint.MaxValue);
-				var y = (uint)(ny * uint.MaxValue);
-				arr[i] = (InterleaveBits(x, y), entities[i]);
+				var nx = Math.Clamp((p.X - _minX) * invW, 0.0, 1.0);
+				var ny = Math.Clamp((p.Y - _minY) * invH, 0.0, 1.0);
+				var nz = Math.Clamp((p.Z - _minZ) * invD, 0.0, 1.0);
+				var x = (uint)(nx * (1u << 21)); // 21 bits per dimension for 63-bit Morton code
+				var y = (uint)(ny * (1u << 21));
+				var z = (uint)(nz * (1u << 21));
+				arr[i] = (InterleaveBits3D(x, y, z), entities[i]);
 			}
 
-			Array.Sort(arr, 0, n, Comparer<(uint key, Body e)>.Create((a, b) => a.key.CompareTo(b.key)));
+			Array.Sort(arr, 0, n, Comparer<(ulong key, Body e)>.Create((a, b) => a.key.CompareTo(b.key)));
 			for(var i = 0; i < n; i++)
 				Insert(_root, arr[i].e, 0);
 			pool.Return(arr);
@@ -135,7 +160,7 @@ internal sealed partial class BarnesHut
 		public void ComputeMassDistribution()
 		{
 			var pool = ArrayPool<(int idx, int state)>.Shared;
-			var stack = pool.Rent(128);
+			var stack = pool.Rent(256);
 			var sp = 0;
 			stack[sp++] = (_root, 0);
 
@@ -143,11 +168,10 @@ internal sealed partial class BarnesHut
 			{
 				(var idx, var state) = stack[--sp];
 				var n = _nodes[idx];
-				var hasChildren = n.NW >= 0;
 
-				if(state == 0 && hasChildren)
+				if(state == 0 && n.HasChildren)
 				{
-					if(sp + 5 >= stack.Length)
+					if(sp + 9 >= stack.Length)
 					{
 						var bigger = pool.Rent(stack.Length * 2);
 						Array.Copy(stack, bigger, sp);
@@ -156,29 +180,28 @@ internal sealed partial class BarnesHut
 					}
 
 					stack[sp++] = (idx, 1);
-					if(n.NW >= 0)
-						stack[sp++] = (n.NW, 0);
-					if(n.NE >= 0)
-						stack[sp++] = (n.NE, 0);
-					if(n.SW >= 0)
-						stack[sp++] = (n.SW, 0);
-					if(n.SE >= 0)
-						stack[sp++] = (n.SE, 0);
+					for(var c = 0; c < 8; c++)
+					{
+						var child = n.GetChild(c);
+						if(child >= 0)
+							stack[sp++] = (child, 0);
+					}
 				}
 				else
 				{
-					// cache width^2 once per node for traversal
-					var w = Math.Max(EpsilonSize, n.R - n.L);
+					// Cache width^2 once per node for traversal (use max dimension)
+					var wx = Math.Max(EpsilonSize, n.MaxX - n.MinX);
+					var wy = Math.Max(EpsilonSize, n.MaxY - n.MinY);
+					var wz = Math.Max(EpsilonSize, n.MaxZ - n.MinZ);
+					var w = Math.Max(wx, Math.Max(wy, wz));
 					n.WidthSq = w * w;
 
-					if(hasChildren)
+					if(n.HasChildren)
 					{
 						var mass = 0.0;
 						var wcom = Vector3D.Zero;
-						Accumulate(ref mass, ref wcom, n.NW);
-						Accumulate(ref mass, ref wcom, n.NE);
-						Accumulate(ref mass, ref wcom, n.SW);
-						Accumulate(ref mass, ref wcom, n.SE);
+						for(var c = 0; c < 8; c++)
+							Accumulate(ref mass, ref wcom, n.GetChild(c));
 						n.Mass = mass;
 						n.Com = mass > 0.0
 									? wcom / mass
@@ -216,7 +239,7 @@ internal sealed partial class BarnesHut
 
 			if(stack == null)
 			{
-				stack = new int[256];
+				stack = new int[512];
 				_threadLocalStack = stack;
 			}
 #pragma warning restore S2696
@@ -248,8 +271,7 @@ internal sealed partial class BarnesHut
 				if(dist2 <= 0.0)
 					continue;
 
-				var hasChildren = n.NW >= 0;
-				var isLeaf = !hasChildren && (n.Body != null || n.AggMass > 0.0);
+				var isLeaf = !n.HasChildren && (n.Body != null || n.AggMass > 0.0);
 
 				if(isLeaf || n.WidthSq / dist2 < thetaSq)
 				{
@@ -262,7 +284,7 @@ internal sealed partial class BarnesHut
 				else
 				{
 					// Expand children - handle stack growth if needed
-					if(sp + 4 >= stack.Length)
+					if(sp + 8 >= stack.Length)
 					{
 #pragma warning disable S2696
 						// Grow thread-local stack (rare case for very deep trees)
@@ -272,20 +294,13 @@ internal sealed partial class BarnesHut
 #pragma warning restore S2696
 					}
 
-					// Unroll child checks to reduce branching
-					var nw = n.NW;
-					var ne = n.NE;
-					var sw = n.SW;
-					var se = n.SE;
-
-					if(nw >= 0)
-						stack[sp++] = nw;
-					if(ne >= 0)
-						stack[sp++] = ne;
-					if(sw >= 0)
-						stack[sp++] = sw;
-					if(se >= 0)
-						stack[sp++] = se;
+					// Push all existing children
+					for(var c = 0; c < 8; c++)
+					{
+						var child = n.GetChild(c);
+						if(child >= 0)
+							stack[sp++] = child;
+					}
 				}
 			}
 
@@ -306,23 +321,26 @@ internal sealed partial class BarnesHut
 
 		#region Implementation
 
-		private static uint InterleaveBits(uint x, uint y)
+		/// <summary>
+		/// Interleave 3 sets of 21 bits into a 63-bit Morton code
+		/// </summary>
+		private static ulong InterleaveBits3D(uint x, uint y, uint z)
 		{
-			var xx = Part1By1(x >> 16);
-			var yy = Part1By1(y >> 16);
-
-			return (xx << 1) | yy;
+			return SplitBy3(x) | (SplitBy3(y) << 1) | (SplitBy3(z) << 2);
 		}
 
-		private static uint Part1By1(uint v)
+		/// <summary>
+		/// Spread 21 bits so there are 2 zero bits between each original bit
+		/// </summary>
+		private static ulong SplitBy3(uint v)
 		{
-			v &= 0x0000FFFF;
-			v = (v | (v << 8)) & 0x00FF00FF;
-			v = (v | (v << 4)) & 0x0F0F0F0F;
-			v = (v | (v << 2)) & 0x33333333;
-			v = (v | (v << 1)) & 0x55555555;
-
-			return v;
+			ulong x = v & 0x1FFFFF; // 21 bits
+			x = (x | (x << 32)) & 0x1F00000000FFFF;
+			x = (x | (x << 16)) & 0x1F0000FF0000FF;
+			x = (x | (x << 8)) & 0x100F00F00F00F00F;
+			x = (x | (x << 4)) & 0x10C30C30C30C30C3;
+			x = (x | (x << 2)) & 0x1249249249249249;
+			return x;
 		}
 
 		private void EnsureCapacity(int min)
@@ -336,21 +354,27 @@ internal sealed partial class BarnesHut
 			_nodes = newArr;
 		}
 
-		private int NewNode(double l, double t, double r, double b)
+		private int NewNode(double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
 		{
 			var idx = NodeCount;
 			EnsureCapacity(idx + 1);
 			var n = new Node
 					{
-						L = l,
-						T = t,
-						R = r,
-						B = b,
+						MinX = minX,
+						MinY = minY,
+						MinZ = minZ,
+						MaxX = maxX,
+						MaxY = maxY,
+						MaxZ = maxZ,
 						WidthSq = 0.0,
-						NW = -1,
-						NE = -1,
-						SW = -1,
-						SE = -1,
+						Child0 = -1,
+						Child1 = -1,
+						Child2 = -1,
+						Child3 = -1,
+						Child4 = -1,
+						Child5 = -1,
+						Child6 = -1,
+						Child7 = -1,
 						Body = null,
 						Count = 0,
 						Mass = 0.0,
@@ -368,7 +392,7 @@ internal sealed partial class BarnesHut
 		{
 			// Iterative insertion with explicit stack to avoid recursion overhead
 			var pool = ArrayPool<(int idx, Body body, int depth, int state)>.Shared;
-			var stack = pool.Rent(64);
+			var stack = pool.Rent(128);
 			var sp = 0;
 			stack[sp++] = (idx, e, depth, 0);
 
@@ -384,9 +408,8 @@ internal sealed partial class BarnesHut
 				if(state == 0)
 				{
 					n.Count++;
-					var hasChildren = n.NW >= 0;
 
-					if(!hasChildren &&
+					if(!n.HasChildren &&
 					   n.Body == null &&
 					   n.AggMass > 0.0)
 					{
@@ -396,7 +419,7 @@ internal sealed partial class BarnesHut
 						continue;
 					}
 
-					if(!hasChildren &&
+					if(!n.HasChildren &&
 					   n.Body == null &&
 					   n.Count == 1)
 					{
@@ -405,13 +428,14 @@ internal sealed partial class BarnesHut
 						continue;
 					}
 
-					if(!hasChildren)
+					if(!n.HasChildren)
 					{
-						var widthEdge = Math.Max(EpsilonSize, n.R - n.L);
-						var heightEdge = Math.Max(EpsilonSize, n.B - n.T);
+						var widthX = Math.Max(EpsilonSize, n.MaxX - n.MinX);
+						var widthY = Math.Max(EpsilonSize, n.MaxY - n.MinY);
+						var widthZ = Math.Max(EpsilonSize, n.MaxZ - n.MinZ);
 
 						if(currentDepth >= MaxDepth ||
-						   (widthEdge <= EpsilonSize && heightEdge <= EpsilonSize))
+						   (widthX <= EpsilonSize && widthY <= EpsilonSize && widthZ <= EpsilonSize))
 						{
 							if(n.Body != null)
 							{
@@ -461,29 +485,46 @@ internal sealed partial class BarnesHut
 
 		private static int SelectChildIdx(ref Node n, Vector3D pos)
 		{
-			var midx = 0.5 * (n.L + n.R);
-			var midy = 0.5 * (n.T + n.B);
-			var east = pos.X >= midx;
-			var south = pos.Y >= midy;
+			var midX = 0.5 * (n.MinX + n.MaxX);
+			var midY = 0.5 * (n.MinY + n.MaxY);
+			var midZ = 0.5 * (n.MinZ + n.MaxZ);
+			
+			// Compute octant index: bit 0 = X>=mid, bit 1 = Y>=mid, bit 2 = Z>=mid
+			var octant = (pos.X >= midX ? 1 : 0) |
+						 (pos.Y >= midY ? 2 : 0) |
+						 (pos.Z >= midZ ? 4 : 0);
 
-			return south
-					   ? east
-							 ? n.SE
-							 : n.SW
-					   : east
-						   ? n.NE
-						   : n.NW;
+			return octant switch
+			{
+				0 => n.Child0,
+				1 => n.Child1,
+				2 => n.Child2,
+				3 => n.Child3,
+				4 => n.Child4,
+				5 => n.Child5,
+				6 => n.Child6,
+				7 => n.Child7,
+				_ => -1
+			};
 		}
 
 		private void Subdivide(int idx)
 		{
 			var n = _nodes[idx];
-			var midx = 0.5 * (n.L + n.R);
-			var midy = 0.5 * (n.T + n.B);
-			n.NW = NewNode(n.L, n.T, midx, midy);
-			n.NE = NewNode(midx, n.T, n.R, midy);
-			n.SW = NewNode(n.L, midy, midx, n.B);
-			n.SE = NewNode(midx, midy, n.R, n.B);
+			var midX = 0.5 * (n.MinX + n.MaxX);
+			var midY = 0.5 * (n.MinY + n.MaxY);
+			var midZ = 0.5 * (n.MinZ + n.MaxZ);
+
+			// Create 8 octant children
+			n.Child0 = NewNode(n.MinX, n.MinY, n.MinZ, midX, midY, midZ);     // X<, Y<, Z<
+			n.Child1 = NewNode(midX, n.MinY, n.MinZ, n.MaxX, midY, midZ);     // X>=, Y<, Z<
+			n.Child2 = NewNode(n.MinX, midY, n.MinZ, midX, n.MaxY, midZ);     // X<, Y>=, Z<
+			n.Child3 = NewNode(midX, midY, n.MinZ, n.MaxX, n.MaxY, midZ);     // X>=, Y>=, Z<
+			n.Child4 = NewNode(n.MinX, n.MinY, midZ, midX, midY, n.MaxZ);     // X<, Y<, Z>=
+			n.Child5 = NewNode(midX, n.MinY, midZ, n.MaxX, midY, n.MaxZ);     // X>=, Y<, Z>=
+			n.Child6 = NewNode(n.MinX, midY, midZ, midX, n.MaxY, n.MaxZ);     // X<, Y>=, Z>=
+			n.Child7 = NewNode(midX, midY, midZ, n.MaxX, n.MaxY, n.MaxZ);     // X>=, Y>=, Z>=
+
 			_nodes[idx] = n;
 		}
 

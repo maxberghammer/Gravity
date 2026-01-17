@@ -21,11 +21,13 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		if(n <= 1)
 			return;
 
-		// Bounds and radius stats
-		double l = double.PositiveInfinity,
-			   t = double.PositiveInfinity,
-			   r = double.NegativeInfinity,
-			   b = double.NegativeInfinity,
+		// Bounds and radius stats - now including Z for 3D spatial hashing
+		double minX = double.PositiveInfinity,
+			   minY = double.PositiveInfinity,
+			   minZ = double.PositiveInfinity,
+			   maxX = double.NegativeInfinity,
+			   maxY = double.NegativeInfinity,
+			   maxZ = double.NegativeInfinity,
 			   rMax = 0.0,
 			   rSum = 0.0;
 		var active = 0;
@@ -44,14 +46,18 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			activeIndices.Add(i);
 			active++;
 			var p = bodies[i].Position;
-			if(p.X < l)
-				l = p.X;
-			if(p.Y < t)
-				t = p.Y;
-			if(p.X > r)
-				r = p.X;
-			if(p.Y > b)
-				b = p.Y;
+			if(p.X < minX)
+				minX = p.X;
+			if(p.Y < minY)
+				minY = p.Y;
+			if(p.Z < minZ)
+				minZ = p.Z;
+			if(p.X > maxX)
+				maxX = p.X;
+			if(p.Y > maxY)
+				maxY = p.Y;
+			if(p.Z > maxZ)
+				maxZ = p.Z;
 			var ri = bodies[i].r;
 			if(ri > rMax)
 				rMax = ri;
@@ -66,10 +72,12 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		if(active <= 1)
 			return;
 
-		if(double.IsInfinity(l) ||
-		   double.IsInfinity(t) ||
-		   double.IsInfinity(r) ||
-		   double.IsInfinity(b))
+		if(double.IsInfinity(minX) ||
+		   double.IsInfinity(minY) ||
+		   double.IsInfinity(minZ) ||
+		   double.IsInfinity(maxX) ||
+		   double.IsInfinity(maxY) ||
+		   double.IsInfinity(maxZ))
 			return;
 
 		// Adaptive cell size heuristic
@@ -96,26 +104,30 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		var baseR = Math.Min(rMax, Math.Max(rMed, 0.25 * rMax));
 		var cellSize = Math.Max(1e-9, _cellScale * baseR);
 
-		var spanX = Math.Max(1e-12, r - l);
-		var spanY = Math.Max(1e-12, b - t);
+		var spanX = Math.Max(1e-12, maxX - minX);
+		var spanY = Math.Max(1e-12, maxY - minY);
+		var spanZ = Math.Max(1e-12, maxZ - minZ);
 		var cols = Math.Max(1, (int)Math.Ceiling(spanX / cellSize) + 1);
 		var rows = Math.Max(1, (int)Math.Ceiling(spanY / cellSize) + 1);
+		var depths = Math.Max(1, (int)Math.Ceiling(spanZ / cellSize) + 1);
 
-		// Allocate local buckets per call to avoid cross-thread interference
-		var buckets = new List<int>[cols * rows];
+		// Allocate local buckets per call to avoid cross-thread interference (3D grid)
+		var buckets = new List<int>[cols * rows * depths];
 
-		static int Key(int x, int y, int cols)
-			=> y * cols + x;
+		static int Key3D(int x, int y, int z, int cols, int rows)
+			=> z * cols * rows + y * cols + x;
 
 		// Fill buckets from active bodies only
 		foreach(var activeIndex in activeIndices)
 		{
 			var p = bodies[activeIndex].Position;
-			var cx = (int)Math.Floor((p.X - l) / cellSize);
-			var cy = (int)Math.Floor((p.Y - t) / cellSize);
+			var cx = (int)Math.Floor((p.X - minX) / cellSize);
+			var cy = (int)Math.Floor((p.Y - minY) / cellSize);
+			var cz = (int)Math.Floor((p.Z - minZ) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
-			var k = Key(cx, cy, cols);
+			cz = Math.Min(Math.Max(cz, 0), depths - 1);
+			var k = Key3D(cx, cy, cz, cols, rows);
 			var bucket = buckets[k];
 			if(bucket == null)
 				buckets[k] = bucket = new(4);
@@ -125,7 +137,6 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		var elastic = world.ElasticCollisions;
 
 		// Neighbor scanning using active bodies; keep guards in case of mid-pass absorption.
-		// De-duplicate pairs by visiting only a forward half-plane of neighbor cells.
 		foreach(var i in activeIndices)
 		{
 			// body may have been absorbed by a previous merge
@@ -134,10 +145,13 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 
 			var body1 = bodies[i];
 			var p = body1.Position;
-			var cx = (int)Math.Floor((p.X - l) / cellSize);
-			var cy = (int)Math.Floor((p.Y - t) / cellSize);
+			var cx = (int)Math.Floor((p.X - minX) / cellSize);
+			var cy = (int)Math.Floor((p.Y - minY) / cellSize);
+			var cz = (int)Math.Floor((p.Z - minZ) / cellSize);
 			cx = Math.Min(Math.Max(cx, 0), cols - 1);
 			cy = Math.Min(Math.Max(cy, 0), rows - 1);
+			cz = Math.Min(Math.Max(cz, 0), depths - 1);
+
 			// per-entity neighbor range clamp based on size relative to cell
 			int range;
 			if(body1.r <= 0.5 * cellSize)
@@ -147,87 +161,89 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			else
 				range = (int)Math.Ceiling(body1.r / cellSize) + 1;
 
-			for(var dv = -range; dv <= range; dv++)
+			// 3D neighbor cell iteration
+			for(var dz = -range; dz <= range; dz++)
 			{
-				var yy = cy + dv;
-
-				if(yy < 0 ||
-				   yy >= rows)
+				var zz = cz + dz;
+				if(zz < 0 || zz >= depths)
 					continue;
 
-				for(var du = -range; du <= range; du++)
+				for(var dy = -range; dy <= range; dy++)
 				{
-					var xx = cx + du;
-
-					if(xx < 0 ||
-					   xx >= cols)
+					var yy = cy + dy;
+					if(yy < 0 || yy >= rows)
 						continue;
 
-					// half-plane de-dup: skip buckets strictly above current row
-					if(yy < cy)
-						continue;
-
-					// in the same row, skip buckets left of current cell
-					if(yy == cy &&
-					   xx < cx)
-						continue;
-
-					var bucket = buckets[Key(xx, yy, cols)];
-
-					if(bucket == null)
-						continue;
-
-					foreach(var j in bucket)
+					for(var dx = -range; dx <= range; dx++)
 					{
-						// within same cell ensure j>i to avoid duplicates
-						if(xx == cx &&
-						   yy == cy &&
-						   j <= i)
+						var xx = cx + dx;
+						if(xx < 0 || xx >= cols)
 							continue;
 
-						var body2 = bodies[j];
-
-						if(body2.IsAbsorbed)
+						// Half-space de-dup: only process cells "ahead" in the 3D ordering
+						// Compare (zz, yy, xx) > (cz, cy, cx) lexicographically
+						if(zz < cz)
+							continue;
+						if(zz == cz && yy < cy)
+							continue;
+						if(zz == cz && yy == cy && xx < cx)
 							continue;
 
-						// Fast AABB rejection using radii
-						var sumR = body1.r + body2.r;
-						var dx = body1.Position.X - body2.Position.X;
-
-						if(Math.Abs(dx) > sumR)
+						var bucket = buckets[Key3D(xx, yy, zz, cols, rows)];
+						if(bucket == null)
 							continue;
 
-						var dy = body1.Position.Y - body2.Position.Y;
-
-						if(Math.Abs(dy) > sumR)
-							continue;
-
-						var dz = body1.Position.Z - body2.Position.Z;
-
-						if(Math.Abs(dz) > sumR)
-							continue;
-
-						var d = new Vector3D(dx, dy, dz);
-
-						if(d.LengthSquared > sumR * sumR)
-							continue;
-
-						(var v1, var v2) = HandleCollision(body1, body2, elastic);
-
-						if(v1.HasValue &&
-						   v2.HasValue)
+						foreach(var j in bucket)
 						{
-							(var p1, var p2) = CancelOverlap(body1, body2);
-							if(p1.HasValue)
-								body1.Position = p1.Value;
-							if(p2.HasValue)
-								body2.Position = p2.Value;
-						}
+							// within same cell ensure j>i to avoid duplicates
+							if(xx == cx && yy == cy && zz == cz && j <= i)
+								continue;
 
-						if(v1.HasValue)
-							body1.v = v1.Value;
-						if(v2.HasValue)
-							body2.v = v2.Value;
+							var body2 = bodies[j];
+
+							if(body2.IsAbsorbed)
+								continue;
+
+							// Fast AABB rejection using radii
+							var sumR = body1.r + body2.r;
+							var diffX = body1.Position.X - body2.Position.X;
+
+							if(Math.Abs(diffX) > sumR)
+								continue;
+
+							var diffY = body1.Position.Y - body2.Position.Y;
+
+							if(Math.Abs(diffY) > sumR)
+								continue;
+
+							var diffZ = body1.Position.Z - body2.Position.Z;
+
+							if(Math.Abs(diffZ) > sumR)
+								continue;
+
+							var d = new Vector3D(diffX, diffY, diffZ);
+							var distSq = d.LengthSquared;
+
+							if(distSq > sumR * sumR)
+								continue;
+
+							(var v1, var v2) = HandleCollision(body1, body2, elastic);
+
+							if(v1.HasValue &&
+							   v2.HasValue)
+							{
+								(var p1, var p2) = CancelOverlap(body1, body2);
+								if(p1.HasValue)
+									body1.Position = p1.Value;
+								if(p2.HasValue)
+									body2.Position = p2.Value;
+							}
+
+							if(v1.HasValue)
+								body1.v = v1.Value;
+							if(v2.HasValue)
+								body2.v = v2.Value;
+						}
 					}
 				}
 			}

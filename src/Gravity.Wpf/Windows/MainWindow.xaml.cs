@@ -16,7 +16,9 @@ internal sealed partial class MainWindow
 
 	private const string _stateFileExtension = "grv";
 	private const int _viewportSelectionSearchRadius = 30;
+	private const double _cameraRotationSensitivity = 0.005;
 	private static Vector3D? _referencePosition;
+	private Point? _lastMousePosition;
 
 	// ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
 	private readonly DispatcherTimer _uiUpdateTimer;
@@ -59,9 +61,9 @@ internal sealed partial class MainWindow
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
 	{
-		var viewportPoint = args.GetPosition((IInputElement)sender);
+	var viewportPoint = args.GetPosition((IInputElement)sender);
 
-		_wasRunning = _viewmodel.IsRunning;
+	_wasRunning = _viewmodel.IsRunning;
 		_viewmodel.IsRunning = false;
 
 		if(Keyboard.Modifiers == ModifierKeys.None &&
@@ -94,12 +96,36 @@ internal sealed partial class MainWindow
 											};
 	}
 
+	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
+	private void OnWorldMouseUp(object sender, MouseButtonEventArgs args)
+	{
+	// Reset last mouse position when any button is released
+	_lastMousePosition = null;
+	}
+
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
+	var viewportPoint = args.GetPosition((IInputElement)sender);
+
+	// Camera rotation with R key + mouse movement - always rotate around viewport center
+	if(Keyboard.IsKeyDown(Key.R))
+	{
+	if(_lastMousePosition.HasValue)
+	{
+	var deltaX = viewportPoint.X - _lastMousePosition.Value.X;
+	var deltaY = viewportPoint.Y - _lastMousePosition.Value.Y;
+	_viewmodel.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity);
+	}
+	_lastMousePosition = viewportPoint;
+	return;
+	}
+	else
+	{
+	_lastMousePosition = null;
+	}
+
 		if(null == _viewmodel.Viewport.DragIndicator)
 			return;
-
-		var viewportPoint = args.GetPosition((IInputElement)sender);
 
 		_viewmodel.Viewport.DragIndicator.End = new(viewportPoint.X, viewportPoint.Y);
 
@@ -187,10 +213,9 @@ internal sealed partial class MainWindow
 	private void OnWorldSizeChanged(object sender, SizeChangedEventArgs args)
 	{
 		var center = _viewmodel.Viewport.Center;
-		var newSize = new Vector3D(args.NewSize.Width, args.NewSize.Height);
+		var newSize = new Vector3D(args.NewSize.Width, args.NewSize.Height, _viewmodel.Viewport.Depth) / _viewmodel.Viewport.ScaleFactor;
 
-		_viewmodel.Viewport.TopLeft = center - newSize / 2 / _viewmodel.Viewport.ScaleFactor;
-		_viewmodel.Viewport.BottomRight = center + newSize / 2 / _viewmodel.Viewport.ScaleFactor;
+		_viewmodel.Viewport.SetBoundsAroundCenter(center, newSize);
 	}
 
 	private void OnResetClicked(object sender, RoutedEventArgs args)

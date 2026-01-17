@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System;
@@ -63,20 +63,52 @@ public partial class Direct3dWorldView
 			EnsureBuffers(e.Device);
 			EnsureMsaaTargets(e.Device, (int)e.Surface.ActualWidth, (int)e.Surface.ActualHeight);
 
-			// Sichtbarer Bereich in DIU (wie OpenGL gl.Ortho 0..w,0..h)
 			var screenSize = new Size(e.Surface.ActualWidth, e.Surface.ActualHeight);
-
-			// Kamera aus dem Viewmodel (wie GL: gl.Scale + gl.Translate)
-			var topLeft = new Vector2((float)World.Viewport.TopLeft.X,
-									  (float)World.Viewport.TopLeft.Y);
 			var scale = (float)World.Viewport.ScaleFactor;
-
+			var center = World.Viewport.Center;
+			
+			// 3D Camera setup with orthogonal projection
+			var yaw = (float)World.Viewport.CameraYaw;
+			var pitch = (float)World.Viewport.CameraPitch;
+			var distance = (float)World.Viewport.CameraDistance / scale;
+			
+			// Camera position: orbit around the center point
+			var cosYaw = MathF.Cos(yaw);
+			var sinYaw = MathF.Sin(yaw);
+			var cosPitch = MathF.Cos(pitch);
+			var sinPitch = MathF.Sin(pitch);
+			
+			// Camera forward direction (from camera to center)
+			var forward = new Vector3(sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch);
+			var cameraPos = new Vector3((float)center.X, (float)center.Y, (float)center.Z) - forward * distance;
+			var cameraTarget = new Vector3((float)center.X, (float)center.Y, (float)center.Z);
+			
+			// World up is Y-axis
+			var worldUp = new Vector3(0, 1, 0);
+			
+			// Camera right and up vectors (for billboard orientation)
+			var cameraRight = Vector3.Normalize(Vector3.Cross(worldUp, forward));
+			var cameraUp = Vector3.Normalize(Vector3.Cross(forward, cameraRight));
+			
+			// View matrix
+			var view = Matrix4x4.CreateLookAt(cameraPos, cameraTarget, worldUp);
+			
+			// Orthographic projection
+			var orthoWidth = (float)screenSize.Width / scale;
+			var orthoHeight = (float)screenSize.Height / scale;
+			var proj = Matrix4x4.CreateOrthographic(orthoWidth, orthoHeight, 0.1f, distance * 10f);
+			
+			// Combined ViewProjection matrix (transposed for HLSL column-major)
+			var viewProj = Matrix4x4.Transpose(view * proj);
+			
 			e.Context.MapConstantBuffer(_cameraBuffer!,
 										new CameraGpu
 										{
-											TopLeft = topLeft, // Welt
-											ScreenSize = new((float)screenSize.Width, (float)screenSize.Height), // DIU
-											Scale = scale // Zoom
+											ViewProj = viewProj,
+											CameraRight = cameraRight,
+											CameraUp = cameraUp,
+											ScreenSize = new((float)screenSize.Width, (float)screenSize.Height),
+											Scale = scale
 										});
 
 			// MSAA-Targets setzen und leeren
@@ -148,7 +180,9 @@ public partial class Direct3dWorldView
 			=> _cameraBuffer ??= device.CreateBuffer([
 														 new CameraGpu
 														 {
-															 TopLeft = Vector2.Zero,
+															 ViewProj = Matrix4x4.Identity,
+															 CameraRight = Vector3.UnitX,
+															 CameraUp = Vector3.UnitY,
 															 ScreenSize = new(10f, 10f),
 															 Scale = 1.0f
 														 }
