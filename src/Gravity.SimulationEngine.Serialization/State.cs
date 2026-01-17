@@ -10,7 +10,7 @@ public sealed class State
 {
 	#region Internal types
 
-	public sealed record Vector(double X, double Y);
+	public sealed record Vector(double X, double Y, double Z = 0);
 
 	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
 

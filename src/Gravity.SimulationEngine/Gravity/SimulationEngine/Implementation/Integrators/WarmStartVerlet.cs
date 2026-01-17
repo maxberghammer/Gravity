@@ -12,7 +12,7 @@ internal sealed class WarmStartVerlet : SimulationEngine.IIntegrator
 {
 	#region Fields
 
-	private readonly Dictionary<int, Vector2D> _lastA = new(1024);
+	private readonly Dictionary<int, Vector3D> _lastA = new(1024);
 	private bool _primed;
 
 	#endregion
@@ -41,7 +41,7 @@ internal sealed class WarmStartVerlet : SimulationEngine.IIntegrator
 			_primed = true;
 		}
 
-		var aPrev = ArrayPool<Vector2D>.Shared.Rent(n);
+		var aPrev = ArrayPool<Vector3D>.Shared.Rent(n);
 
 		try
 		{
@@ -92,7 +92,7 @@ internal sealed class WarmStartVerlet : SimulationEngine.IIntegrator
 		}
 		finally
 		{
-			ArrayPool<Vector2D>.Shared.Return(aPrev);
+			ArrayPool<Vector3D>.Shared.Return(aPrev);
 		}
 	}
 

@@ -18,11 +18,11 @@ public class Body
 
 	// ReSharper disable InconsistentNaming
 	[SuppressMessage("Major Code Smell", "S3010:Static fields should not be updated in constructors", Justification = "<Pending>")]
-	public Body(Vector2D position,
+	public Body(Vector3D position,
 				  double radius,
 				  double mass,
-				  Vector2D velocity,
-				  Vector2D acceleration,
+				  Vector3D velocity,
+				  Vector3D acceleration,
 				  Color fill,
 				  Color? stroke,
 				  double strokeWidth)
@@ -56,13 +56,13 @@ public class Body
 	public Body Clone(bool cloneAccelleration = false, bool cloneId = false)
 		=> cloneId
 			   ? new(this)
-			   : new(new(Position.X, Position.Y),
+			   : new(new(Position.X, Position.Y, Position.Z),
 					 r,
 					 m,
-					 new(v.X, v.Y),
+					 new(v.X, v.Y, v.Z),
 					 cloneAccelleration
 						 ? a
-						 : Vector2D.Zero,
+						 : Vector3D.Zero,
 					 Color,
 					 AtmosphereColor,
 					 AtmosphereThickness);
@@ -81,13 +81,13 @@ public class Body
 
 	public double AtmosphereThickness { get; }
 	
-	public Vector2D Position { get; set; }
+	public Vector3D Position { get; set; }
 
 	// ReSharper disable once InconsistentNaming
-	public Vector2D v { get; set; }
+	public Vector3D v { get; set; }
 
 	// ReSharper disable once InconsistentNaming
-	public Vector2D a { get; set; }
+	public Vector3D a { get; set; }
 
 	// ReSharper disable once InconsistentNaming
 	public double r { get; private set; }
@@ -100,7 +100,7 @@ public class Body
 	public double m { get; set; }
 
 	// ReSharper disable once InconsistentNaming
-	public Vector2D p
+	public Vector3D p
 		=> m * v;
 
 	// ReSharper disable once UnusedMember.Global

@@ -1,8 +1,8 @@
-﻿namespace Gravity.SimulationEngine;
+namespace Gravity.SimulationEngine;
 
 public interface IViewport
 {
-	Vector2D TopLeft { get; }
+	Vector3D TopLeft { get; }
 
-	Vector2D BottomRight { get; }
+	Vector3D BottomRight { get; }
 }

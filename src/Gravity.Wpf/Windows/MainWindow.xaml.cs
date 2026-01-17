@@ -16,7 +16,7 @@ internal sealed partial class MainWindow
 
 	private const string _stateFileExtension = "grv";
 	private const int _viewportSelectionSearchRadius = 30;
-	private static Vector2D? _referencePosition;
+	private static Vector3D? _referencePosition;
 
 	// ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
 	private readonly DispatcherTimer _uiUpdateTimer;
@@ -187,7 +187,7 @@ internal sealed partial class MainWindow
 	private void OnWorldSizeChanged(object sender, SizeChangedEventArgs args)
 	{
 		var center = _viewmodel.Viewport.Center;
-		var newSize = new Vector2D(args.NewSize.Width, args.NewSize.Height);
+		var newSize = new Vector3D(args.NewSize.Width, args.NewSize.Height);
 
 		_viewmodel.Viewport.TopLeft = center - newSize / 2 / _viewmodel.Viewport.ScaleFactor;
 		_viewmodel.Viewport.BottomRight = center + newSize / 2 / _viewmodel.Viewport.ScaleFactor;

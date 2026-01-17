@@ -19,17 +19,17 @@ internal sealed class RungeKutta4 : SimulationEngine.IIntegrator
 		if(n == 0)
 			return;
 
-		var pos0 = ArrayPool<Vector2D>.Shared.Rent(n);
-		var vel0 = ArrayPool<Vector2D>.Shared.Rent(n);
+		var pos0 = ArrayPool<Vector3D>.Shared.Rent(n);
+		var vel0 = ArrayPool<Vector3D>.Shared.Rent(n);
 		// ReSharper disable InconsistentNaming
-		var k1x = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k2x = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k3x = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k4x = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k1v = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k2v = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k3v = ArrayPool<Vector2D>.Shared.Rent(n);
-		var k4v = ArrayPool<Vector2D>.Shared.Rent(n);
+		var k1x = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k2x = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k3x = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k4x = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k1v = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k2v = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k3v = ArrayPool<Vector3D>.Shared.Rent(n);
+		var k4v = ArrayPool<Vector3D>.Shared.Rent(n);
 		// ReSharper enable InconsistentNaming
 		var dtHalf = dtInSeconds * 0.5;
 		var dtBy6 = dtInSeconds / 6.0;
@@ -96,16 +96,16 @@ internal sealed class RungeKutta4 : SimulationEngine.IIntegrator
 		}
 		finally
 		{
-			ArrayPool<Vector2D>.Shared.Return(pos0);
-			ArrayPool<Vector2D>.Shared.Return(vel0);
-			ArrayPool<Vector2D>.Shared.Return(k1x);
-			ArrayPool<Vector2D>.Shared.Return(k2x);
-			ArrayPool<Vector2D>.Shared.Return(k3x);
-			ArrayPool<Vector2D>.Shared.Return(k4x);
-			ArrayPool<Vector2D>.Shared.Return(k1v);
-			ArrayPool<Vector2D>.Shared.Return(k2v);
-			ArrayPool<Vector2D>.Shared.Return(k3v);
-			ArrayPool<Vector2D>.Shared.Return(k4v);
+			ArrayPool<Vector3D>.Shared.Return(pos0);
+			ArrayPool<Vector3D>.Shared.Return(vel0);
+			ArrayPool<Vector3D>.Shared.Return(k1x);
+			ArrayPool<Vector3D>.Shared.Return(k2x);
+			ArrayPool<Vector3D>.Shared.Return(k3x);
+			ArrayPool<Vector3D>.Shared.Return(k4x);
+			ArrayPool<Vector3D>.Shared.Return(k1v);
+			ArrayPool<Vector3D>.Shared.Return(k2v);
+			ArrayPool<Vector3D>.Shared.Return(k3v);
+			ArrayPool<Vector3D>.Shared.Return(k4v);
 		}
 	}
 

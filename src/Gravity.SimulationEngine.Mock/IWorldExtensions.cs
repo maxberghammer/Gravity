@@ -25,14 +25,14 @@ public static class IWorldExtensions
 			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y));
 			var bodies = new Body[state.Bodies.Length];
 
-			for(var i = 0; i < bodies.Length; i++)
+		for(var i = 0; i < bodies.Length; i++)
 			{
 				var bodyState = state.Bodies[i];
-				bodies[i] = new(new(bodyState.Position.X, bodyState.Position.Y),
+				bodies[i] = new(new(bodyState.Position.X, bodyState.Position.Y, bodyState.Position.Z),
 								  bodyState.r,
 								  bodyState.m,
-								  new(bodyState.v.X, bodyState.v.Y),
-								  Vector2D.Zero,
+								  new(bodyState.v.X, bodyState.v.Y, bodyState.v.Z),
+								  Vector3D.Zero,
 								  string.IsNullOrEmpty(bodyState.Color)
 									  ? Color.Transparent
 									  : Color.Parse(bodyState.Color),

@@ -202,7 +202,12 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 						if(Math.Abs(dy) > sumR)
 							continue;
 
-						var d = new Vector2D(dx, dy);
+						var dz = body1.Position.Z - body2.Position.Z;
+
+						if(Math.Abs(dz) > sumR)
+							continue;
+
+						var d = new Vector3D(dx, dy, dz);
 
 						if(d.LengthSquared > sumR * sumR)
 							continue;
@@ -237,7 +242,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 	///     Behandelt die Überlappung zweier gegebener Objekte und liefert, falls eine Überlappung vorliegt, gegebenenfalls die
 	///     neuen Positionen der beiden Objekte, so dass sie sich nicht mehr überlappen.
 	/// </summary>
-	private static (Vector2D? Position1, Vector2D? Position2) CancelOverlap(Body body1, Body body2)
+	private static (Vector3D? Position1, Vector3D? Position2) CancelOverlap(Body body1, Body body2)
 	{
 		ArgumentNullException.ThrowIfNull(body1);
 		ArgumentNullException.ThrowIfNull(body2);
@@ -259,7 +264,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 	///     Behandelt die Kollision zweier gegebener Objekte und liefert, falls eine Kollision vorliegt, gegebenenfalls die
 	///     neuen Geschwindigkeiten der beiden Objekte.
 	/// </summary>
-	private static (Vector2D? v1, Vector2D? v2) HandleCollision(Body body1, Body body2, bool elastic)
+	private static (Vector3D? v1, Vector3D? v2) HandleCollision(Body body1, Body body2, bool elastic)
 	{
 		ArgumentNullException.ThrowIfNull(body1);
 		ArgumentNullException.ThrowIfNull(body2);

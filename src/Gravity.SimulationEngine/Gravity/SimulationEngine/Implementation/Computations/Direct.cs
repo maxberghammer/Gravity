@@ -51,12 +51,12 @@ internal sealed class Direct : SimulationEngine.IComputation
 						   });
 	}
 
-	private static Vector2D CalculateGravity(Body body, IEnumerable<Body> others)
+	private static Vector3D CalculateGravity(Body body, IEnumerable<Body> others)
 	{
 		if(body.IsAbsorbed)
-			return Vector2D.Zero;
+			return Vector3D.Zero;
 
-		var g = Vector2D.Zero;
+		var g = Vector3D.Zero;
 
 		foreach(var other in others.Where(e => !e.IsAbsorbed))
 		{

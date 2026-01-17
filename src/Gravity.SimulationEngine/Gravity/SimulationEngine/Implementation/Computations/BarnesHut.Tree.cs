@@ -22,11 +22,11 @@ internal sealed partial class BarnesHut
 
 			// For aggregated leaf (depth limit), accumulate weighted COM while inserting
 			public double AggMass;
-			public Vector2D AggWeightedCom;
+			public Vector3D AggWeightedCom;
 
 			// Leaf payload
 			public Body? Body;
-			public Vector2D Com;
+			public Vector3D Com;
 			public int Count; // number of bodies aggregated in this node
 
 			// Bounds
@@ -75,7 +75,7 @@ internal sealed partial class BarnesHut
 
 		#region Construction
 
-		public Tree(in Vector2D topLeft, in Vector2D bottomRight, double theta, int estimatedBodies)
+		public Tree(in Vector3D topLeft, in Vector3D bottomRight, double theta, int estimatedBodies)
 		{
 			_theta = theta;
 			_l = topLeft.X;
@@ -88,7 +88,7 @@ internal sealed partial class BarnesHut
 			_root = NewNode(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y);
 		}
 
-		public Tree(in Vector2D topLeft, in Vector2D bottomRight, double theta)
+		public Tree(in Vector3D topLeft, in Vector3D bottomRight, double theta)
 			: this(topLeft, bottomRight, theta, 256)
 		{
 		}
@@ -174,7 +174,7 @@ internal sealed partial class BarnesHut
 					if(hasChildren)
 					{
 						var mass = 0.0;
-						var wcom = Vector2D.Zero;
+						var wcom = Vector3D.Zero;
 						Accumulate(ref mass, ref wcom, n.NW);
 						Accumulate(ref mass, ref wcom, n.NE);
 						Accumulate(ref mass, ref wcom, n.SW);
@@ -182,7 +182,7 @@ internal sealed partial class BarnesHut
 						n.Mass = mass;
 						n.Com = mass > 0.0
 									? wcom / mass
-									: Vector2D.Zero;
+									: Vector3D.Zero;
 						_nodes[idx] = n;
 					}
 					else
@@ -206,9 +206,9 @@ internal sealed partial class BarnesHut
 			pool.Return(stack);
 		}
 
-		public Vector2D CalculateGravity(Body e)
+		public Vector3D CalculateGravity(Body e)
 		{
-			var acc = Vector2D.Zero;
+			var acc = Vector3D.Zero;
 
 			// Use thread-local stack to eliminate ArrayPool contention across threads
 #pragma warning disable S2696 // Instance method intentionally sets ThreadStatic field
@@ -242,7 +242,8 @@ internal sealed partial class BarnesHut
 				var com = n.Com;
 				var dx = ePos.X - com.X;
 				var dy = ePos.Y - com.Y;
-				var dist2 = dx * dx + dy * dy;
+				var dz = ePos.Z - com.Z;
+				var dist2 = dx * dx + dy * dy + dz * dz;
 
 				if(dist2 <= 0.0)
 					continue;
@@ -256,7 +257,7 @@ internal sealed partial class BarnesHut
 					var dist = Math.Sqrt(dist2);
 					var invLen3 = 1.0 / (dist2 * dist);
 					var factor = -IWorld.G * mass * invLen3;
-					acc = acc + new Vector2D(factor * dx, factor * dy);
+					acc = acc + new Vector3D(factor * dx, factor * dy, factor * dz);
 				}
 				else
 				{
@@ -458,7 +459,7 @@ internal sealed partial class BarnesHut
 			pool.Return(stack);
 		}
 
-		private static int SelectChildIdx(ref Node n, Vector2D pos)
+		private static int SelectChildIdx(ref Node n, Vector3D pos)
 		{
 			var midx = 0.5 * (n.L + n.R);
 			var midy = 0.5 * (n.T + n.B);
@@ -486,7 +487,7 @@ internal sealed partial class BarnesHut
 			_nodes[idx] = n;
 		}
 
-		private void Accumulate(ref double mass, ref Vector2D wcom, int childIdx)
+		private void Accumulate(ref double mass, ref Vector3D wcom, int childIdx)
 		{
 			if(childIdx < 0)
 				return;

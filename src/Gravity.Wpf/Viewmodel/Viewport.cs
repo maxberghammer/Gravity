@@ -15,10 +15,10 @@ public class Viewport : NotifyPropertyChanged,
 
 	public DragIndicator? DragIndicator { get; set => SetProperty(ref field, value); }
 
-	public Vector2D Center
+	public Vector3D Center
 		=> Size / 2 + TopLeft;
 
-	public Vector2D Size
+	public Vector3D Size
 		=> BottomRight - TopLeft;
 
 	public double Scale
@@ -48,7 +48,7 @@ public class Viewport : NotifyPropertyChanged,
 		BottomRight = entity.Position + size / 2;
 	}
 
-	public void Zoom(Vector2D zoomCenter, double zoomFactor)
+	public void Zoom(Vector3D zoomCenter, double zoomFactor)
 	{
 		var previousScaleFactor = ScaleFactor;
 		var previousSize = Size;
@@ -58,17 +58,17 @@ public class Viewport : NotifyPropertyChanged,
 		var newSize = previousSize / ScaleFactor * previousScaleFactor;
 		var sizeDiff = newSize - previousSize;
 		var zoomOffset = zoomCenter - Center;
-		var newCenter = Center - new Vector2D(zoomOffset.X / previousSize.X * sizeDiff.X,
+		var newCenter = Center - new Vector3D(zoomOffset.X / previousSize.X * sizeDiff.X,
 											  zoomOffset.Y / previousSize.Y * sizeDiff.Y);
 
 		TopLeft = newCenter - newSize / 2;
 		BottomRight = newCenter + newSize / 2;
 	}
 
-	public Vector2D ToWorld(Point viewportPoint)
-		=> new Vector2D(viewportPoint.X, viewportPoint.Y) / ScaleFactor + TopLeft;
+	public Vector3D ToWorld(Point viewportPoint)
+		=> new Vector3D(viewportPoint.X, viewportPoint.Y) / ScaleFactor + TopLeft;
 
-	public Point ToViewport(Vector2D worldVector)
+	public Point ToViewport(Vector3D worldVector)
 	{
 		var viewportVector = (worldVector - TopLeft) * ScaleFactor;
 
@@ -79,9 +79,9 @@ public class Viewport : NotifyPropertyChanged,
 
 	#region Implementation of IViewport
 
-	public Vector2D TopLeft { get; set; }
+	public Vector3D TopLeft { get; set; }
 
-	public Vector2D BottomRight { get; set; }
+	public Vector3D BottomRight { get; set; }
 
 	#endregion
 }

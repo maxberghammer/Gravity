@@ -187,16 +187,16 @@ public class World : NotifyPropertyChanged,
 
 		for(var i = 0; i < count; i++)
 		{
-			var position = new Vector2D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+			var position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 			var bodies = GetBodies();
 
 			while(bodies.Any(b => (b.Position - position).Length <= b.r + SelectedBodyPreset.r))
-				position = new Vector2D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
+				position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y) + Viewport.TopLeft;
 
 			if(stableOrbits)
-				CreateOrbitBody(position, Vector2D.Zero);
+				CreateOrbitBody(position, Vector3D.Zero);
 			else
-				CreateBody(position, Vector2D.Zero);
+				CreateBody(position, Vector3D.Zero);
 
 			CurrentRespawnerId = enableRespawn
 									 ? stableOrbits
@@ -206,21 +206,21 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	public void CreateBody(Vector2D position, Vector2D velocity)
+	public void CreateBody(Vector3D position, Vector3D velocity)
 	{
 		_bodies.AddLocked(new(position,
 							  SelectedBodyPreset.r,
 							  SelectedBodyPreset.m,
-							  velocity,
-							  Vector2D.Zero,
-							  SelectedBodyPreset.Color,
+							velocity,
+							Vector3D.Zero,
+							SelectedBodyPreset.Color,
 							  SelectedBodyPreset.AtmosphereColor,
 							  SelectedBodyPreset.AtmosphereThickness));
 
 		RaisePropertyChanged(nameof(BodyCount));
 	}
 
-	public void CreateOrbitBody(Vector2D position, Vector2D velocity)
+	public void CreateOrbitBody(Vector3D position, Vector3D velocity)
 	{
 		var nearestBody = SelectedBody
 						  ?? GetBodies().OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
@@ -228,7 +228,7 @@ public class World : NotifyPropertyChanged,
 
 		if(null == nearestBody)
 		{
-			CreateBody(position, Vector2D.Zero);
+			CreateBody(position, Vector3D.Zero);
 
 			return;
 		}
@@ -259,8 +259,8 @@ public class World : NotifyPropertyChanged,
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(bodies.Min(e => e.Position.X - e.r), bodies.Min(e => e.Position.Y - e.r));
-		var bottomRight = new Vector2D(bodies.Max(e => e.Position.X + e.r), bodies.Max(e => e.Position.Y + e.r));
+		var topLeft = new Vector3D(bodies.Min(e => e.Position.X - e.r), bodies.Min(e => e.Position.Y - e.r));
+		var bottomRight = new Vector3D(bodies.Max(e => e.Position.X + e.r), bodies.Max(e => e.Position.Y + e.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 		var newSize = bottomRight - topLeft;
 		if(newSize.X / newSize.Y < previousSize.X / previousSize.Y)
@@ -299,13 +299,13 @@ public class World : NotifyPropertyChanged,
 						RngState = _rng.State,
 						Runtime = Runtime,
 						Bodies = GetBodies().Select(b => new State.BodyState(b.Color.ToString(),
-																			 b.AtmosphereColor?.ToString(),
-																			 b.AtmosphereThickness,
-																			 new(b.Position.X, b.Position.Y),
-																			 new(b.v.X, b.v.Y),
-																			 b.r,
-																			 b.m))
-											.ToArray()
+								b.AtmosphereColor?.ToString(),
+								b.AtmosphereThickness,
+								new(b.Position.X, b.Position.Y, b.Position.Z),
+								new(b.v.X, b.v.Y, b.v.Z),
+								b.r,
+								b.m))
+						.ToArray()
 					};
 		await using var swr = File.CreateText(filePath);
 		await state.SerializeAsync(swr);
@@ -332,11 +332,11 @@ public class World : NotifyPropertyChanged,
 		Runtime = state.Runtime;
 
 		_bodies.AddRangeLocked(state.Bodies
-									.Select(b => new Body(new(b.Position.X, b.Position.Y),
+									.Select(b => new Body(new(b.Position.X, b.Position.Y, b.Position.Z),
 														  b.r,
 														  b.m,
-														  new(b.v.X, b.v.Y),
-														  Vector2D.Zero,
+														  new(b.v.X, b.v.Y, b.v.Z),
+														  Vector3D.Zero,
 														  string.IsNullOrEmpty(b.Color)
 															  ? Color.Transparent
 															  : Color.Parse(b.Color),
@@ -468,9 +468,9 @@ public class World : NotifyPropertyChanged,
 			return;
 
 		var previousSize = Viewport.Size;
-		var topLeft = new Vector2D(bodies.Min(b => b.Position.X - b.r),
+		var topLeft = new Vector3D(bodies.Min(b => b.Position.X - b.r),
 								   bodies.Min(b => b.Position.Y - b.r));
-		var bottomRight = new Vector2D(bodies.Max(b => b.Position.X + b.r),
+		var bottomRight = new Vector3D(bodies.Max(b => b.Position.X + b.r),
 									   bodies.Max(b => b.Position.Y + b.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
 

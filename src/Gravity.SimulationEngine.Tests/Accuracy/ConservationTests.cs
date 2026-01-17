@@ -59,9 +59,9 @@ public sealed class ConservationTests
 		return e;
 	}
 
-	private static (Vector2D P, double Lz) TotalMomentumAndAngularMomentum(Body[] bodies)
+	private static (Vector3D P, double Lz) TotalMomentumAndAngularMomentum(Body[] bodies)
 	{
-		var p = Vector2D.Zero;
+		var p = Vector3D.Zero;
 		var lz = 0.0;
 
 		for(var i = 0; i < bodies.Length; i++)
