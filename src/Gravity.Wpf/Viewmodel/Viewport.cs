@@ -78,6 +78,11 @@ public class Viewport : NotifyPropertyChanged,
 		set => SetProperty(ref field, Math.Clamp(value, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01));
 	}
 
+	// Raw (unsnapped) rotation values for smooth snap behavior
+	private double _rawYaw;
+	private double _rawPitch;
+	private const double SnapAngle = Math.PI / 4; // 45 degrees
+
 	/// <summary>
 	/// Camera distance from center (for zoom in 3D view)
 	/// </summary>
@@ -137,22 +142,122 @@ public class Viewport : NotifyPropertyChanged,
 	}
 
 	/// <summary>
-	/// Rotates the camera by the given delta angles
+	/// Rotates the camera by the given delta angles. When snap is true, the rotation snaps to 45° increments.
 	/// </summary>
-	public void RotateCamera(double deltaYaw, double deltaPitch)
+	public void RotateCamera(double deltaYaw, double deltaPitch, bool snap = false)
 	{
-		CameraYaw += deltaYaw;
-		CameraPitch += deltaPitch;
+		if(snap)
+		{
+			// Accumulate raw rotation
+			_rawYaw += deltaYaw;
+			_rawPitch += deltaPitch;
+
+			// Snap to 45° increments
+			CameraYaw = SnapToAngle(_rawYaw, SnapAngle);
+			CameraPitch = SnapToAngle(_rawPitch, SnapAngle);
+		}
+		else
+		{
+			// Normal rotation
+			CameraYaw += deltaYaw;
+			CameraPitch += deltaPitch;
+
+			// Keep raw values in sync
+			_rawYaw = CameraYaw;
+			_rawPitch = CameraPitch;
+		}
 	}
 
-	public Vector3D ToWorld(Point viewportPoint)
-		=> new Vector3D(viewportPoint.X, viewportPoint.Y, 0) / ScaleFactor + TopLeft;
+	/// <summary>
+	/// Rotates the camera by the given delta angles and snaps to 45° increments
+	/// </summary>
+	public void RotateCameraWithSnap(double deltaYaw, double deltaPitch)
+	{
+		const double snapAngle = Math.PI / 4; // 45 degrees in radians
+		
+		CameraYaw = SnapToAngle(CameraYaw + deltaYaw, snapAngle);
+		CameraPitch = SnapToAngle(CameraPitch + deltaPitch, snapAngle);
+	}
 
+	/// <summary>
+	/// Snaps an angle to the nearest multiple of snapAngle
+	/// </summary>
+	private static double SnapToAngle(double angle, double snapAngle)
+		=> Math.Round(angle / snapAngle) * snapAngle;
+
+	/// <summary>
+	/// Converts a viewport point to world coordinates, taking camera rotation into account.
+	/// The resulting point lies on a plane through the viewport center, perpendicular to the camera view direction.
+	/// </summary>
+	public Vector3D ToWorld(Point viewportPoint)
+	{
+		// Calculate offset from viewport center in screen space
+		var screenCenterX = Size.X * ScaleFactor / 2;
+		var screenCenterY = Size.Y * ScaleFactor / 2;
+		var offsetX = (viewportPoint.X - screenCenterX) / ScaleFactor;
+		var offsetY = (viewportPoint.Y - screenCenterY) / ScaleFactor;
+
+		// Calculate camera basis vectors using standard rotation convention:
+		// Yaw rotates around global Y-axis, Pitch rotates around local X-axis (Right)
+		var cosYaw = Math.Cos(CameraYaw);
+		var sinYaw = Math.Sin(CameraYaw);
+		var cosPitch = Math.Cos(CameraPitch);
+		var sinPitch = Math.Sin(CameraPitch);
+
+		// Right vector (camera X axis) - only affected by yaw
+		var rightX = cosYaw;
+		var rightY = 0.0;
+		var rightZ = sinYaw;
+
+		// Up vector (camera Y axis) - affected by both yaw and pitch
+		// Derived from rotating (0,1,0) around the Right axis by -pitch
+		var upX = sinYaw * sinPitch;
+		var upY = cosPitch;
+		var upZ = -cosYaw * sinPitch;
+
+		// Calculate world position: center + offset in camera space
+		// offsetX moves along Right, offsetY moves opposite to Up (screen Y is inverted)
+		var worldX = Center.X + offsetX * rightX - offsetY * upX;
+		var worldY = Center.Y + offsetX * rightY - offsetY * upY;
+		var worldZ = Center.Z + offsetX * rightZ - offsetY * upZ;
+
+		return new Vector3D(worldX, worldY, worldZ);
+	}
+
+	/// <summary>
+	/// Converts world coordinates to viewport point, taking camera rotation into account.
+	/// </summary>
 	public Point ToViewport(Vector3D worldVector)
 	{
-		var viewportVector = (worldVector - TopLeft) * ScaleFactor;
+		// Calculate offset from center in world space
+		var offsetWorld = worldVector - Center;
 
-		return new(viewportVector.X, viewportVector.Y);
+		// Calculate camera basis vectors (same as in ToWorld)
+		var cosYaw = Math.Cos(CameraYaw);
+		var sinYaw = Math.Sin(CameraYaw);
+		var cosPitch = Math.Cos(CameraPitch);
+		var sinPitch = Math.Sin(CameraPitch);
+
+		// Right vector
+		var rightX = cosYaw;
+		var rightZ = sinYaw;
+
+		// Up vector
+		var upX = sinYaw * sinPitch;
+		var upY = cosPitch;
+		var upZ = -cosYaw * sinPitch;
+
+		// Project onto camera right vector (dot product) -> screen X
+		var screenX = offsetWorld.X * rightX + offsetWorld.Z * rightZ;
+
+		// Project onto camera up vector (dot product), negated for screen Y
+		var screenY = -(offsetWorld.X * upX + offsetWorld.Y * upY + offsetWorld.Z * upZ);
+
+		// Convert to viewport coordinates
+		var screenCenterX = Size.X * ScaleFactor / 2;
+		var screenCenterY = Size.Y * ScaleFactor / 2;
+
+		return new(screenCenterX + screenX * ScaleFactor, screenCenterY + screenY * ScaleFactor);
 	}
 
 	#endregion

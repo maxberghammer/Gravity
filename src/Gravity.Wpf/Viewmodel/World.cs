@@ -362,10 +362,16 @@ public class World : NotifyPropertyChanged,
 		Reset();
 
 		var isFlat = state.Viewport.TopLeft.Z.Equals(state.Viewport.BottomRight.Z);
-		Viewport.TopLeft = new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, isFlat ? state.Viewport.TopLeft.Y : state.Viewport.TopLeft.Z);
-		Viewport.BottomRight = new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y, isFlat
-																								   ? -state.Viewport.BottomRight.Y
-																								   : state.Viewport.BottomRight.Z);
+		Viewport.TopLeft = new(state.Viewport.TopLeft.X,
+							   state.Viewport.TopLeft.Y,
+							   isFlat
+								   ? state.Viewport.TopLeft.Y
+								   : state.Viewport.TopLeft.Z);
+		Viewport.BottomRight = new(state.Viewport.BottomRight.X,
+								   state.Viewport.BottomRight.Y,
+								   isFlat
+									   ? state.Viewport.BottomRight.Y
+									   : state.Viewport.BottomRight.Z);
 		Viewport.Scale = state.Viewport.Scale;
 		AutoCenterViewport = state.AutoCenterViewport;
 		ClosedBoundaries = state.ClosedBoundaries;
