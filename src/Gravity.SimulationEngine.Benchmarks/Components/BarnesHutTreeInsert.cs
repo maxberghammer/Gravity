@@ -3,11 +3,11 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.VSDiagnostics;
 using BarnesHut = Gravity.SimulationEngine.Implementation.Computations.BarnesHut;
 
-namespace Gravity.SimulationEngine.Benchmarks;
+namespace Gravity.SimulationEngine.Benchmarks.Components;
 
 [MemoryDiagnoser]
 [CPUUsageDiagnoser]
-public class BarnesHutInsertBench
+public class BarnesHutTreeInsert
 {
 	private Body[] _bodies100 = null!;
 	private Body[] _bodies1000 = null!;

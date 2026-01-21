@@ -1,6 +1,8 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Gravity.SimulationEngine.Implementation.Computations;
@@ -14,6 +16,18 @@ internal sealed partial class BarnesHut
 	public sealed class Tree
 	{
 		#region Internal types
+
+		/// <summary>
+		/// Inline array of 8 child indices for octree nodes.
+		/// Using InlineArray for O(1) indexed access without switch overhead.
+		/// </summary>
+		[InlineArray(8)]
+		private struct ChildrenArray
+		{
+#pragma warning disable S1144 // Required by InlineArray
+			private int _element0;
+#pragma warning restore S1144
+		}
 
 		private struct Node
 		{
@@ -36,15 +50,10 @@ internal sealed partial class BarnesHut
 			public double Mass;
 
 			// 8 Children indices for octree (-1 if none)
-			// Named by octant: [X < mid][Y < mid][Z < mid]
-			public int Child0; // X<, Y<, Z< (front-top-left)
-			public int Child1; // X>=, Y<, Z< (front-top-right)
-			public int Child2; // X<, Y>=, Z< (front-bottom-left)
-			public int Child3; // X>=, Y>=, Z< (front-bottom-right)
-			public int Child4; // X<, Y<, Z>= (back-top-left)
-			public int Child5; // X>=, Y<, Z>= (back-top-right)
-			public int Child6; // X<, Y>=, Z>= (back-bottom-left)
-			public int Child7; // X>=, Y>=, Z>= (back-bottom-right)
+			// Using InlineArray for O(1) indexed access
+#pragma warning disable S3459 // Assigned via indexer in NewNode
+			public ChildrenArray Children;
+#pragma warning restore S3459
 
 			// Cached squared width for traversal criterion
 			public double WidthSq;
@@ -53,20 +62,10 @@ internal sealed partial class BarnesHut
 
 			#region Interface
 
-			public readonly bool HasChildren => Child0 >= 0;
+			public readonly bool HasChildren => Children[0] >= 0;
 
-			public readonly int GetChild(int index) => index switch
-			{
-				0 => Child0,
-				1 => Child1,
-				2 => Child2,
-				3 => Child3,
-				4 => Child4,
-				5 => Child5,
-				6 => Child6,
-				7 => Child7,
-				_ => -1
-			};
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			public readonly int GetChild(int index) => Children[index];
 
 			#endregion
 		}
@@ -367,14 +366,6 @@ internal sealed partial class BarnesHut
 						MaxY = maxY,
 						MaxZ = maxZ,
 						WidthSq = 0.0,
-						Child0 = -1,
-						Child1 = -1,
-						Child2 = -1,
-						Child3 = -1,
-						Child4 = -1,
-						Child5 = -1,
-						Child6 = -1,
-						Child7 = -1,
 						Body = null,
 						Count = 0,
 						Mass = 0.0,
@@ -382,6 +373,9 @@ internal sealed partial class BarnesHut
 						AggMass = 0.0,
 						AggWeightedCom = default
 					};
+			// Initialize all children to -1
+			for(var i = 0; i < 8; i++)
+				n.Children[i] = -1;
 			_nodes[idx] = n;
 			NodeCount++;
 
@@ -483,6 +477,7 @@ internal sealed partial class BarnesHut
 			pool.Return(stack);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static int SelectChildIdx(ref Node n, Vector3D pos)
 		{
 			var midX = 0.5 * (n.MinX + n.MaxX);
@@ -494,38 +489,25 @@ internal sealed partial class BarnesHut
 						 (pos.Y >= midY ? 2 : 0) |
 						 (pos.Z >= midZ ? 4 : 0);
 
-			return octant switch
-			{
-				0 => n.Child0,
-				1 => n.Child1,
-				2 => n.Child2,
-				3 => n.Child3,
-				4 => n.Child4,
-				5 => n.Child5,
-				6 => n.Child6,
-				7 => n.Child7,
-				_ => -1
-			};
+			return n.Children[octant];
 		}
 
 		private void Subdivide(int idx)
 		{
-			var n = _nodes[idx];
+			ref var n = ref _nodes[idx];
 			var midX = 0.5 * (n.MinX + n.MaxX);
 			var midY = 0.5 * (n.MinY + n.MaxY);
 			var midZ = 0.5 * (n.MinZ + n.MaxZ);
 
 			// Create 8 octant children
-			n.Child0 = NewNode(n.MinX, n.MinY, n.MinZ, midX, midY, midZ);     // X<, Y<, Z<
-			n.Child1 = NewNode(midX, n.MinY, n.MinZ, n.MaxX, midY, midZ);     // X>=, Y<, Z<
-			n.Child2 = NewNode(n.MinX, midY, n.MinZ, midX, n.MaxY, midZ);     // X<, Y>=, Z<
-			n.Child3 = NewNode(midX, midY, n.MinZ, n.MaxX, n.MaxY, midZ);     // X>=, Y>=, Z<
-			n.Child4 = NewNode(n.MinX, n.MinY, midZ, midX, midY, n.MaxZ);     // X<, Y<, Z>=
-			n.Child5 = NewNode(midX, n.MinY, midZ, n.MaxX, midY, n.MaxZ);     // X>=, Y<, Z>=
-			n.Child6 = NewNode(n.MinX, midY, midZ, midX, n.MaxY, n.MaxZ);     // X<, Y>=, Z>=
-			n.Child7 = NewNode(midX, midY, midZ, n.MaxX, n.MaxY, n.MaxZ);     // X>=, Y>=, Z>=
-
-			_nodes[idx] = n;
+			n.Children[0] = NewNode(n.MinX, n.MinY, n.MinZ, midX, midY, midZ);     // X<, Y<, Z<
+			n.Children[1] = NewNode(midX, n.MinY, n.MinZ, n.MaxX, midY, midZ);     // X>=, Y<, Z<
+			n.Children[2] = NewNode(n.MinX, midY, n.MinZ, midX, n.MaxY, midZ);     // X<, Y>=, Z<
+			n.Children[3] = NewNode(midX, midY, n.MinZ, n.MaxX, n.MaxY, midZ);     // X>=, Y>=, Z<
+			n.Children[4] = NewNode(n.MinX, n.MinY, midZ, midX, midY, n.MaxZ);     // X<, Y<, Z>=
+			n.Children[5] = NewNode(midX, n.MinY, midZ, n.MaxX, midY, n.MaxZ);     // X>=, Y<, Z>=
+			n.Children[6] = NewNode(n.MinX, midY, midZ, midX, n.MaxY, n.MaxZ);     // X<, Y>=, Z>=
+			n.Children[7] = NewNode(midX, midY, midZ, n.MaxX, n.MaxY, n.MaxZ);     // X>=, Y>=, Z>=
 		}
 
 		private void Accumulate(ref double mass, ref Vector3D wcom, int childIdx)

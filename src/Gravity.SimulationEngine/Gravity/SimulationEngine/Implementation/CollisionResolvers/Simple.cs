@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Gravity.SimulationEngine.Implementation.CollisionResolvers;
 
@@ -8,6 +10,17 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 	#region Fields
 
 	private const double _cellScale = 2.0; // clamp median to avoid extremes; pick scale ~ average diameter
+
+	// Persistent bucket structure - reused across frames to avoid allocations
+	private List<int>?[] _buckets = [];
+	private int _bucketCapacity;
+	
+	// Track which buckets were used for efficient clearing
+	private int[] _usedBucketIndices = [];
+	private int _usedBucketCount;
+	
+	// Pool of reusable List<int> objects
+	private readonly Stack<List<int>> _listPool = new(64);
 
 	#endregion
 
@@ -21,6 +34,11 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		if(n <= 1)
 			return;
 
+		// Use pooled array for active indices to avoid heap allocations
+		var activePool = ArrayPool<int>.Shared;
+		var activeIndices = activePool.Rent(n);
+		var activeCount = 0;
+
 		// Bounds and radius stats - now including Z for 3D spatial hashing
 		double minX = double.PositiveInfinity,
 			   minY = double.PositiveInfinity,
@@ -30,21 +48,19 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			   maxZ = double.NegativeInfinity,
 			   rMax = 0.0,
 			   rSum = 0.0;
-		var active = 0;
-		var rSample = new double[Math.Min(128, Math.Max(n, 1))];
-		var sampleCount = 0;
-		var stride = Math.Max(1, n / Math.Max(1, rSample.Length));
 
-		// Build dense list of active indices while collecting stats
-		var activeIndices = new List<int>(Math.Min(n, 4096));
+		// Use stackalloc for small sample array (128 doubles = 1KB)
+		Span<double> rSample = stackalloc double[128];
+		var sampleCount = 0;
+		var sampleCapacity = Math.Min(128, n);
+		var stride = Math.Max(1, n / Math.Max(1, sampleCapacity));
 
 		for(var i = 0; i < n; i++)
 		{
 			if(bodies[i].IsAbsorbed)
 				continue;
 
-			activeIndices.Add(i);
-			active++;
+			activeIndices[activeCount++] = i;
 			var p = bodies[i].Position;
 			if(p.X < minX)
 				minX = p.X;
@@ -63,14 +79,16 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 				rMax = ri;
 			rSum += ri;
 			// lightweight sampling for median
-			if(sampleCount < rSample.Length &&
-			   i % stride == 0)
+			if(sampleCount < sampleCapacity && i % stride == 0)
 				rSample[sampleCount++] = ri;
 		}
 
 		// Nothing or a single active body -> no collisions
-		if(active <= 1)
+		if(activeCount <= 1)
+		{
+			activePool.Return(activeIndices);
 			return;
+		}
 
 		if(double.IsInfinity(minX) ||
 		   double.IsInfinity(minY) ||
@@ -78,79 +96,110 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		   double.IsInfinity(maxX) ||
 		   double.IsInfinity(maxY) ||
 		   double.IsInfinity(maxZ))
-			return;
-
-		// Adaptive cell size heuristic
-		var rAvg = rSum / active;
-
-		if(sampleCount == 0)
-			rSample = [];
-		else if(sampleCount < rSample.Length)
 		{
-			// shrink array view
-			var tmp = new double[sampleCount];
-			Array.Copy(rSample, tmp, sampleCount);
-			rSample = tmp;
+			activePool.Return(activeIndices);
+			return;
 		}
 
-		if(rSample.Length > 0)
-			Array.Sort(rSample);
-		var rMed = rSample.Length > 0
-					   ? rSample[rSample.Length / 2]
+		// Adaptive cell size heuristic
+		var rAvg = rSum / activeCount;
+		var rSampleSlice = rSample.Slice(0, sampleCount);
+		rSampleSlice.Sort();
+		var rMed = sampleCount > 0
+					   ? rSampleSlice[sampleCount / 2]
 					   : rAvg > 0
 						   ? rAvg
 						   : rMax;
 
 		var baseR = Math.Min(rMax, Math.Max(rMed, 0.25 * rMax));
 		var cellSize = Math.Max(1e-9, _cellScale * baseR);
+		var invCellSize = 1.0 / cellSize; // Precompute inverse for faster division
 
 		var spanX = Math.Max(1e-12, maxX - minX);
 		var spanY = Math.Max(1e-12, maxY - minY);
 		var spanZ = Math.Max(1e-12, maxZ - minZ);
-		var cols = Math.Max(1, (int)Math.Ceiling(spanX / cellSize) + 1);
-		var rows = Math.Max(1, (int)Math.Ceiling(spanY / cellSize) + 1);
-		var depths = Math.Max(1, (int)Math.Ceiling(spanZ / cellSize) + 1);
+		var cols = Math.Max(1, (int)Math.Ceiling(spanX * invCellSize) + 1);
+		var rows = Math.Max(1, (int)Math.Ceiling(spanY * invCellSize) + 1);
+		var depths = Math.Max(1, (int)Math.Ceiling(spanZ * invCellSize) + 1);
 
-		// Allocate local buckets per call to avoid cross-thread interference (3D grid)
-		var buckets = new List<int>[cols * rows * depths];
+		// Precompute colsRows for faster key calculation
+		var colsRows = cols * rows;
+		var gridSize = colsRows * depths;
 
-		static int Key3D(int x, int y, int z, int cols, int rows)
-			=> z * cols * rows + y * cols + x;
+		// Clear buckets from previous frame and return lists to pool
+		// IMPORTANT: Always null out slots to prevent stale data when grid dimensions change
+		for(var i = 0; i < _usedBucketCount; i++)
+		{
+			var bucketIdx = _usedBucketIndices[i];
+			var oldBucket = _buckets[bucketIdx];
+			if(oldBucket != null)
+			{
+				oldBucket.Clear();
+				_listPool.Push(oldBucket);
+				_buckets[bucketIdx] = null;
+			}
+		}
+		_usedBucketCount = 0;
+
+		// Ensure persistent bucket array is large enough
+		if(gridSize > _bucketCapacity)
+		{
+			// Grow arrays (use power of 2 for better memory alignment)
+			var newCapacity = Math.Max(gridSize, _bucketCapacity * 2);
+			newCapacity = (int)Math.Pow(2, Math.Ceiling(Math.Log2(newCapacity)));
+			_buckets = new List<int>?[newCapacity];
+			_usedBucketIndices = new int[Math.Max(activeCount * 2, 256)];
+			_bucketCapacity = newCapacity;
+		}
+		else
+		{
+			// Ensure used indices array is large enough
+			if(_usedBucketIndices.Length < activeCount)
+				_usedBucketIndices = new int[activeCount * 2];
+		}
+
+		var buckets = _buckets;
+		var usedBucketIndices = _usedBucketIndices;
+		var usedBucketCount = 0;
 
 		// Fill buckets from active bodies only
-		foreach(var activeIndex in activeIndices)
+		for(var idx = 0; idx < activeCount; idx++)
 		{
+			var activeIndex = activeIndices[idx];
 			var p = bodies[activeIndex].Position;
-			var cx = (int)Math.Floor((p.X - minX) / cellSize);
-			var cy = (int)Math.Floor((p.Y - minY) / cellSize);
-			var cz = (int)Math.Floor((p.Z - minZ) / cellSize);
-			cx = Math.Min(Math.Max(cx, 0), cols - 1);
-			cy = Math.Min(Math.Max(cy, 0), rows - 1);
-			cz = Math.Min(Math.Max(cz, 0), depths - 1);
-			var k = Key3D(cx, cy, cz, cols, rows);
+			var cx = Math.Clamp((int)((p.X - minX) * invCellSize), 0, cols - 1);
+			var cy = Math.Clamp((int)((p.Y - minY) * invCellSize), 0, rows - 1);
+			var cz = Math.Clamp((int)((p.Z - minZ) * invCellSize), 0, depths - 1);
+			var k = cz * colsRows + cy * cols + cx;
 			var bucket = buckets[k];
 			if(bucket == null)
-				buckets[k] = bucket = new(4);
+			{
+				// Get a list from the pool or create a new one
+				bucket = _listPool.Count > 0 ? _listPool.Pop() : new List<int>(8);
+				buckets[k] = bucket;
+				usedBucketIndices[usedBucketCount++] = k;
+			}
 			bucket.Add(activeIndex);
 		}
+		
+		_usedBucketCount = usedBucketCount;
 
 		var elastic = world.ElasticCollisions;
 
 		// Neighbor scanning using active bodies; keep guards in case of mid-pass absorption.
-		foreach(var i in activeIndices)
+		for(var idx = 0; idx < activeCount; idx++)
 		{
+			var i = activeIndices[idx];
+
 			// body may have been absorbed by a previous merge
 			if(bodies[i].IsAbsorbed)
 				continue;
 
 			var body1 = bodies[i];
 			var p = body1.Position;
-			var cx = (int)Math.Floor((p.X - minX) / cellSize);
-			var cy = (int)Math.Floor((p.Y - minY) / cellSize);
-			var cz = (int)Math.Floor((p.Z - minZ) / cellSize);
-			cx = Math.Min(Math.Max(cx, 0), cols - 1);
-			cy = Math.Min(Math.Max(cy, 0), rows - 1);
-			cz = Math.Min(Math.Max(cz, 0), depths - 1);
+			var cx = Math.Clamp((int)((p.X - minX) * invCellSize), 0, cols - 1);
+			var cy = Math.Clamp((int)((p.Y - minY) * invCellSize), 0, rows - 1);
+			var cz = Math.Clamp((int)((p.Z - minZ) * invCellSize), 0, depths - 1);
 
 			// per-entity neighbor range clamp based on size relative to cell
 			int range;
@@ -159,25 +208,31 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			else if(body1.r <= 1.5 * cellSize)
 				range = 2;
 			else
-				range = (int)Math.Ceiling(body1.r / cellSize) + 1;
+				range = (int)Math.Ceiling(body1.r * invCellSize) + 1;
+
+			// Cache body1 properties for inner loop
+			var body1PosX = body1.Position.X;
+			var body1PosY = body1.Position.Y;
+			var body1PosZ = body1.Position.Z;
+			var body1R = body1.r;
 
 			// 3D neighbor cell iteration
 			for(var dz = -range; dz <= range; dz++)
 			{
 				var zz = cz + dz;
-				if(zz < 0 || zz >= depths)
+				if((uint)zz >= (uint)depths)
 					continue;
 
 				for(var dy = -range; dy <= range; dy++)
 				{
 					var yy = cy + dy;
-					if(yy < 0 || yy >= rows)
+					if((uint)yy >= (uint)rows)
 						continue;
 
 					for(var dx = -range; dx <= range; dx++)
 					{
 						var xx = cx + dx;
-						if(xx < 0 || xx >= cols)
+						if((uint)xx >= (uint)cols)
 							continue;
 
 						// Half-space de-dup: only process cells "ahead" in the 3D ordering
@@ -189,12 +244,15 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 						if(zz == cz && yy == cy && xx < cx)
 							continue;
 
-						var bucket = buckets[Key3D(xx, yy, zz, cols, rows)];
+						var bucket = buckets[zz * colsRows + yy * cols + xx];
 						if(bucket == null)
 							continue;
 
-						foreach(var j in bucket)
+						var bucketCount = bucket.Count;
+						for(var bi = 0; bi < bucketCount; bi++)
 						{
+							var j = bucket[bi];
+
 							// within same cell ensure j>i to avoid duplicates
 							if(xx == cx && yy == cy && zz == cz && j <= i)
 								continue;
@@ -205,24 +263,23 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 								continue;
 
 							// Fast AABB rejection using radii
-							var sumR = body1.r + body2.r;
-							var diffX = body1.Position.X - body2.Position.X;
+							var sumR = body1R + body2.r;
+							var diffX = body1PosX - body2.Position.X;
 
 							if(Math.Abs(diffX) > sumR)
 								continue;
 
-							var diffY = body1.Position.Y - body2.Position.Y;
+							var diffY = body1PosY - body2.Position.Y;
 
 							if(Math.Abs(diffY) > sumR)
 								continue;
 
-							var diffZ = body1.Position.Z - body2.Position.Z;
+							var diffZ = body1PosZ - body2.Position.Z;
 
 							if(Math.Abs(diffZ) > sumR)
 								continue;
 
-							var d = new Vector3D(diffX, diffY, diffZ);
-							var distSq = d.LengthSquared;
+							var distSq = diffX * diffX + diffY * diffY + diffZ * diffZ;
 
 							if(distSq > sumR * sumR)
 								continue;
@@ -248,6 +305,9 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 				}
 			}
 		}
+
+		// Return pooled array
+		activePool.Return(activeIndices);
 	}
 
 	#endregion

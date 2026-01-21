@@ -12,47 +12,14 @@ internal static class Program
 
 	private static void Main(string[] args)
 	{
-		var resArg = args.FirstOrDefault(a => a.StartsWith("--resource=", StringComparison.OrdinalIgnoreCase));
+		// Configure job with reduced iterations for long-running benchmarks
+		var config = DefaultConfig.Instance
+			.AddJob(Job.Default
+				.WithWarmupCount(5)
+				.WithIterationCount(5));
 
-		if(resArg != null)
-		{
-			var v = resArg.Substring("--resource=".Length);
-			BenchParams.ResourcePath = string.IsNullOrWhiteSpace(v)
-								   ? null
-								   : v;
-		}
-
-		var stepsArg = args.FirstOrDefault(a => a.StartsWith("--steps=", StringComparison.OrdinalIgnoreCase));
-
-		if(stepsArg != null)
-		{
-			var v = stepsArg.Substring("--steps=".Length);
-			if(int.TryParse(v, out var steps) &&
-			   steps > 0)
-				BenchParams.Steps = steps;
-		}
-
-		// Strip custom args so BenchmarkDotNet does not error on unknown options
-		var filteredArgs = args
-			.Where(a => !(a.StartsWith("--resource=", StringComparison.OrdinalIgnoreCase) || a.StartsWith("--steps=", StringComparison.OrdinalIgnoreCase)))
-			.ToArray();
-
-		// Force warmup and iteration counts to 5 for faster baseline runs
-		var config = DefaultConfig.Instance.AddJob(Job.Default.WithWarmupCount(5).WithIterationCount(5));
-
-		BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(filteredArgs, config);
+		BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);
 	}
-
-	#endregion
-}
-
-internal static class BenchParams
-{
-	#region Interface
-
-	public static string? ResourcePath { get; set; }
-
-	public static int Steps { get; set; } = 1000;
 
 	#endregion
 }
