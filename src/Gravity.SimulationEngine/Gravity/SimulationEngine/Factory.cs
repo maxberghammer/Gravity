@@ -26,20 +26,20 @@ public static class Factory
 		   {
 			   SimulationEngineType.Standard => new(new SemiImplicit(),
 													new None(),
-													new Direct(new Simple()),
-													new Simple()),
+													new Direct(new Grid()),
+													new Grid()),
 		   SimulationEngineType.AdaptiveBarnesHut => new(new Leapfrog(),
 																 new MinDiameterCrossingTime(64,
 																							 TimeSpan.FromSeconds(1e-7),
 																							 0.5),
 																 new BarnesHut(),
-																 new Simple()),
+																 new Grid()),
 		   SimulationEngineType.AdaptiveParticleMesh => new Implementation.SimulationEngine(new Leapfrog(),
 																								new MinDiameterCrossingTime(64,
 																														TimeSpan.FromSeconds(1e-7),
 																														0.5),
 																								new ParticleMesh(),
-																								new Simple()),
+																								new Grid()),
 			   var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		   };
 
