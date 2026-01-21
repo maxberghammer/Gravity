@@ -234,23 +234,22 @@ internal sealed class Grid : SimulationEngine.ICollisionResolver
 		var relVel = v1 - v2;
 		var velAlongNormal = relVel * normal;
 
+		// Only resolve if bodies are approaching
 		if (velAlongNormal > 0)
 			return;
 
+		// Standard elastic collision impulse formula
 		var impulseScalar = -2.0 * velAlongNormal / (1.0 / m1 + 1.0 / m2);
 		var impulse = impulseScalar * normal;
 
 		body1.v = v1 + impulse / m1;
 		body2.v = v2 - impulse / m2;
-
-		// Separate overlapping bodies
-		var overlap = body1.r + body2.r - (body1.Position - body2.Position).Length;
-		if (overlap > 0)
-		{
-			var totalMass = m1 + m2;
-			body1.Position = body1.Position + normal * (overlap * m2 / totalMass);
-			body2.Position = body2.Position - normal * (overlap * m1 / totalMass);
-		}
+		
+		// Note: We intentionally do NOT separate bodies here.
+		// Separation adds potential energy without removing kinetic energy,
+		// which can cause energy gain over time. The gravity calculation
+		// already clamps minimum distance, so close bodies won't cause
+		// singularities.
 	}
 
 	private static void ApplyMergeCollision(Body body1, Body body2)

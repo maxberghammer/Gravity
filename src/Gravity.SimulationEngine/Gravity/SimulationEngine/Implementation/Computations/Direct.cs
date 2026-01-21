@@ -57,13 +57,21 @@ internal sealed class Direct : SimulationEngine.IComputation
 			return Vector3D.Zero;
 
 		var g = Vector3D.Zero;
+		var bodyR = body.r;
 
 		foreach(var other in others.Where(e => !e.IsAbsorbed))
 		{
 			var dist = body.Position - other.Position;
+			var distSq = dist.LengthSquared;
+			
+			// Prevent singularity: clamp distance to sum of radii
+			// Bodies closer than this should collide anyway
+			var minDist = bodyR + other.r;
+			var minDistSq = minDist * minDist;
+			if(distSq < minDistSq)
+				distSq = minDistSq;
 
-			// Gravitationsbeschleunigung integrieren
-			g += other.m * dist / Math.Pow(dist.LengthSquared, 1.5d);
+			g += other.m * dist / Math.Pow(distSq, 1.5d);
 		}
 
 		return -IWorld.G * g;
