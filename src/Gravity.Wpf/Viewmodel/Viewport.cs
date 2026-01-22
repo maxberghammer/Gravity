@@ -11,6 +11,16 @@ namespace Gravity.Wpf.Viewmodel;
 public class Viewport : NotifyPropertyChanged,
 						IViewport
 {
+	#region Fields
+
+	private const double _snapAngle = Math.PI / 4; // 45 degrees
+	private double _rawPitch;
+
+	// Raw (unsnapped) rotation values for smooth snap behavior
+	private double _rawYaw;
+
+	#endregion
+
 	#region Interface
 
 	public DragIndicator? DragIndicator { get; set => SetProperty(ref field, value); }
@@ -29,23 +39,11 @@ public class Viewport : NotifyPropertyChanged,
 		=> Size.Y; // <- Hier ändern, um andere Tiefenberechnung zu verwenden
 
 	/// <summary>
-	/// Calculates the depth for a given height. Override this method to change the depth calculation.
-	/// </summary>
-	private static double CalculateDepthFromHeight(double height)
-		=> height; // <- Hier ändern, um andere Tiefenberechnung zu verwenden
-
-	/// <summary>
 	/// Returns the 3D size with proper depth (width, height, depth).
 	/// Use this instead of Size when you need the actual 3D bounds.
 	/// </summary>
 	public Vector3D Size3D
 		=> new(Size.X, Size.Y, Depth);
-
-	/// <summary>
-	/// Returns half of the 3D size. Use this for centering operations.
-	/// </summary>
-	public Vector3D HalfSize3D
-		=> Size3D / 2;
 
 	public double Scale
 	{
@@ -72,25 +70,12 @@ public class Viewport : NotifyPropertyChanged,
 	/// <summary>
 	/// Camera pitch angle in radians (rotation around X axis, clamped to avoid gimbal lock)
 	/// </summary>
-	public double CameraPitch
-	{
-		get;
-		set => SetProperty(ref field, Math.Clamp(value, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01));
-	}
-
-	// Raw (unsnapped) rotation values for smooth snap behavior
-	private double _rawYaw;
-	private double _rawPitch;
-	private const double SnapAngle = Math.PI / 4; // 45 degrees
+	public double CameraPitch { get; set => SetProperty(ref field, Math.Clamp(value, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01)); }
 
 	/// <summary>
 	/// Camera distance from center (for zoom in 3D view)
 	/// </summary>
-	public double CameraDistance
-	{
-		get;
-		set => SetProperty(ref field, Math.Max(1, value));
-	} = 1000;
+	public double CameraDistance { get; set => SetProperty(ref field, Math.Max(1, value)); } = 1000;
 
 	// ReSharper disable once UnusedMember.Global
 	public void CenterTo(Body entity)
@@ -122,21 +107,19 @@ public class Viewport : NotifyPropertyChanged,
 	{
 		var previousScaleFactor = ScaleFactor;
 		var previousSize = Size3D;
+		var previousCenter = Center;
 
 		Scale = Math.Round(Scale + zoomFactor, 1);
 
-		var scaleFactor = previousScaleFactor / ScaleFactor;
-		var newWidth = previousSize.X * scaleFactor;
-		var newHeight = previousSize.Y * scaleFactor;
+		var sizeRatio = previousScaleFactor / ScaleFactor;
+		var newWidth = previousSize.X * sizeRatio;
+		var newHeight = previousSize.Y * sizeRatio;
 		var newDepth = CalculateDepthFromHeight(newHeight);
 		var newSize = new Vector3D(newWidth, newHeight, newDepth);
-		
-		var sizeDiff = newSize - previousSize;
-		var zoomOffset = zoomCenter - Center;
-		var newCenter = Center - new Vector3D(
-			previousSize.X > 0 ? zoomOffset.X / previousSize.X * sizeDiff.X : 0,
-			previousSize.Y > 0 ? zoomOffset.Y / previousSize.Y * sizeDiff.Y : 0,
-			previousSize.Z > 0 ? zoomOffset.Z / previousSize.Z * sizeDiff.Z : 0);
+
+		// Zoom to cursor: keep the zoom center point at the same screen position
+		// The center moves towards/away from the zoom point proportionally to the size change
+		var newCenter = zoomCenter + (previousCenter - zoomCenter) * sizeRatio;
 
 		SetBoundsAroundCenter(newCenter, newSize);
 	}
@@ -153,8 +136,8 @@ public class Viewport : NotifyPropertyChanged,
 			_rawPitch += deltaPitch;
 
 			// Snap to 45° increments
-			CameraYaw = SnapToAngle(_rawYaw, SnapAngle);
-			CameraPitch = SnapToAngle(_rawPitch, SnapAngle);
+			CameraYaw = SnapToAngle(_rawYaw, _snapAngle);
+			CameraPitch = SnapToAngle(_rawPitch, _snapAngle);
 		}
 		else
 		{
@@ -167,23 +150,6 @@ public class Viewport : NotifyPropertyChanged,
 			_rawPitch = CameraPitch;
 		}
 	}
-
-	/// <summary>
-	/// Rotates the camera by the given delta angles and snaps to 45° increments
-	/// </summary>
-	public void RotateCameraWithSnap(double deltaYaw, double deltaPitch)
-	{
-		const double snapAngle = Math.PI / 4; // 45 degrees in radians
-		
-		CameraYaw = SnapToAngle(CameraYaw + deltaYaw, snapAngle);
-		CameraPitch = SnapToAngle(CameraPitch + deltaPitch, snapAngle);
-	}
-
-	/// <summary>
-	/// Snaps an angle to the nearest multiple of snapAngle
-	/// </summary>
-	private static double SnapToAngle(double angle, double snapAngle)
-		=> Math.Round(angle / snapAngle) * snapAngle;
 
 	/// <summary>
 	/// Converts a viewport point to world coordinates, taking camera rotation into account.
@@ -221,7 +187,7 @@ public class Viewport : NotifyPropertyChanged,
 		var worldY = Center.Y + offsetX * rightY - offsetY * upY;
 		var worldZ = Center.Z + offsetX * rightZ - offsetY * upZ;
 
-		return new Vector3D(worldX, worldY, worldZ);
+		return new(worldX, worldY, worldZ);
 	}
 
 	/// <summary>
@@ -267,6 +233,22 @@ public class Viewport : NotifyPropertyChanged,
 	public Vector3D TopLeft { get; set; }
 
 	public Vector3D BottomRight { get; set; }
+
+	#endregion
+
+	#region Implementation
+
+	/// <summary>
+	/// Calculates the depth for a given height. Override this method to change the depth calculation.
+	/// </summary>
+	private static double CalculateDepthFromHeight(double height)
+		=> height; // <- Hier ändern, um andere Tiefenberechnung zu verwenden
+
+	/// <summary>
+	/// Snaps an angle to the nearest multiple of snapAngle
+	/// </summary>
+	private static double SnapToAngle(double angle, double snapAngle)
+		=> Math.Round(angle / snapAngle) * snapAngle;
 
 	#endregion
 }

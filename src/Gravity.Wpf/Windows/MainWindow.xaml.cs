@@ -50,6 +50,7 @@ internal sealed partial class MainWindow
 		_lblSelectedBodym.Visibility = _lblSelectedBodyv.Visibility = null != _viewmodel.SelectedBody
 																		  ? Visibility.Visible
 																		  : Visibility.Collapsed;
+		_lblSelectedBodyId.Content = _viewmodel.SelectedBody?.Id;
 		_lblSelectedBodyv.Content = _viewmodel.SelectedBody?.v;
 		_lblSelectedBodym.Content = _viewmodel.SelectedBody?.m;
 		_lblFps.Content = _viewmodel.FramesPerSecond;

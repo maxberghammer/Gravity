@@ -341,13 +341,17 @@ x:ClassModifier="internal">
 				<ColumnDefinition Width="*"/>
 				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
+			<Label Name="_lblSelectedBodyId"
+						 Grid.Column="1"
+						 ContentStringFormat="Id={0}"/>
 			<Label Name="_lblSelectedBodyv"
-                   Grid.Column="1"
+                   Grid.Column="2"
                    ContentStringFormat="v={0}m/s"/>
 			<Label Name="_lblSelectedBodym"
-                   Grid.Column="2"
+                   Grid.Column="3"
                    ContentStringFormat="m={0}kg"/>
 		</Grid>
 

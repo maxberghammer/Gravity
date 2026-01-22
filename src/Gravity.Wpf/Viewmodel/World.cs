@@ -1,6 +1,8 @@
 // Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
+using Gravity.SimulationEngine;
+using Gravity.SimulationEngine.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,8 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using Gravity.SimulationEngine;
-using Gravity.SimulationEngine.Serialization;
 using Wellenlib;
 using Wellenlib.ComponentModel;
 
@@ -323,6 +323,7 @@ public class World : NotifyPropertyChanged,
 		Runtime = TimeSpan.Zero;
 		SelectedBody = null;
 		Viewport.SetBoundsAroundCenter(Vector3D.Zero, Viewport.Size3D);
+		Body.ResetIds();
 	}
 
 	public async Task SaveAsync(string filePath)
@@ -494,6 +495,65 @@ public class World : NotifyPropertyChanged,
 			return;
 
 		_simulationEngine.Simulate(this, deltaTime);
+
+		// DEBUG: Check if acceleration points towards or away from center of mass
+		//var runtimeSec = Runtime.TotalSeconds;
+		//if(bodies.Length > 1)
+		//{
+		//	var activeBodies = bodies.Where(b => !b.IsAbsorbed).ToArray();
+		//	if(activeBodies.Length > 1)
+		//	{
+		//		var totalMass = activeBodies.Sum(b => b.m);
+		//		var com = new Vector3D(
+		//			activeBodies.Sum(b => b.m * b.Position.X) / totalMass,
+		//			activeBodies.Sum(b => b.m * b.Position.Y) / totalMass,
+		//			activeBodies.Sum(b => b.m * b.Position.Z) / totalMass);
+
+		//		var invalidBodies = activeBodies.Select(b =>
+		//											  {
+		//												  var toCenter = com - b.Position;
+		//												  var toCenterLen = toCenter.Length;
+		//												  var aLen = b.a.Length;
+
+		//												  if(toCenterLen <= 1e-6 ||
+		//													 aLen <= 1e-12)
+		//													  return new
+		//															 {
+		//																 Body = b,
+		//																 Dot = double.NaN,
+		//																 ALen = aLen,
+		//																 DistToCenter = toCenterLen
+		//															 };
+
+		//												  var toCenterUnit = toCenter / toCenterLen;
+		//												  var aUnit = b.a / aLen;
+		//												  var dot = toCenterUnit.X * aUnit.X + toCenterUnit.Y * aUnit.Y + toCenterUnit.Z * aUnit.Z;
+
+		//												  return new
+		//														 {
+		//															 Body = b,
+		//															 Dot = dot,
+		//															 ALen = aLen,
+		//															 DistToCenter = toCenterLen
+		//														 };
+		//											  })
+		//									  // dot > 0 means acceleration towards center (correct)
+		//									  // dot < 0 means acceleration away from center (BUG!)
+		//									  .Where(t => !double.IsNaN(t.Dot) && t.Dot < 0)
+		//									  .ToArray();
+
+		//		var invalidBody = invalidBodies.FirstOrDefault();
+
+		//		if (null!=invalidBody)
+		//			Trace.TraceWarning($"[T={runtimeSec:F1}s] " +
+		//							   $"Body {invalidBody.Body.Id} (Total: {invalidBodies.Length}): " +
+		//							   $"accel AWAY FROM ({com.X},{com.Y},{com.Z}), " +
+		//							   $"dot={invalidBody.Dot:F3}, " +
+		//							   $"m={invalidBody.Body.m:E3}, " +
+		//							   $"|a|={invalidBody.ALen:E3}, " +
+		//							   $"distToCenter={invalidBody.DistToCenter:E3}");
+		//	}
+		//}
 
 		var respawner = CurrentRespawnerId.HasValue
 							? _respawnersById[CurrentRespawnerId.Value]

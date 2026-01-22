@@ -77,9 +77,11 @@ public partial class Direct3dWorldView
 			var sinYaw = MathF.Sin(yaw);
 			var cosPitch = MathF.Cos(pitch);
 			var sinPitch = MathF.Sin(pitch);
-			
+
 			// Camera forward direction (from camera to center)
-			var forward = new Vector3(sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch);
+			// Negated to place camera in front of scene (positive Z), looking back (-Z)
+			// This gives right-handed coords: X right, Y up, Z out of screen
+			var forward = new Vector3(-sinYaw * cosPitch, -sinPitch, -cosYaw * cosPitch);
 			var cameraPos = new Vector3((float)center.X, (float)center.Y, (float)center.Z) - forward * distance;
 			var cameraTarget = new Vector3((float)center.X, (float)center.Y, (float)center.Z);
 			
