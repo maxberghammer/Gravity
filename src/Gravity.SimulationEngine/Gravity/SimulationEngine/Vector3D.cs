@@ -83,6 +83,10 @@ public readonly struct Vector3D : IEquatable<Vector3D>
 	public override int GetHashCode()
 		=> HashCode.Combine(X, Y, Z);
 
+	/// <inheritdoc/>
+	public override string ToString()
+		=> $"[{X}, {Y}, {Z}]";
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public Vector3D Unit()
 		=> this / Length;
@@ -91,9 +95,10 @@ public readonly struct Vector3D : IEquatable<Vector3D>
 	public (Vector3D unit, double length) UnitWithLength()
 	{
 		var len = Length;
+
 		return (this / len, len);
 	}
-	
+
 	/// <summary>
 	/// Returns the cross product of two 3D vectors.
 	/// </summary>

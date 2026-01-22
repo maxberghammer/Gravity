@@ -223,7 +223,74 @@ public class Viewport : NotifyPropertyChanged,
 		var screenCenterX = Size.X * ScaleFactor / 2;
 		var screenCenterY = Size.Y * ScaleFactor / 2;
 
+
 		return new(screenCenterX + screenX * ScaleFactor, screenCenterY + screenY * ScaleFactor);
+	}
+
+	/// <summary>
+	/// Gets the camera forward direction (the direction the camera is looking).
+	/// With the current setup: X right, Y up, Z out of screen towards viewer.
+	/// Camera looks in -Z direction (into the screen).
+	/// </summary>
+	public Vector3D GetCameraForward()
+	{
+		var cosYaw = Math.Cos(CameraYaw);
+		var sinYaw = Math.Sin(CameraYaw);
+		var cosPitch = Math.Cos(CameraPitch);
+		var sinPitch = Math.Sin(CameraPitch);
+
+		// Forward direction (into the screen, -Z in default view)
+		// This matches the renderer's camera setup
+		return new Vector3D(-sinYaw * cosPitch, -sinPitch, -cosYaw * cosPitch);
+	}
+
+	/// <summary>
+	/// Creates a ray from a viewport point for 3D picking.
+	/// Returns the ray origin (on the near plane) and direction.
+	/// </summary>
+	public (Vector3D Origin, Vector3D Direction) GetPickingRay(Point viewportPoint)
+	{
+		// Get the point on the center plane
+		var pointOnPlane = ToWorld(viewportPoint);
+		
+		// Get camera forward direction
+		var forward = GetCameraForward();
+		
+		// For orthographic projection, all rays are parallel to the forward direction
+		// The origin is the point on the plane, offset backwards along the ray
+		var rayOrigin = pointOnPlane - forward * (Depth * 10); // Start far behind
+		
+		return (rayOrigin, forward);
+	}
+
+	/// <summary>
+	/// Tests if a ray intersects a sphere and returns the distance to the intersection.
+	/// Returns null if no intersection.
+	/// </summary>
+	public static double? RaySphereIntersect(Vector3D rayOrigin, Vector3D rayDir, Vector3D sphereCenter, double sphereRadius)
+	{
+		// Vector from ray origin to sphere center
+		var oc = rayOrigin - sphereCenter;
+		
+		// Quadratic formula coefficients for ray-sphere intersection
+		// |rayOrigin + t*rayDir - sphereCenter|^2 = radius^2
+		var a = rayDir.X * rayDir.X + rayDir.Y * rayDir.Y + rayDir.Z * rayDir.Z;
+		var b = 2.0 * (oc.X * rayDir.X + oc.Y * rayDir.Y + oc.Z * rayDir.Z);
+		var c = oc.X * oc.X + oc.Y * oc.Y + oc.Z * oc.Z - sphereRadius * sphereRadius;
+		
+		var discriminant = b * b - 4 * a * c;
+		
+		if (discriminant < 0)
+			return null; // No intersection
+		
+		// Return the nearest positive intersection
+		var sqrtDisc = Math.Sqrt(discriminant);
+		var t1 = (-b - sqrtDisc) / (2 * a);
+		var t2 = (-b + sqrtDisc) / (2 * a);
+		
+		if (t1 > 0) return t1;
+		if (t2 > 0) return t2;
+		return null; // Both intersections behind ray origin
 	}
 
 	#endregion

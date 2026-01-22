@@ -1,8 +1,6 @@
 // Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
-using Gravity.SimulationEngine;
-using Gravity.SimulationEngine.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using Gravity.SimulationEngine;
+using Gravity.SimulationEngine.Serialization;
 using Wellenlib;
 using Wellenlib.ComponentModel;
 
@@ -211,9 +211,9 @@ public class World : NotifyPropertyChanged,
 		_bodies.AddLocked(new(position,
 							  SelectedBodyPreset.r,
 							  SelectedBodyPreset.m,
-							velocity,
-							Vector3D.Zero,
-							SelectedBodyPreset.Color,
+							  velocity,
+							  Vector3D.Zero,
+							  SelectedBodyPreset.Color,
 							  SelectedBodyPreset.AtmosphereColor,
 							  SelectedBodyPreset.AtmosphereThickness));
 
@@ -251,25 +251,28 @@ public class World : NotifyPropertyChanged,
 
 		if(orbitNormal.LengthSquared < 1e-12)
 		{
-			up = new Vector3D(1, 0, 0);
+			up = new(1, 0, 0);
 			orbitNormal = distUnit.Cross(up);
 		}
 
 		// Tangent is perpendicular to both orbitNormal and dist (double cross product)
 		var tangent = orbitNormal.Cross(distUnit);
 		var tangentLen = tangent.Length;
-		
+
 		if(tangentLen < 1e-12)
 		{
 			CreateBody(position, Vector3D.Zero);
+
 			return;
 		}
-		
+
 		tangent = tangent / tangentLen;
 
 		// Determine orbit direction: which tangent direction is closer to velocity?
 		// Same logic as the 2D version: compare distance to +tangent vs -tangent
-		var velocityUnit = velocity.Length > 1e-12 ? velocity / velocity.Length : Vector3D.Zero;
+		var velocityUnit = velocity.Length > 1e-12
+							   ? velocity / velocity.Length
+							   : Vector3D.Zero;
 		var direction = (tangent - velocityUnit).Length > (-tangent - velocityUnit).Length
 							? -1
 							: 1;
@@ -277,18 +280,49 @@ public class World : NotifyPropertyChanged,
 		// Calculate orbital velocity for circular orbit: v = sqrt(G * M / r)
 		var orbitalSpeed = Math.Sqrt(IWorld.G * nearestBody.m / distLen);
 
-		// Scale with (1 + velocity.Length) like in 2D version
-		var v = (1 + velocity.Length) * direction * orbitalSpeed * tangent + nearestBody.v;
+		// The orbital velocity is relative to nearestBody
+		// In world frame: v = v_orbit + nearestBody.v
+		// This ensures the new body orbits nearestBody while moving with it
+		var orbitalVelocity = (1 + velocity.Length) * direction * orbitalSpeed * tangent;
+		var v = orbitalVelocity + nearestBody.v;
+
 		CreateBody(position, v);
 	}
 
 	public void SelectBody(Point viewportPoint, double viewportSearchRadius)
 	{
-		var pos = Viewport.ToWorld(viewportPoint);
+		// Get picking ray from viewport point
+		(var rayOrigin, var rayDir) = Viewport.GetPickingRay(viewportPoint);
 
-		SelectedBody = GetBodies().Where(e => (e.Position - pos).Length <= e.r + viewportSearchRadius / Viewport.ScaleFactor)
-								  .OrderBy(e => (e.Position - pos).Length - (e.r + viewportSearchRadius / Viewport.ScaleFactor))
-								  .FirstOrDefault();
+		// Search radius only applies perpendicular to the ray (in view plane), not in depth
+		var searchRadiusWorld = viewportSearchRadius / Viewport.ScaleFactor;
+
+		Body? closestBody = null;
+		var closestDistance = double.MaxValue;
+
+		foreach(var body in GetBodies())
+		{
+			// Calculate perpendicular distance from ray to body center
+			// This is the distance in the view plane, ignoring depth
+			var toBody = body.Position - rayOrigin;
+			var rayDirDot = rayDir.X * rayDir.X + rayDir.Y * rayDir.Y + rayDir.Z * rayDir.Z;
+			var t = (toBody.X * rayDir.X + toBody.Y * rayDir.Y + toBody.Z * rayDir.Z) / rayDirDot;
+
+			// Closest point on ray to body center
+			var closestPointOnRay = rayOrigin + t * rayDir;
+			var perpDistance = (body.Position - closestPointOnRay).Length;
+
+			// Check if within body radius + search radius (perpendicular to ray only)
+			// No depth restriction - orthographic projection shows all depths
+			if(perpDistance <= body.r + searchRadiusWorld &&
+			   t < closestDistance)
+			{
+				closestDistance = t;
+				closestBody = body;
+			}
+		}
+
+		SelectedBody = closestBody;
 	}
 
 	public void AutoScaleAndCenterViewport()
@@ -299,10 +333,10 @@ public class World : NotifyPropertyChanged,
 			return;
 
 		var previousSize = Viewport.Size3D;
-		var topLeft = new Vector3D(bodies.Min(e => e.Position.X - e.r), 
+		var topLeft = new Vector3D(bodies.Min(e => e.Position.X - e.r),
 								   bodies.Min(e => e.Position.Y - e.r),
 								   bodies.Min(e => e.Position.Z - e.r));
-		var bottomRight = new Vector3D(bodies.Max(e => e.Position.X + e.r), 
+		var bottomRight = new Vector3D(bodies.Max(e => e.Position.X + e.r),
 									   bodies.Max(e => e.Position.Y + e.r),
 									   bodies.Max(e => e.Position.Z + e.r));
 		var center = topLeft + (bottomRight - topLeft) / 2;
@@ -312,7 +346,7 @@ public class World : NotifyPropertyChanged,
 			newSize = new(newSize.Y * previousSize.X / previousSize.Y, newSize.Y, newSize.Z);
 		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
 			newSize = new(newSize.X, newSize.X * previousSize.Y / previousSize.X, newSize.Z);
-		
+
 		Viewport.SetBoundsAroundCenter(center, newSize);
 		Viewport.Scale += Math.Log10(Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y));
 	}
@@ -342,14 +376,15 @@ public class World : NotifyPropertyChanged,
 						RespawnerId = CurrentRespawnerId,
 						RngState = _rng.State,
 						Runtime = Runtime,
-						Bodies = GetBodies().Select(b => new State.BodyState(b.Color.ToString(),
-								b.AtmosphereColor?.ToString(),
-								b.AtmosphereThickness,
-								new(b.Position.X, b.Position.Y, b.Position.Z),
-								new(b.v.X, b.v.Y, b.v.Z),
-								b.r,
-								b.m))
-						.ToArray()
+						Bodies = GetBodies().Select(b => new State.BodyState(b.Id,
+																			 b.Color.ToString(),
+																			 b.AtmosphereColor?.ToString(),
+																			 b.AtmosphereThickness,
+																			 new(b.Position.X, b.Position.Y, b.Position.Z),
+																			 new(b.v.X, b.v.Y, b.v.Z),
+																			 b.r,
+																			 b.m))
+											.ToArray()
 					};
 		await using var swr = File.CreateText(filePath);
 		await state.SerializeAsync(swr);

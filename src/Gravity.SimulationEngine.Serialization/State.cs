@@ -14,7 +14,8 @@ public sealed class State
 
 	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
 
-	public sealed record BodyState(string Color,
+	public sealed record BodyState(int Id,
+								   string Color,
 								   string? AtmosphereColor,
 								   double AtmosphereThickness,
 								   Vector Position,
