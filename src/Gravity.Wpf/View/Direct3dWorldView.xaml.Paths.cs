@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -97,68 +98,69 @@ public partial class Direct3dWorldView
 		#region Fields
 
 		private const string _hlsl = """
-			cbuffer Camera : register(b0)
-			{
-			    float4x4 ViewProj;     // Combined View * Projection matrix
-			    float3 CameraRight;    // For billboard orientation
-			    float _pad0;
-			    float3 CameraUp;       // For billboard orientation
-			    float _pad1;
-			    float2 ScreenSize;     // Screen dimensions
-			    float  Scale;          // Zoom factor
-			    float _pad2;
-			};
+									 cbuffer Camera : register(b0)
+									 {
+									     float4x4 ViewProj;     // Combined View * Projection matrix
+									     float3 CameraRight;    // For billboard orientation
+									     float _pad0;
+									     float3 CameraUp;       // For billboard orientation
+									     float _pad1;
+									     float2 ScreenSize;     // Screen dimensions
+									     float  Scale;          // Zoom factor
+									     float _pad2;
+									 };
 
-			// Pfad-Parameter (pro Draw gesetzt)
-			cbuffer PathParams : register(b1)
-			{
-			    uint  PathVertexCount;
-			    float3 _padParams;
-			};
+									 // Pfad-Parameter (pro Draw gesetzt)
+									 cbuffer PathParams : register(b1)
+									 {
+									     uint  PathVertexCount;
+									     float3 _padParams;
+									 };
 
-			// ------------- Pfade (Linien) -------------
-			struct VSIn
-			{
-			    float3 Pos : POSITION;      // 3D Welt-Koordinate
-			    uint   Vid : SV_VertexID;   // Laufindex im aktuellen Pfad
-			};
+									 // ------------- Pfade (Linien) -------------
+									 struct VSIn
+									 {
+									     float3 Pos : POSITION;      // 3D Welt-Koordinate
+									     uint   Vid : SV_VertexID;   // Laufindex im aktuellen Pfad
+									 };
 
-			struct VSOut
-			{
-			    float4 Pos : SV_POSITION;
-			    float  T   : TEXCOORD0;     // 0..1 entlang des Pfades
-			};
+									 struct VSOut
+									 {
+									     float4 Pos : SV_POSITION;
+									     float  T   : TEXCOORD0;     // 0..1 entlang des Pfades
+									 };
 
-			VSOut VS(VSIn i)
-			{
-			    VSOut o;
+									 VSOut VS(VSIn i)
+									 {
+									     VSOut o;
 
-			    // Transform to clip space using ViewProj matrix
-			    o.Pos = mul(float4(i.Pos, 1.0), ViewProj);
+									     // Transform to clip space using ViewProj matrix
+									     o.Pos = mul(float4(i.Pos, 1.0), ViewProj);
 
-			    // Pfad-Interpolation 0..1 (Start->Ende)
-			    float denom = max(1.0, (float)(PathVertexCount - 1));
-			    o.T = saturate((float)i.Vid / denom);
+									     // Pfad-Interpolation 0..1 (Start->Ende)
+									     float denom = max(1.0, (float)(PathVertexCount - 1));
+									     o.T = saturate((float)i.Vid / denom);
 
-			    return o;
-			}
+									     return o;
+									 }
 
-			float4 PS(VSOut i) : SV_Target
-			{
-			    // Verlauf: Start nahezu schwarz, Ende weiß
-			    const float3 startCol = float3(0.05, 0.05, 0.05);
-			    const float3 endCol   = float3(1.0, 1.0, 1.0);
-			    float3 col = lerp(startCol, endCol, i.T);
-			    return float4(col, 1);
-			}
-			""";
+									 float4 PS(VSOut i) : SV_Target
+									 {
+									     // Verlauf: Start nahezu schwarz, Ende weiß
+									     const float3 startCol = float3(0.05, 0.05, 0.05);
+									     const float3 endCol   = float3(1.0, 1.0, 1.0);
+									     float3 col = lerp(startCol, endCol, i.T);
+									     return float4(col, 1);
+									 }
+									 """;
 
 		private const int _maxPathSegments = 10_000;
+		private readonly HashSet<int> _bodyIdLookup = new();
 		private readonly Dictionary<int, PathBuffer> _pathsByBodyId = new();
-		private bool _lastShowPathState;
 		private ID3D11Buffer? _buffer;
 		private int _bufferCapacity; // in vertices
 		private ID3D11InputLayout? _inputLayout;
+		private bool _lastShowPathState;
 		private ID3D11Buffer? _paramsBuffer;
 		private ID3D11PixelShader? _pixelShader;
 		private ID3D11VertexShader? _vertexShader;
@@ -195,36 +197,23 @@ public partial class Direct3dWorldView
 
 			var bodies = World.GetBodies();
 
-			// Remove paths for bodies that no longer exist without LINQ/HashSet churn
+			// Build HashSet of current body IDs for O(1) lookup
+			_bodyIdLookup.Clear();
+			for(var i = 0; i < bodies.Length; i++)
+				_bodyIdLookup.Add(bodies[i].Id);
+
+			// Remove paths for bodies that no longer exist - now O(m) instead of O(n*m)
 			if(_pathsByBodyId.Count > 0)
 			{
-				var tmpIds = bodies.Length <= 1024
-								 ? stackalloc int[bodies.Length]
-								 : new int[bodies.Length];
-				for(var i = 0; i < bodies.Length; i++)
-					tmpIds[i] = bodies[i].Id;
-				var toRemove = bodies.Length <= 1024
+				var toRemoveCount = 0;
+				var toRemove = _pathsByBodyId.Count <= 1024
 								   ? stackalloc int[_pathsByBodyId.Count]
 								   : new int[_pathsByBodyId.Count];
-				var rm = 0;
+				foreach(var key in _pathsByBodyId.Keys
+												 .Where(key => !_bodyIdLookup.Contains(key)))
+					toRemove[toRemoveCount++] = key;
 
-				foreach(var key in _pathsByBodyId.Keys)
-				{
-					var found = false;
-
-					for(var i = 0; i < tmpIds.Length; i++)
-						if(tmpIds[i] == key)
-						{
-							found = true;
-
-							break;
-						}
-
-					if(!found)
-						toRemove[rm++] = key;
-				}
-
-				for(var i = 0; i < rm; i++)
+				for(var i = 0; i < toRemoveCount; i++)
 					_pathsByBodyId.Remove(toRemove[i]);
 			}
 
@@ -310,14 +299,12 @@ public partial class Direct3dWorldView
 			var dstAll = MemoryMarshal.Cast<byte, Vector3>(byteSpanAll);
 			var writeIdx = 0;
 
-			for(var vi = 0; vi < valuesArray.Length; vi++)
+			foreach(var pathBuf in _pathsByBodyId.Values)
 			{
-				var p = valuesArray[vi];
-
-				if(p.Count < 2)
+				if(pathBuf.Count < 2)
 					continue;
 
-				p.CopyTo(dstAll.Slice(bases[writeIdx], counts[writeIdx]));
+				pathBuf.CopyTo(dstAll.Slice(bases[writeIdx], counts[writeIdx]));
 				writeIdx++;
 			}
 
@@ -366,9 +353,10 @@ public partial class Direct3dWorldView
 			_paramsBuffer = null;
 		}
 
-		private void OnWorldPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+		private void OnWorldPropertyChanged(object? sender, PropertyChangedEventArgs e)
 		{
-			if(e.PropertyName == nameof(World.ShowPath) && !World.ShowPath)
+			if(e.PropertyName == nameof(World.ShowPath) &&
+			   !World.ShowPath)
 				ClearAllPaths();
 		}
 

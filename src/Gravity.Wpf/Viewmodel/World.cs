@@ -46,6 +46,7 @@ public class World : NotifyPropertyChanged,
 	private readonly SimpleRng _rng = new();
 	private readonly Stopwatch _simulationTime = new();
 	private readonly DispatcherTimer _timer = new(DispatcherPriority.Render);
+	private Body[]? _cachedBodiesArray;
 	private int _isSimulating;
 	private TimeSpan _lastSimulationStep = TimeSpan.Zero;
 	private ISimulationEngine? _simulationEngine;
@@ -194,9 +195,9 @@ public class World : NotifyPropertyChanged,
 				position = new Vector3D(_rng.NextDouble() * viewportSize.X, _rng.NextDouble() * viewportSize.Y, _rng.NextDouble() * viewportSize.Z) + Viewport.TopLeft;
 
 			if(stableOrbits)
-				CreateOrbitBody(position, Vector3D.Zero);
+				CreateOrbitBody(position, Vector3D.Zero, true);
 			else
-				CreateBody(position, Vector3D.Zero);
+				CreateBody(position, Vector3D.Zero, true);
 
 			CurrentRespawnerId = enableRespawn
 									 ? stableOrbits
@@ -204,9 +205,12 @@ public class World : NotifyPropertyChanged,
 										   : _randomRespawnerId
 									 : null;
 		}
+
+		// Raise PropertyChanged only once after all bodies are created
+		RaisePropertyChanged(nameof(BodyCount));
 	}
 
-	public void CreateBody(Vector3D position, Vector3D velocity)
+	public void CreateBody(Vector3D position, Vector3D velocity, bool suppressPropertyChange = false)
 	{
 		_bodies.AddLocked(new(position,
 							  SelectedBodyPreset.r,
@@ -217,11 +221,26 @@ public class World : NotifyPropertyChanged,
 							  SelectedBodyPreset.AtmosphereColor,
 							  SelectedBodyPreset.AtmosphereThickness));
 
-		RaisePropertyChanged(nameof(BodyCount));
+		InvalidateBodiesCache();
+
+		if(!suppressPropertyChange)
+			RaisePropertyChanged(nameof(BodyCount));
 	}
 
-	public void CreateOrbitBody(Vector3D position, Vector3D velocity)
+	public void CreateOrbitBody(Vector3D position, Vector3D velocity, bool suppressPropertyChange = false)
 	{
+		#region Debug
+
+		// Skip orbit computation if position almost equals velocity
+		if((position - velocity).LengthSquared < 1e-12)
+		{
+			CreateBody(position, Vector3D.Zero);
+
+			return;
+		}
+
+		#endregion
+
 		var nearestBody = SelectedBody
 						  ?? GetBodies().OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
 										.FirstOrDefault();
@@ -286,7 +305,7 @@ public class World : NotifyPropertyChanged,
 		var orbitalVelocity = (1 + velocity.Length) * direction * orbitalSpeed * tangent;
 		var v = orbitalVelocity + nearestBody.v;
 
-		CreateBody(position, v);
+		CreateBody(position, v, suppressPropertyChange);
 	}
 
 	public void SelectBody(Point viewportPoint, double viewportSearchRadius)
@@ -354,6 +373,7 @@ public class World : NotifyPropertyChanged,
 	public void Reset()
 	{
 		_bodies.ClearLocked();
+		InvalidateBodiesCache();
 		Runtime = TimeSpan.Zero;
 		SelectedBody = null;
 		Viewport.SetBoundsAroundCenter(Vector3D.Zero, Viewport.Size3D);
@@ -432,10 +452,12 @@ public class World : NotifyPropertyChanged,
 															  ? null
 															  : Color.Parse(b.AtmosphereColor),
 														  b.AtmosphereThickness)));
+
+		InvalidateBodiesCache();
 	}
 
 	public Body[] GetBodies()
-		=> _bodies.ToArrayLocked();
+		=> _bodies.ToArrayLocked(ref _cachedBodiesArray);
 
 	#endregion
 
@@ -459,6 +481,9 @@ public class World : NotifyPropertyChanged,
 	#endregion
 
 	#region Implementation
+
+	private void InvalidateBodiesCache()
+		=> _cachedBodiesArray = null;
 
 	private async Task SimulateAsync()
 		=> await Task.Run(Simulate);
@@ -599,12 +624,19 @@ public class World : NotifyPropertyChanged,
 		// Absorbierte Objekte entfernen
 		_bodies.RemoveRangeLocked(absorbedBodies);
 
+		if(absorbedBodies.Length > 0)
+			InvalidateBodiesCache();
+
 		// Bei Bedarf Respawner aufrufen
 		if(null == respawner)
 			return;
 
 		foreach(var _ in absorbedBodies)
 			respawner();
+
+		// Raise PropertyChanged once after all respawned bodies are added
+		if(absorbedBodies.Length > 0)
+			RaisePropertyChanged(nameof(BodyCount));
 	}
 
 	private void DoAutoCenterViewport()

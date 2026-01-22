@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Generic;
 
 namespace Gravity.Wpf.Viewmodel;
 
@@ -7,14 +6,21 @@ internal static class IEnumerableExtensions
 {
 	#region Internal types
 
-	extension<T>(IEnumerable<T> source)
+	extension<T>(IReadOnlyCollection<T> source)
 	{
 		#region Interface
 
-		public T[] ToArrayLocked()
+		public T[] ToArrayLocked(ref T[]? cache)
 		{
+			if(cache != null)
+				return cache;
+
 			lock(source)
-				return source.ToArray();
+			{
+				cache = [.. source];
+
+				return cache;
+			}
 		}
 
 		#endregion
@@ -35,7 +41,7 @@ internal static class IEnumerableExtensions
 			lock(source)
 				source.Clear();
 		}
-		
+
 		public void AddRangeLocked(IEnumerable<T> range)
 		{
 			lock(source)
