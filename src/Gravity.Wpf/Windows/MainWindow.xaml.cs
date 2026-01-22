@@ -161,7 +161,8 @@ internal sealed partial class MainWindow
 		_viewmodel.IsRunning = _wasRunning;
 
 		var referencePosition = _referencePosition;
-		var position = _viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
+		var viewportPoint = args.GetPosition((IInputElement)sender);
+		var position = _viewmodel.Viewport.ToWorld(viewportPoint);
 
 		_viewmodel.Viewport.DragIndicator = null;
 		_referencePosition = null;
@@ -183,10 +184,16 @@ internal sealed partial class MainWindow
 
 		if(null != _viewmodel.SelectedBody)
 		{
-			if((position - _viewmodel.SelectedBody.Position).Length <=
-			   _viewmodel.SelectedBody.r + _viewportSelectionSearchRadius / _viewmodel.Viewport.ScaleFactor)
-				return;
+			// Check if mouse moved significantly in viewport space (2D on screen)
+			// Not in world space (3D), since the body could be at any Z depth
+			var bodyViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedBody.Position);
+			var viewportDistance = Math.Sqrt(Math.Pow(viewportPoint.X - bodyViewportPoint.X, 2) +
+											  Math.Pow(viewportPoint.Y - bodyViewportPoint.Y, 2));
 
+			if(viewportDistance <= _viewportSelectionSearchRadius)
+				return; // Just a click, no drag - keep selection
+
+			// Dragged: change velocity
 			if(Keyboard.IsKeyDown(Key.LeftAlt))
 				_viewmodel.SelectedBody.v += (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
 			else
