@@ -6,8 +6,6 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\..\Wellenlib\src\Wellenlib.Windows\Wellenlib.Windows.csproj" />
 	  <ProjectReference Include="..\Gravity.Application\Gravity.Application.csproj" />
-	  <ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />
-	  <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

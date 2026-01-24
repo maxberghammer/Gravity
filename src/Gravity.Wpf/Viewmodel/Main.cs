@@ -62,7 +62,7 @@ public sealed class Main : NotifyPropertyChanged,
 			_uiUpdateTimer.Interval = TimeSpan.FromSeconds(1.0d / value);
 			_uiUpdateTimer.Start();
 		}
-	}
+	} = double.NaN;
 
 	/// <inheritdoc/>
 	IMain.IViewport IMain.Viewport
@@ -153,7 +153,7 @@ public sealed class Main : NotifyPropertyChanged,
 
 			Application.SetSimulationFrequency(value);
 		}
-	}
+	} = double.NaN;
 
 	public int FramesPerSecond { get; set => SetProperty(ref field, value); }
 

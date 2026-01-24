@@ -65,7 +65,7 @@ public class World : NotifyPropertyChanged,
 
 			_world.SetTimescale(Math.Pow(10, value));
 		}
-	}
+	} = double.NaN;
 
 	#endregion
 }

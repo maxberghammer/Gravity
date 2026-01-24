@@ -61,7 +61,7 @@ public sealed class Viewport : NotifyPropertyChanged,
 
 			_viewport.Scale(value);
 		}
-	}
+	} = double.NaN;
 
 	#endregion
 }

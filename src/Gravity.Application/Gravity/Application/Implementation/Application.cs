@@ -254,6 +254,8 @@ internal sealed class Application : IApplication,
 		_viewport.Reset();
 		_runtime = TimeSpan.Zero;
 		_selectedBody = null;
+		_simulationTime.Reset();
+		_lastSimulationStep = TimeSpan.Zero;
 	}
 
 	private void AddBody(Vector3D position, Vector3D velocity)
