@@ -26,6 +26,7 @@
     <File Path="../Wellenlib/.git" />
     <File Path="../Wellenlib/.gitignore" />
   </Folder>
+  <Project Path="Gravity.Application/Gravity.Application.csproj" Id="1c759831-53ad-435d-a416-bd8006bba072" />
   <Project Path="Gravity.SimulationEngine.Benchmarks/Gravity.SimulationEngine.Benchmarks.csproj" />
   <Project Path="Gravity.SimulationEngine.Mock/Gravity.SimulationEngine.Mock.csproj" Id="8ef33b4d-b222-4da1-b44b-cb8402f66e40" />
   <Project Path="Gravity.SimulationEngine.Serialization/Gravity.SimulationEngine.Serialization.csproj" Id="02bcc80d-2049-4d1f-aed1-5153649dc63a" />

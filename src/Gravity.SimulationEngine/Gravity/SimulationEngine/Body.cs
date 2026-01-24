@@ -57,7 +57,7 @@ public class Body
 
 	#region Interface
 
-	public static void ResetIds()
+	public static void Reset()
 		=> _maxId = 0;
 
 	public int Id { get; }

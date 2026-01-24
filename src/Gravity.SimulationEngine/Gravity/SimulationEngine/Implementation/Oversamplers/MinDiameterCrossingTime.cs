@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
@@ -18,10 +19,10 @@ internal sealed class MinDiameterCrossingTime : Adaptive
 	#region Implementation
 
 	/// <inheritdoc />
-	protected override TimeSpan AdaptDt(Body[] bodiesToProcess, TimeSpan dt)
+	protected override TimeSpan AdaptDt(IReadOnlyList<Body> bodiesToProcess, TimeSpan dt)
 	{
 		// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities
-		var n = bodiesToProcess.Length;
+		var n = bodiesToProcess.Count;
 		var adaptedDtInSeconds = double.PositiveInfinity;
 
 		for(var i = 0; i < n; i++)

@@ -12,7 +12,10 @@ public sealed class State
 
 	public sealed record Vector(double X, double Y, double Z = 0);
 
-	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale);
+	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale, bool Autocenter);
+
+	[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Für die Serialisierung duadses scho")]
+	public sealed record WorldState(bool ElasticCollisions, bool ClosedBoundaries, double Timescale, BodyState[] Bodies);
 
 	public sealed record BodyState(int Id,
 								   string Color,
@@ -49,15 +52,11 @@ public sealed class State
 
 	public required ViewportState Viewport { get; init; }
 
+	public required WorldState World { get; init; }
+
 	public double TimeScale { get; init; }
-
-	public bool ElasticCollisions { get; init; }
-
-	public bool ClosedBoundaries { get; init; }
-
+	
 	public bool ShowPath { get; init; }
-
-	public bool AutoCenterViewport { get; init; }
 
 	public Guid SelectedBodyPresetId { get; init; }
 
@@ -66,9 +65,6 @@ public sealed class State
 	public SimpleRng.RngState RngState { get; init; }
 
 	public TimeSpan Runtime { get; init; }
-
-	[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Für die Serialisierung duadses scho")]
-	public required BodyState[] Bodies { get; init; }
 
 	public async Task SerializeAsync(StreamWriter swr)
 	{

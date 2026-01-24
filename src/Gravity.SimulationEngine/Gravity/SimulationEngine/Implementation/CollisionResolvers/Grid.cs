@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Gravity.SimulationEngine.Implementation.CollisionResolvers;
@@ -24,9 +25,9 @@ internal sealed class Grid : SimulationEngine.ICollisionResolver
 
 	#region Implementation of ICollisionResolver
 
-	void SimulationEngine.ICollisionResolver.ResolveCollisions(IWorld world, Body[] bodies, Diagnostics diagnostics)
+	void SimulationEngine.ICollisionResolver.ResolveCollisions(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 		if (n <= 1)
 			return;
 

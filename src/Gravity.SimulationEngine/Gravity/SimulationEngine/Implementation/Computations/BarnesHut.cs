@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Computations;
@@ -12,9 +13,9 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 
 		if(n == 0)
 			return;
@@ -79,9 +80,9 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 
 	#region Implementation
 
-	private static double ComputeTheta(Body[] bodies, double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
+	private static double ComputeTheta(IReadOnlyList<Body> bodies, double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 		var width = Math.Max(1e-12, maxX - minX);
 		var height = Math.Max(1e-12, maxY - minY);
 		var depth = Math.Max(1e-12, maxZ - minZ);

@@ -3,19 +3,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
     xmlns:view="clr-namespace:Gravity.Wpf.View"
     xmlns:conv="clr-namespace:Gravity.Wpf.Converters"
-    mc:Ignorable="d"
+    xmlns:application="clr-namespace:Gravity.Application.Gravity.Application;assembly=Gravity.Application" xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel" d:DataContext="{d:DesignInstance Type=viewmodel:IMain}"
+				mc:Ignorable="d"
     Title="Gravity"
     WindowState="Maximized"
     Background="Black"
     PreviewKeyDown="OnWindowPreviewKeyDown"
     PreviewKeyUp="OnWindowPreviewKeyUp"
-x:ClassModifier="internal">
-	<Window.DataContext>
-		<viewmodel:World x:Name="_viewmodel"/>
-	</Window.DataContext>
+		x:ClassModifier="internal">
 	<Window.Resources>
 		<BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 		<conv:ColorToSolidBrushConverter x:Key="ColorToSolidBrushConverter"/>
@@ -69,49 +66,49 @@ x:ClassModifier="internal">
                   StrokeThickness="1"
                   StrokeDashArray="5 5"
                   IsHitTestVisible="False"
-                  X1="{Binding Viewport.DragIndicator.Start.X}"
-                  Y1="{Binding Viewport.DragIndicator.Start.Y}"
-                  X2="{Binding Viewport.DragIndicator.End.X}"
-                  Y2="{Binding Viewport.DragIndicator.End.Y}"/>
+                  X1="{Binding DragIndicator.Start.X}"
+                  Y1="{Binding DragIndicator.Start.Y}"
+                  X2="{Binding DragIndicator.End.X}"
+                  Y2="{Binding DragIndicator.End.Y}"/>
 
 			<Ellipse HorizontalAlignment="Left"
                      VerticalAlignment="Top"
-                     Width="{Binding Viewport.DragIndicator.Diameter}"
-                     Height="{Binding Viewport.DragIndicator.Diameter}"
+                     Width="{Binding DragIndicator.Diameter}"
+                     Height="{Binding DragIndicator.Diameter}"
                      Stroke="GreenYellow"
                      StrokeThickness="1"
                      IsHitTestVisible="False">
 				<Ellipse.RenderTransform>
 					<TransformGroup>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.Start.X}"
-                                            Y="{Binding Viewport.DragIndicator.Start.Y}"/>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.BodyTranslate}"
-                                            Y="{Binding Viewport.DragIndicator.BodyTranslate}"/>
+						<TranslateTransform X="{Binding DragIndicator.Start.X}"
+                                            Y="{Binding DragIndicator.Start.Y}"/>
+						<TranslateTransform X="{Binding DragIndicator.BodyTranslate}"
+                                            Y="{Binding DragIndicator.BodyTranslate}"/>
 					</TransformGroup>
 				</Ellipse.RenderTransform>
 			</Ellipse>
 
 			<Ellipse HorizontalAlignment="Left"
                      VerticalAlignment="Top"
-                     Width="{Binding Viewport.DragIndicator.Diameter}"
-                     Height="{Binding Viewport.DragIndicator.Diameter}"
+                     Width="{Binding DragIndicator.Diameter}"
+                     Height="{Binding DragIndicator.Diameter}"
                      Stroke="GreenYellow"
                      StrokeThickness="1"
                      StrokeDashArray="5 5"
                      IsHitTestVisible="False">
 				<Ellipse.RenderTransform>
 					<TransformGroup>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.End.X}"
-                                            Y="{Binding Viewport.DragIndicator.End.Y}"/>
-						<TranslateTransform X="{Binding Viewport.DragIndicator.BodyTranslate}"
-                                            Y="{Binding Viewport.DragIndicator.BodyTranslate}"/>
+						<TranslateTransform X="{Binding DragIndicator.End.X}"
+                                            Y="{Binding DragIndicator.End.Y}"/>
+						<TranslateTransform X="{Binding DragIndicator.BodyTranslate}"
+                                            Y="{Binding DragIndicator.BodyTranslate}"/>
 					</TransformGroup>
 				</Ellipse.RenderTransform>
 			</Ellipse>
 
 			<Label HorizontalAlignment="Center"
                    VerticalAlignment="Bottom"
-                   Content="{Binding Viewport.DragIndicator.Label}"
+                   Content="{Binding DragIndicator.Label}"
                    Foreground="GreenYellow"
                    IsHitTestVisible="False"/>
 		</Grid>
@@ -171,7 +168,7 @@ x:ClassModifier="internal">
                           FontFamily="WingDings"
                           Content="°"
                           ToolTip="Automatisch zentrieren an/aus"
-                          IsChecked="{Binding AutoCenterViewport}"/>
+                          IsChecked="{Binding Viewport.Autocenter}" />
 			<Label x:Name="_lblMouseCoordinates"
 			       DockPanel.Dock="Left"
 			       Margin="20,0,0,0"
@@ -209,7 +206,7 @@ x:ClassModifier="internal">
                           FontFamily="Arial"
                           ToolTip="Simulation starten/anhalten"
                           Content="►"
-                          IsChecked="{Binding IsRunning, Mode=TwoWay}"/>
+                          IsChecked="{Binding IsSimulationRunning, Mode=TwoWay}"/>
 		</DockPanel>
 
 		<StackPanel Grid.Row="0"
@@ -224,13 +221,13 @@ x:ClassModifier="internal">
                           FontFamily="Wingdings 3"
                           Content="F"
                           ToolTip="Geschlossene Grenzen"
-                          IsChecked="{Binding ClosedBoundaries, Mode=TwoWay}"/>
+                          IsChecked="{Binding World.ClosedBoundaries, Mode=TwoWay}"/>
 			<ToggleButton Name="_btnElasticCollisionsOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
                           Content="R"
                           ToolTip="Elastische Zusammenstöße an/aus"
-                          IsChecked="{Binding ElasticCollisions, Mode=TwoWay}"/>
+                          IsChecked="{Binding World.ElasticCollisions, Mode=TwoWay}"/>
 			<ToggleButton Name="_btnShowBodyPresetSelectionOnOff"
                           Margin="10,0,0,0"
                           FontFamily="Wingdings"
@@ -249,11 +246,11 @@ x:ClassModifier="internal">
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   Visibility="{Binding IsBodyPresetSelectionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
-                  ItemsSource="{Binding BodyPresets}"
+                  ItemsSource="{Binding BodyPresets, Mode=OneTime}"
                   SelectedItem="{Binding SelectedBodyPreset}"
                   SelectionChanged="OnBodyPresetSelectionChanged">
 			<ComboBox.ItemTemplate>
-				<DataTemplate>
+				<DataTemplate DataType="{x:Type application:IApplication+BodyPreset}">
 					<StackPanel Orientation="Horizontal">
 						<StackPanel.Resources>
 							<Style TargetType="Label">
@@ -286,7 +283,7 @@ x:ClassModifier="internal">
 							SelectedItem="{Binding SelectedEngineType}"
 							SelectionChanged="OnEngineTypeSelectionChanged">
 			<ComboBox.ItemTemplate>
-				<DataTemplate>
+				<DataTemplate DataType="{x:Type application:IApplication+EngineType}">
 					<StackPanel Orientation="Horizontal">
 						<StackPanel.Resources>
 							<Style TargetType="Label">
@@ -311,11 +308,12 @@ x:ClassModifier="internal">
 					<Setter Property="IsHitTestVisible" Value="False"/>
 				</Style>
 			</DockPanel.Resources>
-			<Label Name="_lblFps"
-						 DockPanel.Dock="Left"
+			<Label DockPanel.Dock="Left"
+						 Content="{Binding FramesPerSecond}"
 						 ContentStringFormat="FPS={0}"/>
 			<Label Name="_lblCpuUtilizationInPercent"
                    DockPanel.Dock="Left"
+                   Content="{Binding CpuUtilizationInPercent}"
                    ContentStringFormat="CPU={0}%"/>
 			<Slider Name="_sldTimeScale"
                     DockPanel.Dock="Right"
@@ -326,12 +324,14 @@ x:ClassModifier="internal">
                     Maximum="10"
                     TickFrequency="1"
                     TickPlacement="Both"
-                    Value="{Binding TimeScale}"/>
+                    Value="{Binding World.LogarithmicTimescale, Mode=TwoWay}"/>
 			<Label Name="_lblRuntime"
                    DockPanel.Dock="Right"
+                   Content="{Binding Runtime}"
                    ContentStringFormat="t={0}"/>
 			<Label Name="_lblBodyCount"
 						 DockPanel.Dock="Right"
+						 Content="{Binding BodyCount}"
 						 ContentStringFormat=" {0} Objekte"/>
 		</DockPanel>
 
@@ -344,15 +344,18 @@ x:ClassModifier="internal">
 				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
-			<Label Name="_lblSelectedBodyId"
-						 Grid.Column="1"
+			<Label Grid.Column="1"
+						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+						 Content="{Binding SelectedBody.Id}"
 						 ContentStringFormat="Id={0}"/>
-			<Label Name="_lblSelectedBodyv"
-                   Grid.Column="2"
-                   ContentStringFormat="v={0}m/s"/>
-			<Label Name="_lblSelectedBodym"
-                   Grid.Column="3"
-                   ContentStringFormat="m={0}kg"/>
+			<Label Grid.Column="2"
+						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+						 Content="{Binding SelectedBody.v}"
+						 ContentStringFormat="v={0}m/s"/>
+			<Label Grid.Column="3"
+						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+						 Content="{Binding SelectedBody.m}"
+						 ContentStringFormat="m={0}kg"/>
 		</Grid>
 
 		<Grid Grid.Row="0"

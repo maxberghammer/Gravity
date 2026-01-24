@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System.Windows;
@@ -10,9 +10,9 @@ public class DragIndicator : NotifyPropertyChanged
 {
 	#region Interface
 
-	public Vector Start { get; set => SetProperty(ref field, value); }
+	public Point Start { get; set => SetProperty(ref field, value); }
 
-	public Vector End { get; set => SetProperty(ref field, value); }
+	public Point End { get; set => SetProperty(ref field, value); }
 
 	public string? Label { get; set => SetProperty(ref field, value); }
 

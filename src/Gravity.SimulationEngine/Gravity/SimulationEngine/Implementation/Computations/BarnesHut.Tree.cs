@@ -142,7 +142,7 @@ internal sealed partial class BarnesHut
 
 		public int NodeCount { get; private set; }
 
-		public void AddRange(Body[] entities)
+		public void AddRange(IReadOnlyList<Body> entities)
 		{
 			var width = Math.Max(_epsilonSize, _maxX - _minX);
 			var height = Math.Max(_epsilonSize, _maxY - _minY);
@@ -150,7 +150,7 @@ internal sealed partial class BarnesHut
 			var invW = 1.0 / width;
 			var invH = 1.0 / height;
 			var invD = 1.0 / depth;
-			var n = entities.Length;
+			var n = entities.Count;
 			var pool = ArrayPool<(ulong key, Body e)>.Shared;
 			var arr = pool.Rent(n);
 

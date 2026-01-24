@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Gravity.SimulationEngine.Implementation;
@@ -9,22 +10,22 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	internal interface IIntegrator
 	{
-		void Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics);
+		void Step(IWorld world, IReadOnlyList<Body> bodies, double dtInSeconds, Action<IReadOnlyList<Body>> computation, Diagnostics diagnostics);
 	}
 
 	internal interface IOversampler
 	{
-		int Oversample(IWorld world, Body[] bodies, TimeSpan timeSpan, Action<Body[], TimeSpan> processBodies, Diagnostics diagnostics);
+		int Oversample(IWorld world, IReadOnlyList<Body> bodies, TimeSpan timeSpan, Action<IReadOnlyList<Body>, TimeSpan> processBodies, Diagnostics diagnostics);
 	}
 
 	internal interface IComputation
 	{
-		void Compute(IWorld world, Body[] bodies, Diagnostics diagnostics);
+		void Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics);
 	}
 
 	internal interface ICollisionResolver
 	{
-		void ResolveCollisions(IWorld world, Body[] bodies, Diagnostics diagnostics);
+		void ResolveCollisions(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics);
 	}
 
 	#endregion
@@ -56,11 +57,11 @@ internal sealed class SimulationEngine : ISimulationEngine
 	ISimulationEngine.IDiagnostics ISimulationEngine.GetDiagnostics()
 		=> _diagnostics;
 
-	void ISimulationEngine.Simulate(IWorld world, TimeSpan deltaTime)
+	void ISimulationEngine.Simulate(IWorld world, IViewport viewport, TimeSpan deltaTime)
 	{
 		var bodies = world.GetBodies();
 
-		if(bodies.Length == 0 ||
+		if(bodies.Count == 0 ||
 		   deltaTime <= TimeSpan.Zero)
 			return;
 
@@ -85,12 +86,14 @@ internal sealed class SimulationEngine : ISimulationEngine
 								  ? "Off"
 								  : $"{steps}x");
 
+		world.RemoveBodies(bodies.Where(b => b.IsAbsorbed).ToArray());
+
 		if(!world.ClosedBoundaries)
 			return;
 
 		// Weltgrenzen behandeln
 		foreach(var body in bodies.Where(e => !e.IsAbsorbed))
-			HandleCollisionWithWorldBoundaries(world, body);
+			HandleCollisionWithViewportBoundaries(viewport, body);
 	}
 
 	#endregion
@@ -98,16 +101,16 @@ internal sealed class SimulationEngine : ISimulationEngine
 	#region Implementation
 
 	/// <summary>
-	///     Behandelt die Kollision eines gegebenen Objekts mit den Grenzen der Welt.
+	///     Behandelt die Kollision eines gegebenen Objekts mit den Grenzen des Viewports.
 	/// </summary>
-	private static void HandleCollisionWithWorldBoundaries(IWorld world, Body body)
+	private static void HandleCollisionWithViewportBoundaries(IViewport viewport, Body body)
 	{
-		var leftX = world.Viewport.TopLeft.X + body.r;
-		var topY = world.Viewport.TopLeft.Y + body.r;
-		var frontZ = world.Viewport.TopLeft.Z + body.r;
-		var rightX = world.Viewport.BottomRight.X - body.r;
-		var bottomY = world.Viewport.BottomRight.Y - body.r;
-		var backZ = world.Viewport.BottomRight.Z - body.r;
+		var leftX = viewport.TopLeft.X + body.r;
+		var topY = viewport.TopLeft.Y + body.r;
+		var frontZ = viewport.TopLeft.Z + body.r;
+		var rightX = viewport.BottomRight.X - body.r;
+		var bottomY = viewport.BottomRight.Y - body.r;
+		var backZ = viewport.BottomRight.Z - body.r;
 
 		var pos = body.Position;
 		var v = body.v;

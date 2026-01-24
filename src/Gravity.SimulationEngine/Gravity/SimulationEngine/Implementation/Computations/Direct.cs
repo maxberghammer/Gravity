@@ -23,7 +23,7 @@ internal sealed class Direct : SimulationEngine.IComputation
 	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
 	{
 		// Kollisionen exakt erkennen und auflösen
 		_collisionResolver.ResolveCollisions(world, bodies, diagnostics);
@@ -36,9 +36,9 @@ internal sealed class Direct : SimulationEngine.IComputation
 
 	#region Implementation
 
-	private static void ComputeAccelerations(Body[] bodies)
+	private static void ComputeAccelerations(IReadOnlyList<Body> bodies)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 
 		if(n == 0)
 			return;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
@@ -26,13 +27,13 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 	#region Implementation of IOversampler
 
 	/// <inheritdoc/>
-	int SimulationEngine.IOversampler.Oversample(IWorld world, Body[] bodies, TimeSpan timeSpan, Action<Body[], TimeSpan> processBodies, Diagnostics diagnostics)
+	int SimulationEngine.IOversampler.Oversample(IWorld world, IReadOnlyList<Body> bodies, TimeSpan timeSpan, Action<IReadOnlyList<Body>, TimeSpan> processBodies, Diagnostics diagnostics)
 	{
 		var remaining = timeSpan;
 		var steps = 0;
 
-		// Scale maxSteps with TimeScaleFactor: more time acceleration = more substeps needed
-		var maxSteps = (int)Math.Min(_baseMaxSteps * Math.Max(1.0, world.TimeScaleFactor), 4096);
+		// Scale maxSteps with Timescale: more time acceleration = more substeps needed
+		var maxSteps = (int)Math.Min(_baseMaxSteps * Math.Max(1.0, world.Timescale), 4096);
 
 		while(TimeSpan.Zero < remaining &&
 			  steps < maxSteps)
@@ -52,7 +53,7 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 
 	#region Implementation
 
-	protected abstract TimeSpan AdaptDt(Body[] bodiesToProcess, TimeSpan dt);
+	protected abstract TimeSpan AdaptDt(IReadOnlyList<Body> bodiesToProcess, TimeSpan dt);
 
 	#endregion
 }

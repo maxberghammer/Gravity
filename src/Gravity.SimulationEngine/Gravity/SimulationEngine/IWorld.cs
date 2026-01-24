@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Gravity.SimulationEngine;
 
 public interface IWorld
@@ -7,13 +9,13 @@ public interface IWorld
 	bool ElasticCollisions { get; }
 
 	/// <summary>
-	/// The time scale factor applied to the simulation (1.0 = realtime).
+	/// The time scale applied to the simulation (1.0 = realtime).
 	/// </summary>
-	double TimeScaleFactor { get; }
+	double Timescale { get; }
 
-	IViewport Viewport { get; }
+	IReadOnlyList<Body> GetBodies();
 
-	Body[] GetBodies();
+	void RemoveBodies(IReadOnlyCollection<Body> bodies);
 
 	// Correct gravitational constant (SI units)
 	public static readonly double G = 6.67430e-11;

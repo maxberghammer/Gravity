@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Gravity.SimulationEngine.Implementation.Oversamplers;
 
@@ -20,7 +21,7 @@ internal class Static : SimulationEngine.IOversampler
 	#region Implementation of IOversampler
 
 	/// <inheritdoc/>
-	int SimulationEngine.IOversampler.Oversample(IWorld world, Body[] bodies, TimeSpan timeSpan, Action<Body[], TimeSpan> processBodies, Diagnostics diagnostics)
+	int SimulationEngine.IOversampler.Oversample(IWorld world, IReadOnlyList<Body> bodies, TimeSpan timeSpan, Action<IReadOnlyList<Body>, TimeSpan> processBodies, Diagnostics diagnostics)
 	{
 		var dt = timeSpan / _steps;
 

@@ -1,10 +1,13 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
+using Gravity.Wpf.Viewmodel;
 using Microsoft.Win32;
 
 namespace Gravity.Wpf.Windows;
@@ -19,82 +22,88 @@ internal sealed partial class MainWindow
 	private const int _viewportSelectionSearchRadius = 30;
 	private static Vector3D? _referencePosition;
 
-	// ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
-	private readonly DispatcherTimer _uiUpdateTimer;
 	private Point? _lastMousePosition;
-	private bool _wasRunning;
+	private bool _wasSimulationRunning;
+	private const double _displayFrequencyInHz = 60;
 
 	#endregion
 
 	#region Construction
 
-	public MainWindow()
+	public MainWindow(IApplication application)
 	{
 		InitializeComponent();
 
-		_uiUpdateTimer = new(DispatcherPriority.Render)
-						 {
-							 Interval = TimeSpan.FromSeconds(1.0d / _viewmodel.DisplayFrequency),
-							 IsEnabled = true
-						 };
-
-		_uiUpdateTimer.Tick += OnUpdateUi;
+		DataContext = new Main(application,
+							   new(application.World)
+							   {
+								   ClosedBoundaries = true,
+								   ElasticCollisions = true,
+								   LogarithmicTimescale = 0
+							   },
+							   new(application.Viewport)
+							   {
+								   Autocenter = false,
+								   Scale = 0
+							   })
+					  {
+						  SelectedBodyPreset = application.BodyPresets[0],
+						  SelectedEngineType = application.EngineTypes[0],
+						  ShowPath = true,
+						  SimulationFrequencyInHz = _displayFrequencyInHz,
+						  DisplayFrequencyInHz = _displayFrequencyInHz
+					  };
 	}
 
 	#endregion
 
-	#region Implementation
+	private Main Viewmodel
+		=> (Main)DataContext;
 
-	private void OnUpdateUi(object? sender, EventArgs args)
-	{
-		_lblSelectedBodym.Visibility = _lblSelectedBodyv.Visibility = null != _viewmodel.SelectedBody
-																		  ? Visibility.Visible
-																		  : Visibility.Collapsed;
-		_lblSelectedBodyId.Content = _viewmodel.SelectedBody?.Id;
-		_lblSelectedBodyv.Content = _viewmodel.SelectedBody?.v;
-		_lblSelectedBodym.Content = _viewmodel.SelectedBody?.m;
-		_lblFps.Content = _viewmodel.FramesPerSecond;
-		_lblCpuUtilizationInPercent.Content = _viewmodel.CpuUtilizationInPercent;
-		_lblRuntime.Content = _viewmodel.Runtime;
-		_lblBodyCount.Content = _viewmodel.BodyCount;
-	}
+	#region Implementation
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
 	{
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 
-		_wasRunning = _viewmodel.IsRunning;
-		_viewmodel.IsRunning = false;
+		_wasSimulationRunning = Viewmodel.IsSimulationRunning;
+		Viewmodel.IsSimulationRunning = false;
 
 		if(Keyboard.Modifiers == ModifierKeys.None &&
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
-			_viewmodel.SelectBody(viewportPoint, _viewportSelectionSearchRadius);
+			Viewmodel.SelectedBody = Viewmodel.Application.FindClosestBody(Vector2.Create(viewportPoint), _viewportSelectionSearchRadius);
 
-			if(null != _viewmodel.SelectedBody)
+
+			if(null != Viewmodel.SelectedBody)
 			{
-				var entityViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedBody.Position);
+				var entityViewportPoint = Viewmodel.Viewport
+												   .ToViewport(Viewmodel.SelectedBody.Position);
 
-				_viewmodel.Viewport.DragIndicator = new()
-													{
-														Start = new(entityViewportPoint.X, entityViewportPoint.Y),
-														End = new(entityViewportPoint.X, entityViewportPoint.Y),
-														Diameter = (_viewmodel.SelectedBody.r + _viewmodel.SelectedBody.AtmosphereThickness) * 2 * _viewmodel.Viewport.ScaleFactor
-													};
+				Viewmodel.DragIndicator = new()
+										  {
+											  Start = entityViewportPoint,
+											  End = entityViewportPoint,
+											  Diameter = Viewmodel.Application
+																  .Viewport
+																  .ToViewport((Viewmodel.SelectedBody.r + Viewmodel.SelectedBody.AtmosphereThickness) * 2)
+										  };
 
 				return;
 			}
 		}
 
-		_referencePosition = _viewmodel.Viewport.ToWorld(viewportPoint);
-		_viewmodel.Viewport.DragIndicator = new()
-											{
-												Start = new(viewportPoint.X, viewportPoint.Y),
-												End = new(viewportPoint.X, viewportPoint.Y),
-												Diameter = (_viewmodel.SelectedBodyPreset.r + _viewmodel.SelectedBodyPreset.AtmosphereThickness) * 2 *
-														   _viewmodel.Viewport.ScaleFactor
-											};
+		_referencePosition = Viewmodel.Viewport.ToWorld(viewportPoint);
+
+		Viewmodel.DragIndicator = new()
+								  {
+									  Start = viewportPoint,
+									  End = viewportPoint,
+									  Diameter = Viewmodel.Application
+														  .Viewport
+														  .ToViewport((Viewmodel.SelectedBodyPreset.r + Viewmodel.SelectedBodyPreset.AtmosphereThickness) * 2)
+								  };
 	}
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
@@ -105,7 +114,7 @@ internal sealed partial class MainWindow
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
 		var viewportPoint = args.GetPosition((IInputElement)sender);
-		var worldPos = _viewmodel.Viewport.ToWorld(viewportPoint);
+		var worldPos = Viewmodel.Viewport.ToWorld(viewportPoint);
 
 		// Update mouse coordinates display
 		_lblMouseCoordinates.Content = $"X: {worldPos.X:F1}  Y: {worldPos.Y:F1}  Z: {worldPos.Z:F1}";
@@ -122,7 +131,8 @@ internal sealed partial class MainWindow
 
 				// Snap to 45° increments when Shift is held
 				var snap = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-				_viewmodel.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity, snap);
+
+				Viewmodel.Application.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity, snap);
 			}
 
 			_lastMousePosition = viewportPoint;
@@ -133,121 +143,135 @@ internal sealed partial class MainWindow
 		_lastMousePosition = null;
 		UpdateRotationGizmo(false);
 
-		if(null == _viewmodel.Viewport.DragIndicator)
+		if(null == Viewmodel.DragIndicator)
 			return;
 
-		_viewmodel.Viewport.DragIndicator.End = new(viewportPoint.X, viewportPoint.Y);
+		Viewmodel.DragIndicator.End = viewportPoint;
 
-		var position = _viewmodel.Viewport.ToWorld(viewportPoint);
+		var position = Viewmodel.Viewport.ToWorld(viewportPoint);
 
 		if(_referencePosition.HasValue)
 		{
-			_viewmodel.Viewport.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
-														  ? $"Δv={(position - _referencePosition.Value) / _viewmodel.TimeScaleFactor}m/s"
-														  : $"v={(position - _referencePosition.Value) / _viewmodel.TimeScaleFactor}m/s";
+			var velocity = Viewmodel.CalculateVelocityPerSimulationStep(_referencePosition.Value, position);
+
+			Viewmodel.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
+														  ? $"Δv={velocity}m/s"
+														  : $"v={velocity}m/s";
 
 			return;
 		}
 
-		if(null != _viewmodel.SelectedBody)
-			_viewmodel.Viewport.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
-														  ? $"Δv={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s"
-														  : $"v={(position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor}m/s";
+		if(null != Viewmodel.SelectedBody)
+		{
+			var velocity = Viewmodel.CalculateVelocityPerSimulationStep(Viewmodel.SelectedBody.Position, position);
+
+			Viewmodel.DragIndicator.Label = Keyboard.IsKeyDown(Key.LeftAlt)
+												? $"Δv={velocity}m/s"
+												: $"v={velocity}m/s";
+		}
 	}
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
 	{
-		_viewmodel.IsRunning = _wasRunning;
+		Viewmodel.IsSimulationRunning = _wasSimulationRunning;
 
 		var referencePosition = _referencePosition;
 		var viewportPoint = args.GetPosition((IInputElement)sender);
-		var position = _viewmodel.Viewport.ToWorld(viewportPoint);
+		var position = Viewmodel.Viewport.ToWorld(viewportPoint);
 
-		_viewmodel.Viewport.DragIndicator = null;
+		Viewmodel.DragIndicator = null;
 		_referencePosition = null;
 
 		if(null != referencePosition)
 		{
 			if(Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
+				Viewmodel.Application.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
 
 				return;
 			}
 
-			_viewmodel.CreateBody(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
-			_viewmodel.CurrentRespawnerId = null;
+			Viewmodel.Application.AddBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
+			Viewmodel.Application.StopRespawn();
 
 			return;
 		}
 
-		if(null != _viewmodel.SelectedBody)
-		{
-			// Check if mouse moved significantly in viewport space (2D on screen)
-			// Not in world space (3D), since the body could be at any Z depth
-			var bodyViewportPoint = _viewmodel.Viewport.ToViewport(_viewmodel.SelectedBody.Position);
-			var viewportDistance = Math.Sqrt(Math.Pow(viewportPoint.X - bodyViewportPoint.X, 2) +
-											  Math.Pow(viewportPoint.Y - bodyViewportPoint.Y, 2));
+		if(null == Viewmodel.SelectedBody)
+			return;
 
-			if(viewportDistance <= _viewportSelectionSearchRadius)
-				return; // Just a click, no drag - keep selection
+		// Check if mouse moved significantly in viewport space (2D on screen)
+		// Not in world space (3D), since the body could be at any Z depth
+		var bodyViewportPoint = Viewmodel.Application
+										 .Viewport
+										 .ToViewport(Viewmodel.SelectedBody.Position);
+		var viewportDistance = Math.Sqrt(Math.Pow(viewportPoint.X - bodyViewportPoint.X, 2) +
+										 Math.Pow(viewportPoint.Y - bodyViewportPoint.Y, 2));
 
-			// Dragged: change velocity
-			if(Keyboard.IsKeyDown(Key.LeftAlt))
-				_viewmodel.SelectedBody.v += (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
-			else
-				_viewmodel.SelectedBody.v = (position - _viewmodel.SelectedBody.Position) / _viewmodel.TimeScaleFactor;
-		}
+		if(viewportDistance <= _viewportSelectionSearchRadius)
+			return; // Just a click, no drag - keep selection
+
+		var velocity = Viewmodel.CalculateVelocityPerSimulationStep(Viewmodel.SelectedBody.Position, position);
+
+		// Dragged: change velocity
+		if (Keyboard.IsKeyDown(Key.LeftAlt))
+			Viewmodel.SelectedBody.v += velocity;
+		else
+			Viewmodel.SelectedBody.v = velocity;
 	}
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldRightButtonUp(object sender, MouseButtonEventArgs args)
 	{
-		_viewmodel.IsRunning = _wasRunning;
+		Viewmodel.IsSimulationRunning = _wasSimulationRunning;
 
 		var referencePosition = _referencePosition;
-		var position = _viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
+		var position = Viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender));
 
-		_viewmodel.Viewport.DragIndicator = null;
+		Viewmodel.DragIndicator = null;
 		_referencePosition = null;
 
-		if(null != referencePosition)
+		if(null == referencePosition)
+			return;
+
+		if(Keyboard.IsKeyDown(Key.LeftAlt))
 		{
-			if(Keyboard.IsKeyDown(Key.LeftAlt))
-			{
-				_viewmodel.CreateRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
+			Viewmodel.Application.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
 
-				return;
-			}
-
-			_viewmodel.CreateOrbitBody(referencePosition.Value, (position - referencePosition.Value) / _viewmodel.TimeScaleFactor);
-			_viewmodel.CurrentRespawnerId = null;
+			return;
 		}
+
+		Viewmodel.Application.AddOrbitBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
+		Viewmodel.Application.StopRespawn();
 	}
 
 	private void OnWorldSizeChanged(object sender, SizeChangedEventArgs args)
-	{
-		var center = _viewmodel.Viewport.Center;
-		var newSize = new Vector3D(args.NewSize.Width, args.NewSize.Height, _viewmodel.Viewport.Depth) / _viewmodel.Viewport.ScaleFactor;
-
-		_viewmodel.Viewport.SetBoundsAroundCenter(center, newSize);
-	}
+		=> Viewmodel.Application
+					.Viewport
+					.Resize(new(Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Width),
+								Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Height),
+								Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Height)));
 
 	private void OnResetClicked(object sender, RoutedEventArgs args)
-		=> _viewmodel.Reset();
+		=> Viewmodel.Application
+					.Reset();
 
 	private void OnWorldMouseWheel(object sender, MouseWheelEventArgs args)
-		=> _viewmodel.Viewport.Zoom(_viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender)),
-									-Math.Sign(args.Delta) * (Keyboard.IsKeyDown(Key.LeftAlt)
-																  ? 0.1
-																  : 1));
+		=> Viewmodel.Application
+					.Viewport
+					.Zoom(Viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender)),
+						  -Math.Sign(args.Delta) * (Keyboard.IsKeyDown(Key.LeftAlt)
+														? 0.1
+														: 1));
 
 	private void OnAutoScaleAndCenterViewportClicked(object sender, RoutedEventArgs args)
-		=> _viewmodel.AutoScaleAndCenterViewport();
+		=> Viewmodel.Application
+					.Viewport
+					.AutoScaleAndCenter();
 
 	private void OnBodyPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
-		=> _viewmodel.IsBodyPresetSelectionVisible = false;
+		=> Viewmodel.IsBodyPresetSelectionVisible = false;
 
 	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
 	private async void OnSaveClicked(object sender, RoutedEventArgs args)
@@ -262,7 +286,8 @@ internal sealed partial class MainWindow
 		if(dlgResult is not true)
 			return;
 
-		await _viewmodel.SaveAsync(dlg.FileName);
+		await Viewmodel.Application
+					   .SaveAsync(dlg.FileName);
 	}
 
 	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
@@ -278,11 +303,12 @@ internal sealed partial class MainWindow
 		if(dlgResult is not true)
 			return;
 
-		await _viewmodel.OpenAsync(dlg.FileName);
+		await Viewmodel.Application
+					   .OpenAsync(dlg.FileName);
 	}
 
 	private void OnEngineTypeSelectionChanged(object sender, SelectionChangedEventArgs e)
-		=> _viewmodel.IsEngineSelectionVisible = false;
+		=> Viewmodel.IsEngineSelectionVisible = false;
 
 	private void OnWorldKeyDown(object sender, KeyEventArgs e)
 	{
@@ -317,8 +343,8 @@ internal sealed partial class MainWindow
 		if(!visible)
 			return;
 
-		var yaw = _viewmodel.Viewport.CameraYaw;
-		var pitch = _viewmodel.Viewport.CameraPitch;
+		var yaw = Viewmodel.Application.Viewport.CameraYaw;
+		var pitch = Viewmodel.Application.Viewport.CameraPitch;
 		const double axisLength = 50;
 		const double centerX = 60;
 		const double centerY = 60;

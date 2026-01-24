@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
@@ -32,9 +33,9 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	void SimulationEngine.IComputation.Compute(IWorld world, Body[] bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
 	{
-		var nBodies = bodies.Length;
+		var nBodies = bodies.Count;
 
 		if(nBodies == 0)
 			return;
@@ -114,20 +115,20 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	/// <summary>
 	/// Compute minimum separation between bodies (sample first pairs for efficiency)
 	/// </summary>
-	private static double ComputeMinSeparation(Body[] bodies, int activeCount)
+	private static double ComputeMinSeparation(IReadOnlyList<Body> bodies, int activeCount)
 	{
 		var minSep = double.PositiveInfinity;
 		var sampleSize = Math.Min(activeCount, 50);
 		var count = 0;
 
-		for(var i = 0; i < bodies.Length && count < sampleSize; i++)
+		for(var i = 0; i < bodies.Count && count < sampleSize; i++)
 		{
 			if(bodies[i].IsAbsorbed)
 				continue;
 
 			var innerCount = 0;
 
-			for(var j = i + 1; j < bodies.Length && innerCount < sampleSize; j++)
+			for(var j = i + 1; j < bodies.Count && innerCount < sampleSize; j++)
 			{
 				if(bodies[j].IsAbsorbed)
 					continue;
@@ -173,7 +174,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	/// <summary>
 	/// Assign particle masses to grid using CIC interpolation
 	/// </summary>
-	private static void AssignMassToGrid(Body[] bodies, double[] grid, int n, double xMin, double yMin, double h)
+	private static void AssignMassToGrid(IReadOnlyList<Body> bodies, double[] grid, int n, double xMin, double yMin, double h)
 	{
 		var invH = 1.0 / h;
 
@@ -347,7 +348,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	/// <summary>
 	/// Interpolate acceleration from grid to particles using CIC.
 	/// </summary>
-	private static void InterpolateAccelerationToParticles(Body[] bodies,
+	private static void InterpolateAccelerationToParticles(IReadOnlyList<Body> bodies,
 														   double[] accX,
 														   double[] accY,
 														   int n,
@@ -357,58 +358,60 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	{
 		var invH = 1.0 / h;
 
-		Parallel.For(0, bodies.Length, bodyIdx =>
-									   {
-										   var body = bodies[bodyIdx];
+		Parallel.For(0,
+					 bodies.Count,
+					 bodyIdx =>
+					 {
+						 var body = bodies[bodyIdx];
 
-										   if(body.IsAbsorbed)
-											   return;
+						 if(body.IsAbsorbed)
+							 return;
 
-										   // Position in grid coordinates (cell-centered)
-										   var px = (body.Position.X - xMin) * invH - 0.5;
-										   var py = (body.Position.Y - yMin) * invH - 0.5;
+						 // Position in grid coordinates (cell-centered)
+						 var px = (body.Position.X - xMin) * invH - 0.5;
+						 var py = (body.Position.Y - yMin) * invH - 0.5;
 
-										   var i0 = (int)Math.Floor(px);
-										   var j0 = (int)Math.Floor(py);
-										   var dx = px - i0;
-										   var dy = py - j0;
+						 var i0 = (int)Math.Floor(px);
+						 var j0 = (int)Math.Floor(py);
+						 var dx = px - i0;
+						 var dy = py - j0;
 
-										   var ax = 0.0;
-										   var ay = 0.0;
+						 var ax = 0.0;
+						 var ay = 0.0;
 
-										   for(var di = 0; di <= 1; di++)
-										   {
-											   var i = i0 + di;
+						 for(var di = 0; di <= 1; di++)
+						 {
+							 var i = i0 + di;
 
-											   if(i < 0 ||
-												  i >= n)
-												   continue;
+							 if(i < 0 ||
+								i >= n)
+								 continue;
 
-											   var wx = di == 0
-															? 1.0 - dx
-															: dx;
+							 var wx = di == 0
+										  ? 1.0 - dx
+										  : dx;
 
-											   for(var dj = 0; dj <= 1; dj++)
-											   {
-												   var j = j0 + dj;
+							 for(var dj = 0; dj <= 1; dj++)
+							 {
+								 var j = j0 + dj;
 
-												   if(j < 0 ||
-													  j >= n)
-													   continue;
+								 if(j < 0 ||
+									j >= n)
+									 continue;
 
-												   var wy = dj == 0
-																? 1.0 - dy
-																: dy;
+								 var wy = dj == 0
+											  ? 1.0 - dy
+											  : dy;
 
-												   var w = wx * wy;
-												   var cellIdx = j * n + i;
-												   ax += w * accX[cellIdx];
-												   ay += w * accY[cellIdx];
-											   }
-										   }
+								 var w = wx * wy;
+								 var cellIdx = j * n + i;
+								 ax += w * accX[cellIdx];
+								 ay += w * accY[cellIdx];
+							 }
+						 }
 
-										   body.a = new(ax, ay, 0);
-									   });
+						 body.a = new(ax, ay, 0);
+					 });
 	}
 
 	#endregion

@@ -27,9 +27,9 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 	#region Implementation of ICollisionResolver
 
 	/// <inheritdoc/>
-	void SimulationEngine.ICollisionResolver.ResolveCollisions(IWorld world, Body[] bodies, Diagnostics diagnostics)
+	void SimulationEngine.ICollisionResolver.ResolveCollisions(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 
 		if(n <= 1)
 			return;

@@ -169,11 +169,11 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		public Paths(World world)
-			: base(world)
+		public Paths(IMain viewmodel)
+			: base(viewmodel)
 		{
-			_lastShowPathState = world.ShowPath;
-			world.PropertyChanged += OnWorldPropertyChanged;
+			_lastShowPathState = viewmodel.ShowPath;
+			viewmodel.PropertyChanged += OnWorldPropertyChanged;
 		}
 
 		#endregion
@@ -188,18 +188,18 @@ public partial class Direct3dWorldView
 		protected override void OnDraw(DrawEventArgs e)
 		{
 			// Check if ShowPath was toggled off and clear paths
-			if(_lastShowPathState && !World.ShowPath)
+			if(_lastShowPathState && !Viewmodel.ShowPath)
 				ClearAllPaths();
-			_lastShowPathState = World.ShowPath;
+			_lastShowPathState = Viewmodel.ShowPath;
 
-			if(!World.ShowPath)
+			if(!Viewmodel.ShowPath)
 				return;
 
-			var bodies = World.GetBodies();
+			var bodies = Viewmodel.Application.World.GetBodies();
 
 			// Build HashSet of current body IDs for O(1) lookup
 			_bodyIdLookup.Clear();
-			for(var i = 0; i < bodies.Length; i++)
+			for(var i = 0; i < bodies.Count; i++)
 				_bodyIdLookup.Add(bodies[i].Id);
 
 			// Remove paths for bodies that no longer exist - now O(m) instead of O(n*m)
@@ -218,9 +218,9 @@ public partial class Direct3dWorldView
 			}
 
 			// Append when movement threshold exceeded
-			var moveThreshold = (float)(1.0 / World.Viewport.ScaleFactor);
+			var moveThreshold = (float)Viewmodel.Application.Viewport.ToWorld(1.0f);
 
-			for(var i = 0; i < bodies.Length; i++)
+			for(var i = 0; i < bodies.Count; i++)
 			{
 				var body = bodies[i];
 				if(!_pathsByBodyId.TryGetValue(body.Id, out var pathBuf))
@@ -339,7 +339,7 @@ public partial class Direct3dWorldView
 			if(!disposing)
 				return;
 
-			World.PropertyChanged -= OnWorldPropertyChanged;
+			Viewmodel.PropertyChanged -= OnWorldPropertyChanged;
 
 			_inputLayout?.Dispose();
 			_inputLayout = null;
@@ -355,8 +355,8 @@ public partial class Direct3dWorldView
 
 		private void OnWorldPropertyChanged(object? sender, PropertyChangedEventArgs e)
 		{
-			if(e.PropertyName == nameof(World.ShowPath) &&
-			   !World.ShowPath)
+			if(e.PropertyName == nameof(Viewmodel.ShowPath) &&
+			   !Viewmodel.ShowPath)
 				ClearAllPaths();
 		}
 

@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System;
@@ -21,8 +21,8 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		protected VorticeComponent(World world)
-			=> World = world;
+		protected VorticeComponent(IMain viewmodel)
+			=> Viewmodel = viewmodel;
 
 		#endregion
 
@@ -52,7 +52,7 @@ public partial class Direct3dWorldView
 
 		#region Implementation
 
-		protected World World { get; }
+		protected IMain Viewmodel { get; }
 
 		protected abstract void OnLoad(DrawingSurfaceEventArgs e);
 

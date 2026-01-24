@@ -1,4 +1,4 @@
-﻿// Erstellt am: 22.01.2021
+// Erstellt am: 22.01.2021
 // Erstellt von: Max Berghammer
 
 using System.Diagnostics.CodeAnalysis;
@@ -27,8 +27,8 @@ public partial class Direct3dWorldView
 
 	#region Implementation
 
-	private World Viewmodel
-		=> (World)DataContext;
+	private IMain Viewmodel
+		=> (IMain)DataContext;
 
 	[SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Passiert im Unload")]
 	private void OnLoadContent(object? sender, DrawingSurfaceEventArgs e)

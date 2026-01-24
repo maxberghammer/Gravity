@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Gravity.SimulationEngine.Implementation.Integrators;
@@ -12,9 +13,9 @@ internal sealed class RungeKutta4 : SimulationEngine.IIntegrator
 	#region Implementation of IIntegrator
 
 	/// <inheritdoc/>
-	void SimulationEngine.IIntegrator.Step(IWorld world, Body[] bodies, double dtInSeconds, Action<Body[]> computation, Diagnostics diagnostics)
+	void SimulationEngine.IIntegrator.Step(IWorld world, IReadOnlyList<Body> bodies, double dtInSeconds, Action<IReadOnlyList<Body>> computation, Diagnostics diagnostics)
 	{
-		var n = bodies.Length;
+		var n = bodies.Count;
 
 		if(n == 0)
 			return;

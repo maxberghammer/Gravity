@@ -36,8 +36,8 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		public Viewport(World world)
-			: base(world)
+		public Viewport(IMain viewmodel)
+			: base(viewmodel)
 		{
 		}
 
@@ -64,13 +64,12 @@ public partial class Direct3dWorldView
 			EnsureMsaaTargets(e.Device, (int)e.Surface.ActualWidth, (int)e.Surface.ActualHeight);
 
 			var screenSize = new Size(e.Surface.ActualWidth, e.Surface.ActualHeight);
-			var scale = (float)World.Viewport.ScaleFactor;
-			var center = World.Viewport.Center;
+			var center = Viewmodel.Application.Viewport.Center;
 			
 			// 3D Camera setup with orthogonal projection
-			var yaw = (float)World.Viewport.CameraYaw;
-			var pitch = (float)World.Viewport.CameraPitch;
-			var distance = (float)World.Viewport.CameraDistance / scale;
+			var yaw = (float)Viewmodel.Application.Viewport.CameraYaw;
+			var pitch = (float)Viewmodel.Application.Viewport.CameraPitch;
+			var distance = (float)Viewmodel.Application.Viewport.ToWorld((float)Viewmodel.Application.Viewport.CameraDistance);
 			
 			// Camera position: orbit around the center point
 			var cosYaw = MathF.Cos(yaw);
@@ -96,8 +95,8 @@ public partial class Direct3dWorldView
 			var view = Matrix4x4.CreateLookAt(cameraPos, cameraTarget, worldUp);
 			
 			// Orthographic projection
-			var orthoWidth = (float)screenSize.Width / scale;
-			var orthoHeight = (float)screenSize.Height / scale;
+			var orthoWidth = (float)Viewmodel.Application.Viewport.ToWorld((float)screenSize.Width);
+			var orthoHeight = (float)Viewmodel.Application.Viewport.ToWorld((float)screenSize.Height);
 			var proj = Matrix4x4.CreateOrthographic(orthoWidth, orthoHeight, 0.1f, distance * 10f);
 			
 			// Combined ViewProjection matrix (transposed for HLSL column-major)
@@ -110,7 +109,7 @@ public partial class Direct3dWorldView
 											CameraRight = cameraRight,
 											CameraUp = cameraUp,
 											ScreenSize = new((float)screenSize.Width, (float)screenSize.Height),
-											Scale = scale
+											Scale = Viewmodel.Application.Viewport.ToViewport(1)
 										});
 
 			// MSAA-Targets setzen und leeren
