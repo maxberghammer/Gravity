@@ -10,54 +10,58 @@
       "Y": 504.5,
       "Z": 504.5
     },
-    "Scale": 0
+    "Scale": 0,
+    "Autocenter": false
   },
-  "TimeScale": 1,
-  "ElasticCollisions": false,
-  "ClosedBoundaries": false,
+  "World": {
+    "ElasticCollisions": false,
+    "ClosedBoundaries": false,
+    "Timescale": 10,
+    "Bodies": [
+      {
+        "Id": 0,
+        "Color": "#FF000000",
+        "AtmosphereColor": "#FFFFFFFF",
+        "AtmosphereThickness": 2,
+        "Position": {
+          "X": -48,
+          "Y": 0,
+          "Z": 0
+        },
+        "v": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
+        "r": 10,
+        "m": 1000000000000
+      },
+      {
+        "Id": 1,
+        "Color": "#FF000000",
+        "AtmosphereColor": "#FFFFFFFF",
+        "AtmosphereThickness": 2,
+        "Position": {
+          "X": 48,
+          "Y": 0,
+          "Z": 0
+        },
+        "v": {
+          "X": 0.017365395012516372,
+          "Y": -0.8335389606007858,
+          "Z": 0
+        },
+        "r": 10,
+        "m": 1000000000000
+      }
+    ]
+  },
   "ShowPath": true,
-  "AutoCenterViewport": false,
   "SelectedBodyPresetId": "0514f35b-029f-4e91-8071-81fd31c570e0",
   "RespawnerId": null,
   "RngState": {
-    "Seed": 1578955201,
+    "Seed": 1037061729,
     "Generated": 0
   },
-  "Runtime": "00:00:00",
-  "Bodies": [
-    {
-      "Color": "#FF000000",
-      "AtmosphereColor": "#FFFFFFFF",
-      "AtmosphereThickness": 2,
-      "Position": {
-        "X": -50,
-        "Y": 0,
-        "Z": 0
-      },
-      "v": {
-        "X": 0,
-        "Y": 0,
-        "Z": 0
-      },
-      "r": 10,
-      "m": 1000000000000
-    },
-    {
-      "Color": "#FF000000",
-      "AtmosphereColor": "#FFFFFFFF",
-      "AtmosphereThickness": 2,
-      "Position": {
-        "X": 50,
-        "Y": 0,
-        "Z": 0
-      },
-      "v": {
-        "X": -0.01562623079115906,
-        "Y": -0.8047508857446917,
-        "Z": 0
-      },
-      "r": 10,
-      "m": 1000000000000
-    }
-  ]
+  "Runtime": "00:00:00"
 }

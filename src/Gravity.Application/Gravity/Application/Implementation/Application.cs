@@ -62,6 +62,7 @@ internal sealed class Application : IApplication,
 	private readonly Stopwatch _simulationTime = new();
 	private readonly Viewport _viewport;
 	private readonly World _world = new();
+	private IApplication.ApplyStateHandler? _applyState;
 	private Guid? _currentRespawnerId;
 	private int _isSimulating;
 	private TimeSpan _lastSimulationStep = TimeSpan.Zero;
@@ -70,6 +71,7 @@ internal sealed class Application : IApplication,
 	private IApplication.BodyPreset _selectedBodyPreset;
 	private ISimulationEngine? _simulationEngine;
 	private Timer? _simulationTimer;
+	private IApplication.UpdateStateHandler? _updateState;
 
 	#endregion
 
@@ -89,6 +91,12 @@ internal sealed class Application : IApplication,
 	#endregion
 
 	#region Implementation of IApplication
+
+	/// <inheritdoc/>
+	event IApplication.ApplyStateHandler? IApplication.ApplyState { add => _applyState += value; remove => _applyState -= value; }
+
+	/// <inheritdoc/>
+	event IApplication.UpdateStateHandler? IApplication.UpdateState { add => _updateState += value; remove => _updateState -= value; }
 
 	/// <inheritdoc/>
 	public IApplication.IWorld World
@@ -208,12 +216,15 @@ internal sealed class Application : IApplication,
 					{
 						Viewport = _viewport.GetState(),
 						World = _world.GetState(),
-						//ShowPath = ShowPath,
 						SelectedBodyPresetId = _selectedBodyPreset.Id,
 						RespawnerId = _currentRespawnerId,
 						RngState = _rng.State,
 						Runtime = _runtime
 					};
+
+		if(null != _updateState)
+			state = _updateState(state);
+
 		await using var swr = File.CreateText(filePath);
 		await state.SerializeAsync(swr);
 	}
@@ -231,9 +242,10 @@ internal sealed class Application : IApplication,
 
 		_selectedBodyPreset = _bodyPresets.First(p => p.Id == state.SelectedBodyPresetId);
 		_currentRespawnerId = state.RespawnerId;
-		//ShowPath = state.ShowPath;
 		_rng.State = state.RngState;
 		_runtime = state.Runtime;
+
+		_applyState?.Invoke(state);
 	}
 
 	#endregion
@@ -303,12 +315,12 @@ internal sealed class Application : IApplication,
 		if(tangentLen < 1e-12)
 		{
 			// Fallback: dist is parallel to camera forward, use arbitrary perpendicular
-			tangent = new Vector3D(-distUnit.Y, distUnit.X, 0);
+			tangent = new(-distUnit.Y, distUnit.X, 0);
 			tangentLen = tangent.Length;
 
 			if(tangentLen < 1e-12)
 			{
-				tangent = new Vector3D(1, 0, 0);
+				tangent = new(1, 0, 0);
 				tangentLen = 1;
 			}
 		}

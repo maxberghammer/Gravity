@@ -24,9 +24,10 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		var engine = Factory.Create(EngineType);
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.TwoBodiesSimulation);
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodies = world.GetBodies();
-		Assert.AreEqual(2, bodies.Length);
+		Assert.AreEqual(2, bodies.Count);
 
 		// Get initial positions
 		var pos0_before = bodies[0].Position;
@@ -34,7 +35,7 @@ public sealed class ParticleMeshTests : EngineTestsBase
 
 		// Simulate 100 steps
 		for(var i = 0; i < 100; i++)
-			engine.Simulate(world, dt);
+			engine.Simulate(world, viewport, dt);
 
 		// Verify bodies moved
 		var pos0_after = bodies[0].Position;
@@ -66,13 +67,15 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		
 		worldPM = worldPM.CreateMock();
 		worldBH = worldBH.CreateMock();
+		var viewportPM = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
+		var viewportBH = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodiesPM = worldPM.GetBodies();
 		var bodiesBH = worldBH.GetBodies();
 
 		// Simulate just 1 step to compare accelerations
-		enginePM.Simulate(worldPM, dt);
-		engineBH.Simulate(worldBH, dt);
+		enginePM.Simulate(worldPM, viewportPM, dt);
+		engineBH.Simulate(worldBH, viewportBH, dt);
 
 		// Compare average acceleration magnitudes
 		var avgAccPM = 0.0;
@@ -80,7 +83,7 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		var maxRelError = 0.0;
 		var count = 0;
 
-		for(var i = 0; i < bodiesPM.Length; i++)
+		for(var i = 0; i < bodiesPM.Count; i++)
 		{
 			if(bodiesPM[i].IsAbsorbed || bodiesBH[i].IsAbsorbed)
 				continue;
@@ -141,13 +144,15 @@ public sealed class ParticleMeshTests : EngineTestsBase
 
 		worldPM = worldPM.CreateMock();
 		worldBH = worldBH.CreateMock();
+		var viewportPM = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
+		var viewportBH = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodiesPM = worldPM.GetBodies();
 		var bodiesBH = worldBH.GetBodies();
 
 		// Single step to get accelerations
-		enginePM.Simulate(worldPM, dt);
-		engineBH.Simulate(worldBH, dt);
+		enginePM.Simulate(worldPM, viewportPM, dt);
+		engineBH.Simulate(worldBH, viewportBH, dt);
 
 		// Body 0 and Body 1 positions
 		var pos0 = bodiesPM[0].Position;
@@ -200,6 +205,7 @@ public sealed class ParticleMeshTests : EngineTestsBase
 
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(ResourcePaths.TwoBodiesSimulation);
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 		var bodies = world.GetBodies();
 
 		var initialDist = (bodies[0].Position - bodies[1].Position).Length;
@@ -208,7 +214,7 @@ public sealed class ParticleMeshTests : EngineTestsBase
 		// Simulate 100 steps
 		for(var step = 0; step < 100; step++)
 		{
-			enginePM.Simulate(world, dt);
+			enginePM.Simulate(world, viewport, dt);
 			
 			if(step % 20 == 0)
 			{

@@ -16,10 +16,11 @@ public abstract class EngineTestsBase
 		(var world, var deltaTime) = await IWorld.CreateFromJsonResourceAsync(jsonResourcePath);
 
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 		var bodies = world.GetBodies();
 
 		for (var s = 0; s < steps; s++)
-			engine.Simulate(world, deltaTime);
+			engine.Simulate(world, viewport, deltaTime);
 
 		foreach(var body in bodies)
 		{

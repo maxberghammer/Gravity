@@ -54,9 +54,7 @@ public sealed class State
 
 	public required WorldState World { get; init; }
 
-	public double TimeScale { get; init; }
-	
-	public bool ShowPath { get; init; }
+	public bool ShowPath { get; set; }
 
 	public Guid SelectedBodyPresetId { get; init; }
 

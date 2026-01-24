@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows.Threading;
 using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
+using Gravity.SimulationEngine.Serialization;
 using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
@@ -26,6 +27,9 @@ public sealed class Main : NotifyPropertyChanged,
 
 		_uiUpdateTimer = new(DispatcherPriority.Render);
 		_uiUpdateTimer.Tick += (_, _) => UpdateBindings();
+
+		application.ApplyState += OnApplyState;
+		application.UpdateState += OnUpdateState;
 	}
 
 	#endregion
@@ -43,11 +47,11 @@ public sealed class Main : NotifyPropertyChanged,
 
 	#region Implementation of IMain
 
-	/// <inheritdoc />
+	/// <inheritdoc/>
 	public IReadOnlyCollection<IApplication.BodyPreset> BodyPresets
 		=> Application.BodyPresets;
 
-	/// <inheritdoc />
+	/// <inheritdoc/>
 	public IReadOnlyCollection<IApplication.EngineType> EngineTypes
 		=> Application.EngineTypes;
 
@@ -165,6 +169,23 @@ public sealed class Main : NotifyPropertyChanged,
 	#endregion
 
 	#region Implementation
+
+	private State OnUpdateState(State state)
+	{
+		state.ShowPath = ShowPath;
+
+		return state;
+	}
+
+	private void OnApplyState(State state)
+	{
+		ShowPath = state.ShowPath;
+		Viewport.Autocenter = state.Viewport.Autocenter;
+		Viewport.Scale = state.Viewport.Scale;
+		World.ElasticCollisions = state.World.ElasticCollisions;
+		World.ClosedBoundaries = state.World.ClosedBoundaries;
+		World.LogarithmicTimescale = Math.Log10(state.World.Timescale);
+	}
 
 	private void UpdateBindings()
 	{

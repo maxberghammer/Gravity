@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Gravity.SimulationEngine.Mock;
@@ -29,21 +30,21 @@ public sealed class ConservationTests
 
 	#region Implementation
 
-	private static double TotalKineticEnergy(Body[] bodies)
+	private static double TotalKineticEnergy(IReadOnlyList<Body> bodies)
 		=> bodies.Where(b => !b.IsAbsorbed).Sum(b => 0.5 * b.m * b.v.LengthSquared);
 
-	private static double TotalPotentialEnergy(Body[] bodies)
+	private static double TotalPotentialEnergy(IReadOnlyList<Body> bodies)
 	{
 		var e = 0.0;
 
-		for(var i = 0; i < bodies.Length; i++)
+		for(var i = 0; i < bodies.Count; i++)
 		{
 			var bi = bodies[i];
 
 			if(bi.IsAbsorbed)
 				continue;
 
-			for(var j = i + 1; j < bodies.Length; j++)
+			for(var j = i + 1; j < bodies.Count; j++)
 			{
 				var bj = bodies[j];
 
@@ -59,12 +60,12 @@ public sealed class ConservationTests
 		return e;
 	}
 
-	private static (Vector3D P, Vector3D L) TotalMomentumAndAngularMomentum(Body[] bodies)
+	private static (Vector3D P, Vector3D L) TotalMomentumAndAngularMomentum(IReadOnlyList<Body> bodies)
 	{
 		var p = Vector3D.Zero;
 		var l = Vector3D.Zero;
 
-		for(var i = 0; i < bodies.Length; i++)
+		for(var i = 0; i < bodies.Count; i++)
 		{
 			var b = bodies[i];
 
@@ -90,6 +91,7 @@ public sealed class ConservationTests
 		var engine = Factory.Create(engineType);
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodies = world.GetBodies();
 		var e0 = TotalKineticEnergy(bodies) + TotalPotentialEnergy(bodies);
@@ -107,7 +109,7 @@ public sealed class ConservationTests
 
 		for(var s = 0; s < steps; s++)
 		{
-			engine.Simulate(world, dt);
+			engine.Simulate(world, viewport, dt);
 			
 			if(debugOutput && s % 500 == 0)
 			{

@@ -204,7 +204,7 @@ internal class Viewport : IViewport,
 		var previousSize = Size3D;
 		var previousCenter = Center;
 
-		_scale = Math.Round(_scale + zoomFactor, 1);
+		_scale = _scale + zoomFactor;
 
 		var sizeRatio = previousScaleFactor / ScaleFactor;
 		var newWidth = previousSize.X * sizeRatio;

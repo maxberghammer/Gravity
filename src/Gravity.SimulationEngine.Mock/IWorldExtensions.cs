@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -22,12 +23,11 @@ public static class IWorldExtensions
 			using var ms = new MemoryStream(bytes);
 			using var reader = new StreamReader(ms, Encoding.UTF8, false);
 			var state = await State.DeserializeAsync(reader);
-			var vp = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, state.Viewport.TopLeft.Z), new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y, state.Viewport.BottomRight.Z));
-			var bodies = new Body[state.Bodies.Length];
+			var bodies = new Body[state.World.Bodies.Length];
 
-		for(var i = 0; i < bodies.Length; i++)
+			for(var i = 0; i < bodies.Length; i++)
 			{
-				var bodyState = state.Bodies[i];
+				var bodyState = state.World.Bodies[i];
 				bodies[i] = new(new(bodyState.Position.X, bodyState.Position.Y, bodyState.Position.Z),
 								  bodyState.r,
 								  bodyState.m,
@@ -42,7 +42,7 @@ public static class IWorldExtensions
 								  bodyState.AtmosphereThickness);
 			}
 
-			return (new WorldMock(vp, state.ClosedBoundaries, state.ElasticCollisions, bodies), TimeSpan.FromSeconds(1.0d / 60.0d * Math.Pow(10, state.TimeScale)));
+			return (new WorldMock(state.World.ClosedBoundaries, state.World.ElasticCollisions, bodies, state.World.Timescale), TimeSpan.FromSeconds(1.0d / 60.0d * state.World.Timescale));
 		}
 
 		public static async Task<(IWorld World, TimeSpan DeltaTime)> CreateFromJsonResourceAsync(string jsonResourcePath, Assembly? resourceAssembly = null)
@@ -67,7 +67,7 @@ public static class IWorldExtensions
 		}
 
 		public IWorld CreateMock()
-			=> new WorldMock(world.Viewport, world.ClosedBoundaries, world.ElasticCollisions, CloneBodies(world.GetBodies()));
+			=> new WorldMock(world.ClosedBoundaries, world.ElasticCollisions, CloneBodies(world.GetBodies()), world.Timescale);
 
 		#endregion
 	}
@@ -76,11 +76,11 @@ public static class IWorldExtensions
 
 	#region Implementation
 
-	private static Body[] CloneBodies(Body[] baseline)
+	private static Body[] CloneBodies(IReadOnlyList<Body> baseline)
 	{
-		var copy = new Body[baseline.Length];
+		var copy = new Body[baseline.Count];
 
-		for(var i = 0; i < baseline.Length; i++)
+		for(var i = 0; i < baseline.Count; i++)
 			copy[i] = baseline[i].Clone();
 
 		return copy;

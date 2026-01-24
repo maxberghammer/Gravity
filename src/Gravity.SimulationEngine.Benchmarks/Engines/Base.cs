@@ -60,12 +60,13 @@ public abstract class Base
 
 		(var world, var dt) = entry;
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 		var bodies = world.GetBodies();
 		double sum = 0;
 
 		for (var i = 0; i < steps; i++)
 		{
-			engine.Simulate(world, dt);
+			engine.Simulate(world, viewport, dt);
 			sum += bodies.Sum(body => body.v.Length);
 		}
 

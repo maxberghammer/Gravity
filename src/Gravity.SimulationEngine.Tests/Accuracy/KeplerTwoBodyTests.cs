@@ -67,14 +67,14 @@ public sealed class KeplerTwoBodyTests
 		return r.X * v.Y - r.Y * v.X;
 	}
 
-	private static (double Period, double SemiMajor) MeasureOrbit(ISimulationEngine engine, IWorld world, Body primary, Body satellite, TimeSpan dt, int maxSteps)
+	private static (double Period, double SemiMajor) MeasureOrbit(ISimulationEngine engine, IWorld world, IViewport viewport, Body primary, Body satellite, TimeSpan dt, int maxSteps)
 	{
 		// Sample radii while advancing simulation
 		var radii = new List<double>(maxSteps);
 
 		for(var s = 0; s < maxSteps; s++)
 		{
-			engine.Simulate(world, dt);
+			engine.Simulate(world, viewport, dt);
 			var r = (satellite.Position - primary.Position).Length;
 			radii.Add(r);
 		}
@@ -132,6 +132,7 @@ public sealed class KeplerTwoBodyTests
 		var engine = Factory.Create(engineType);
 		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
 		world = world.CreateMock();
+		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodies = world.GetBodies();
 		// Select two bodies: primary (heavier) and satellite
@@ -151,10 +152,10 @@ public sealed class KeplerTwoBodyTests
 
 		// Warmup
 		for(var s = 0; s < steps; s++)
-			engine.Simulate(world, dt);
+			engine.Simulate(world, viewport, dt);
 
 		// Measure period
-		(var periodMeasured, var _) = MeasureOrbit(engine, world, primary, satellite, dt, steps);
+		(var periodMeasured, var _) = MeasureOrbit(engine, world, viewport, primary, satellite, dt, steps);
 		Assert.IsFalse(double.IsNaN(periodMeasured), "Failed to measure orbital period.");
 
 		// Compute final energy and angular momentum

@@ -1,8 +1,10 @@
-using Gravity.SimulationEngine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Threading.Tasks;
+using Gravity.SimulationEngine;
+using Gravity.SimulationEngine.Serialization;
 using Wellenlib.Diagnostics;
 
 namespace Gravity.Application.Gravity.Application;
@@ -82,7 +84,7 @@ public interface IApplication
 		double CameraYaw { get; }
 
 		/// <summary>
-		/// Camera pitch angle in radians (rotation around X axis, clamped to avoid gimbal lock)
+		/// Camera pitch angle in radians (rotation around X axis)
 		/// </summary>
 		double CameraPitch { get; }
 
@@ -91,16 +93,43 @@ public interface IApplication
 		/// </summary>
 		double CameraDistance { get; }
 
+		/// <summary>
+		/// Gets the center point of the viewport in three-dimensional space.
+		/// </summary>
 		Vector3D Center { get; }
 
+		/// <summary>
+		/// Converts a point from world coordinates to viewport coordinates.
+		/// </summary>
+		/// <param name="worldPoint">The point in world space to be transformed to viewport space.</param>
+		/// <returns>A <see cref="Vector2"/> representing the position of the specified world point in viewport coordinates.</returns>
 		Vector2 ToViewport(Vector3D worldPoint);
 
+		/// <summary>
+		/// Converts a length from world coordinates to viewport coordinates.
+		/// </summary>
+		/// <param name="worldLength">The length in world units to convert. Must be a finite value.</param>
+		/// <returns>A single-precision floating-point value representing the equivalent length in viewport coordinates.</returns>
 		float ToViewport(double worldLength);
 
+		/// <summary>
+		/// Converts a point from viewport coordinates to world coordinates.
+		/// </summary>
+		/// <param name="viewportPoint">The point in viewport space to convert.</param>
+		/// <returns>A <see cref="Vector3D"/> representing the corresponding position in world space.</returns>
 		Vector3D ToWorld(Vector2 viewportPoint);
 
+		/// <summary>
+		/// Converts a length from viewport coordinates to world coordinates.
+		/// </summary>
+		/// <param name="viewportLength">The length in viewport units to convert.</param>
+		/// <returns>The equivalent length in world coordinates as a double-precision floating-point value.</returns>
 		double ToWorld(float viewportLength);
 
+		/// <summary>
+		/// Sets the scale of the viewport to the specified factor.
+		/// </summary>
+		/// <param name="scale">The new scale-factor representing Viewport-Size/World-Size.</param>
 		void Scale(double scale);
 
 		/// <summary>
@@ -108,8 +137,20 @@ public interface IApplication
 		/// </summary>
 		void RotateCamera(double deltaYaw, double deltaPitch, bool snap = false);
 
+		/// <summary>
+		/// Resizes the viewport to the specified dimensions.
+		/// </summary>
+		/// <param name="newSize">
+		/// The new size of the viewport, represented as a <see cref="Vector3D"/> specifying width, height, and depth. Each
+		/// component must be non-negative.
+		/// </param>
 		void Resize(Vector3D newSize);
 
+		/// <summary>
+		/// Zooms the view by the specified factor, centering the zoom operation at the given point in 3D space.
+		/// </summary>
+		/// <param name="zoomCenter">The point in 3D space around which the zoom is centered.</param>
+		/// <param name="zoomFactor">The factor by which to zoom. Values greater than 0 zoom out; values smaller than 0 zoom in.</param>
 		void Zoom(Vector3D zoomCenter, double zoomFactor);
 
 		void EnableAutocenter();
@@ -140,7 +181,17 @@ public interface IApplication
 		IReadOnlyList<Body> GetBodies();
 	}
 
-	#endregion
+	delegate void ApplyStateHandler(State state);
+
+	public delegate State UpdateStateHandler(State state);
+
+    #endregion
+
+    [SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
+    event ApplyStateHandler? ApplyState;
+
+	[SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
+	event UpdateStateHandler? UpdateState;
 
 	IViewport Viewport { get; }
 
@@ -175,7 +226,7 @@ public interface IApplication
 	void StartSimulation();
 
 	void StopSimulation();
-	
+
 	void Reset();
 
 	Task SaveAsync(string filePath);
