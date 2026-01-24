@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 
 namespace Gravity.SimulationEngine.Implementation.Computations;
@@ -26,14 +26,15 @@ namespace Gravity.SimulationEngine.Implementation.Computations;
 /// </summary>
 internal sealed class ParticleMesh : SimulationEngine.IComputation
 {
-	#region Fields
+#region Fields
 
-	private const double _eps = 1e-12;
-	private const int _maxGridSize = 64;
-	private const int _minGridSize = 8;
-	private const double _cutoffCells = 4.0; // Short-range cutoff in grid cells
+private const double _eps = 1e-12;
+private const int _maxGridSize = 64;
+private const int _minGridSize = 8;
+private const double _cutoffCells = 4.0; // Short-range cutoff in grid cells
+private static readonly double _invSqrtPi = 1.0 / Math.Sqrt(Math.PI);
 
-	#endregion
+#endregion
 
 	#region Implementation of IComputation
 
@@ -75,17 +76,28 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 		var sigma = rCut / 3.0;
 		var alpha = 1.0 / (Math.Sqrt(2.0) * sigma);
 
+
 		// Initialize accelerations to zero
 		for (var i = 0; i < nBodies; i++)
 			if (!bodies[i].IsAbsorbed)
 				bodies[i].a = Vector3D.Zero;
 
-		// Step 1: Compute short-range forces directly with erfc splitting
+		// For few bodies, use pure direct calculation (no Ewald splitting needed)
+		// This is exact and faster than P³M for small N
+		if (activeCount <= 32)
+		{
+			ComputeDirectForces(bodies);
+			diagnostics.SetField("Strategy", "Particle-Mesh-Direct");
+			diagnostics.SetField("Bodies", activeCount);
+			return;
+		}
+
+		// Step 1: Compute short-range forces directly with Ewald splitting
 		var shortRangePairs = ComputeShortRangeForces(bodies, rCut, minBound, alpha);
 
-		// Step 2: Compute long-range forces using PM with erf splitting (Gaussian filter)
-		// For few bodies with large rCut, this will contribute almost nothing (as intended)
-		ComputeLongRangeForces(bodies, n, h, minBound, sigma);
+		// Step 2: Compute long-range forces using PM with erf splitting
+		// Uses filter exp(-k²/(4α²)) which corresponds to erf(αr) in real space
+		ComputeLongRangeForces(bodies, n, h, minBound, alpha);
 
 		diagnostics.SetField("Strategy", "Particle-Mesh-P3M-Ewald");
 		diagnostics.SetField("GridSize", n);
@@ -97,23 +109,61 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 
 	#endregion
 
+	#region Direct Forces (for few bodies)
+
+	/// <summary>
+	/// Pure O(N²) direct calculation - exact, used for small N.
+	/// </summary>
+	private static void ComputeDirectForces(IReadOnlyList<Body> bodies)
+	{
+		var n = bodies.Count;
+
+		for (var i = 0; i < n; i++)
+		{
+			var bi = bodies[i];
+			if (bi.IsAbsorbed) continue;
+
+			for (var j = i + 1; j < n; j++)
+			{
+				var bj = bodies[j];
+				if (bj.IsAbsorbed) continue;
+
+				var r = bj.Position - bi.Position;
+				var dist2 = r.LengthSquared;
+				if (dist2 < _eps) continue;
+
+				var dist = Math.Sqrt(dist2);
+				var force = IWorld.G / (dist2 * dist);
+
+				var ai = force * bj.m * r;
+				var aj = force * bi.m * r;
+
+				bi.a += ai;
+				bj.a -= aj;
+			}
+		}
+	}
+
+	#endregion
+
 	#region Short-Range Forces
 
 	/// <summary>
 	/// Compute short-range forces using direct calculation with spatial hashing.
 	/// Uses Ewald splitting: F_short = F_full * erfc(α·r)
+	/// Optimized: No locks, thread-local accumulators, fast erfc approximation.
 	/// </summary>
 	private static int ComputeShortRangeForces(IReadOnlyList<Body> bodies, double rCut, Vector3D minBound, double alpha)
 	{
+		var n = bodies.Count;
 		var rCut2 = rCut * rCut;
-		var pairCount = 0;
 
-		// Build spatial hash grid
+		// Build spatial hash grid - use array-based for speed
 		var cellSize = rCut;
 		var invCellSize = 1.0 / cellSize;
-		var grid = new Dictionary<(int, int, int), List<int>>();
+		var grid = new Dictionary<(int, int, int), List<int>>(n);
 
-		for (var i = 0; i < bodies.Count; i++)
+		for (var i = 0; i < n; i++)
 		{
 			var body = bodies[i];
 			if (body.IsAbsorbed) continue;
@@ -121,63 +171,139 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 			var cell = GetCell(body.Position, minBound, invCellSize);
 			if (!grid.TryGetValue(cell, out var list))
 			{
-				list = [];
+				list = new List<int>(8);
 				grid[cell] = list;
 			}
 			list.Add(i);
 		}
 
-		// Process neighbor pairs
-		Parallel.ForEach(grid, kvp =>
-		{
-			var (cx, cy, cz) = kvp.Key;
-			var cellBodies = kvp.Value;
+		// Thread-local acceleration accumulators
+		var accX = new double[n];
+		var accY = new double[n];
+		var accZ = new double[n];
+		var pairCount = 0;
+		var syncLock = new object();
 
-			for (var dx = -1; dx <= 1; dx++)
+		// Convert to array for faster iteration
+		var cells = grid.ToArray();
+
+		Parallel.For(0, cells.Length, () => (new double[n], new double[n], new double[n], 0),
+			(cellIdx, _, local) =>
 			{
-				for (var dy = -1; dy <= 1; dy++)
+				var (localAccX, localAccY, localAccZ, localPairs) = local;
+				var kvp = cells[cellIdx];
+				var (cx, cy, cz) = kvp.Key;
+				var cellBodies = kvp.Value;
+
+				for (var dx = -1; dx <= 1; dx++)
 				{
-					for (var dz = -1; dz <= 1; dz++)
+					for (var dy = -1; dy <= 1; dy++)
 					{
-						var neighborCell = (cx + dx, cy + dy, cz + dz);
-						if (!grid.TryGetValue(neighborCell, out var neighbors))
-							continue;
-
-						foreach (var i in cellBodies)
+						for (var dz = -1; dz <= 1; dz++)
 						{
-							var bi = bodies[i];
+							var neighborCell = (cx + dx, cy + dy, cz + dz);
+							if (!grid.TryGetValue(neighborCell, out var neighbors))
+								continue;
 
-							foreach (var j in neighbors)
+							var isSelf = dx == 0 && dy == 0 && dz == 0;
+
+							foreach (var i in cellBodies)
 							{
-								if (neighborCell == kvp.Key && j <= i) continue;
+								var bi = bodies[i];
+								var biPos = bi.Position;
 
-								var bj = bodies[j];
-								var r = bj.Position - bi.Position;
-								var dist2 = r.LengthSquared;
+								foreach (var j in neighbors)
+								{
+									if (isSelf && j <= i) continue;
 
-								if (dist2 >= rCut2 || dist2 < _eps) continue;
+									var bj = bodies[j];
+									var rVec = bj.Position - biPos;
+									var dist2 = rVec.LengthSquared;
+
+									if (dist2 >= rCut2 || dist2 < _eps) continue;
 
 								var dist = Math.Sqrt(dist2);
+									var ar = alpha * dist;
 
-								// Ewald short-range: G/r² * erfc(α·r)
-								var erfcFactor = SpecialFunctions.Erfc(alpha * dist);
-								var force = IWorld.G * erfcFactor / (dist2 * dist);
+									// Correct Ewald short-range force:
+									// F_short = G/r² × [erfc(αr) + (2αr/√π) × exp(-α²r²)]
+									// The second term ensures F_short + F_long = F_full exactly
+									var erfcTerm = FastErfc(ar);
+									var expTerm = 2.0 * ar * _invSqrtPi * Math.Exp(-ar * ar);
+									var ewaldFactor = erfcTerm + expTerm;
 
-								var ai = force * bj.m * r;
-								var aj = force * bi.m * r;
+									var force = IWorld.G * ewaldFactor / (dist2 * dist);
 
-								lock (bi) { bi.a += ai; }
-								lock (bj) { bj.a -= aj; }
+									var fx = force * rVec.X;
+									var fy = force * rVec.Y;
+									var fz = force * rVec.Z;
 
-								Interlocked.Increment(ref pairCount);
+									localAccX[i] += fx * bj.m;
+									localAccY[i] += fy * bj.m;
+									localAccZ[i] += fz * bj.m;
+
+									localAccX[j] -= fx * bi.m;
+									localAccY[j] -= fy * bi.m;
+									localAccZ[j] -= fz * bi.m;
+
+									localPairs++;
+								}
 							}
 						}
 					}
 				}
-			}
-		});
+
+				return (localAccX, localAccY, localAccZ, localPairs);
+			},
+			local =>
+			{
+				var (localAccX, localAccY, localAccZ, localPairs) = local;
+
+				// Merge thread-local results
+				lock (syncLock)
+				{
+					for (var i = 0; i < n; i++)
+					{
+						accX[i] += localAccX[i];
+						accY[i] += localAccY[i];
+						accZ[i] += localAccZ[i];
+					}
+					pairCount += localPairs;
+				}
+			});
+
+		// Apply accumulated accelerations
+		for (var i = 0; i < n; i++)
+		{
+			if (!bodies[i].IsAbsorbed)
+				bodies[i].a += new Vector3D(accX[i], accY[i], accZ[i]);
+		}
 
 		return pairCount;
+	}
+
+	/// <summary>
+	/// Fast erfc approximation using Horner's method.
+	/// Max relative error ~1.5e-7 for x >= 0.
+	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static double FastErfc(double x)
+	{
+		// Abramowitz & Stegun approximation 7.1.26
+		const double a1 = 0.254829592;
+		const double a2 = -0.284496736;
+		const double a3 = 1.421413741;
+		const double a4 = -1.453152027;
+		const double a5 = 1.061405429;
+		const double p = 0.3275911;
+
+		var t = 1.0 / (1.0 + p * x);
+		var t2 = t * t;
+		var t3 = t2 * t;
+		var t4 = t3 * t;
+		var t5 = t4 * t;
+
+		return (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) * Math.Exp(-x * x);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -195,10 +321,10 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	#region Long-Range Forces
 
 	/// <summary>
-	/// Compute long-range forces using PM with Gaussian filter (erf complement).
-	/// The filter exp(-k²σ²/2) in k-space corresponds to erf(r/(√2·σ)) in real space.
+	/// Compute long-range forces using PM with Ewald filter.
+	/// The filter exp(-k²/(4α²)) in k-space corresponds to erf(αr) in real space.
 	/// </summary>
-	private static void ComputeLongRangeForces(IReadOnlyList<Body> bodies, int n, double h, Vector3D minBound, double sigma)
+	private static void ComputeLongRangeForces(IReadOnlyList<Body> bodies, int n, double h, Vector3D minBound, double alpha)
 	{
 		var gridSize = n * n * n;
 
@@ -208,7 +334,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 		var accZGrid = new double[gridSize];
 
 		AssignMassToGrid3D(bodies, massGrid, n, minBound, h);
-		SolveLongRangeFFT3D(massGrid, accXGrid, accYGrid, accZGrid, n, h, sigma);
+		SolveLongRangeFFT3D(massGrid, accXGrid, accYGrid, accZGrid, n, h, alpha);
 		InterpolateAndAddAcceleration(bodies, accXGrid, accYGrid, accZGrid, n, minBound, h);
 	}
 
@@ -258,10 +384,10 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	}
 
 	/// <summary>
-	/// FFT solver with Gaussian filter: exp(-k²σ²/2)
-	/// This corresponds to the erf part of the Ewald splitting in real space.
+	/// FFT solver with Ewald filter: exp(-k²/(4α²))
+	/// This corresponds to the erf(αr) part of the Ewald splitting in real space.
 	/// </summary>
-	private static void SolveLongRangeFFT3D(double[] massGrid, double[] accX, double[] accY, double[] accZ, int n, double h, double sigma)
+	private static void SolveLongRangeFFT3D(double[] massGrid, double[] accX, double[] accY, double[] accZ, int n, double h, double alpha)
 	{
 		var gridSize = n * n * n;
 		var rhoK = new Complex[gridSize];
@@ -277,7 +403,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 
 		var l = n * h;
 		var dk = 2.0 * Math.PI / l;
-		var sigma2 = sigma * sigma;
+		var fourAlpha2 = 4.0 * alpha * alpha;
 
 		// Factor for converting density to acceleration
 		var factor = 4.0 * Math.PI * IWorld.G / (h * h * h * n * n * n);
@@ -299,8 +425,8 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 
 					if (k2 > _eps)
 					{
-						// Gaussian filter: exp(-k²σ²/2) corresponds to erf in real space
-						var longRangeFilter = Math.Exp(-k2 * sigma2 / 2);
+						// Ewald filter: exp(-k²/(4α²)) corresponds to erf(αr) in real space
+						var longRangeFilter = Math.Exp(-k2 / fourAlpha2);
 
 						var rho = rhoK[idx];
 						var iRho = new Complex(-rho.Imaginary, rho.Real);
