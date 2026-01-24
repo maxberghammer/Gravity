@@ -309,18 +309,18 @@ internal class Viewport : IViewport,
 		// Calculate offset from center in world space
 		var offsetWorld = worldPoint - Center;
 
-		// Calculate camera basis vectors (same as in ToWorld)
+		// Calculate camera basis vectors matching CreateLookAt (same as in ToWorld)
 		var cosYaw = Math.Cos(_cameraYaw);
 		var sinYaw = Math.Sin(_cameraYaw);
 		var cosPitch = Math.Cos(_cameraPitch);
 		var sinPitch = Math.Sin(_cameraPitch);
 
-		// Right vector
+		// Right vector - matches CreateLookAt
 		var rightX = cosYaw;
-		var rightZ = sinYaw;
+		var rightZ = -sinYaw;
 
-		// Up vector
-		var upX = sinYaw * sinPitch;
+		// Up vector - matches CreateLookAt
+		var upX = -sinYaw * sinPitch;
 		var upY = cosPitch;
 		var upZ = -cosYaw * sinPitch;
 
@@ -361,21 +361,21 @@ internal class Viewport : IViewport,
 		var offsetX = (viewportPoint.X - screenCenterX) / ScaleFactor;
 		var offsetY = (viewportPoint.Y - screenCenterY) / ScaleFactor;
 
-		// Calculate camera basis vectors using standard rotation convention:
-		// Yaw rotates around global Y-axis, Pitch rotates around local X-axis (Right)
+		// Calculate camera basis vectors matching CreateLookAt calculation:
+		// zaxis = normalize(-forward), xaxis = Cross(worldUp, zaxis), yaxis = Cross(zaxis, xaxis)
 		var cosYaw = Math.Cos(_cameraYaw);
 		var sinYaw = Math.Sin(_cameraYaw);
 		var cosPitch = Math.Cos(_cameraPitch);
 		var sinPitch = Math.Sin(_cameraPitch);
 
-		// Right vector (camera X axis) - only affected by yaw
+		// Right vector (camera X axis) - matches CreateLookAt: Cross(worldUp, zaxis)
+		// At yaw=0: (1, 0, 0), at yaw=45°: (0.707, 0, -0.707)
 		var rightX = cosYaw;
 		var rightY = 0.0;
-		var rightZ = sinYaw;
+		var rightZ = -sinYaw;
 
-		// Up vector (camera Y axis) - affected by both yaw and pitch
-		// Derived from rotating (0,1,0) around the Right axis by -pitch
-		var upX = sinYaw * sinPitch;
+		// Up vector (camera Y axis) - matches CreateLookAt: Cross(zaxis, xaxis)
+		var upX = -sinYaw * sinPitch;
 		var upY = cosPitch;
 		var upZ = -cosYaw * sinPitch;
 

@@ -270,18 +270,6 @@ internal sealed class Application : IApplication,
 
 	private void AddOrbitBody(Vector3D position, Vector3D velocity)
 	{
-		#region Debug
-
-		// Skip orbit computation if position almost equals velocity
-		if((position - velocity).LengthSquared < 1e-12)
-		{
-			AddBody(position, Vector3D.Zero);
-
-			return;
-		}
-
-		#endregion
-
 		var nearestBody = _selectedBody
 						  ?? _world.GetBodies()
 								   .OrderByDescending(p => IWorld.G * p.m / ((p.Position - position).Length * (p.Position - position).Length))
@@ -306,25 +294,23 @@ internal sealed class Application : IApplication,
 
 		var distUnit = dist / distLen;
 
-		// Compute orbit tangent using two cross products
-		var up = new Vector3D(0, 0, 1);
-		var orbitNormal = distUnit.Cross(up);
-
-		if(orbitNormal.LengthSquared < 1e-12)
-		{
-			up = new(1, 0, 0);
-			orbitNormal = distUnit.Cross(up);
-		}
-
-		// Tangent is perpendicular to both orbitNormal and dist (double cross product)
-		var tangent = orbitNormal.Cross(distUnit);
+		// Calculate tangent perpendicular to dist and in the view plane (perpendicular to camera forward)
+		// This ensures the orbit is in the plane the user is currently viewing
+		var cameraForward = _viewport.GetCameraForward();
+		var tangent = cameraForward.Cross(distUnit);
 		var tangentLen = tangent.Length;
 
 		if(tangentLen < 1e-12)
 		{
-			AddBody(position, Vector3D.Zero);
+			// Fallback: dist is parallel to camera forward, use arbitrary perpendicular
+			tangent = new Vector3D(-distUnit.Y, distUnit.X, 0);
+			tangentLen = tangent.Length;
 
-			return;
+			if(tangentLen < 1e-12)
+			{
+				tangent = new Vector3D(1, 0, 0);
+				tangentLen = 1;
+			}
 		}
 
 		tangent = tangent / tangentLen;
