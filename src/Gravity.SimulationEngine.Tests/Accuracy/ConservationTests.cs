@@ -12,21 +12,37 @@ public sealed class ConservationTests
 {
 	#region Interface
 
+	// Tolerances are set to ~2x measured values to catch regressions
+	// Standard (2000 steps): relE=8.86e-4, relP=3.97e-15, relL=3.51e-15
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task AdaptiveLeapfrogConservesInvariantsTwoBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 5000, 1e-3, 1e-12, 1e-12);
+	public async Task StandardConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 2000, 
+			relEnergyTol: 2e-3, relMomentumTol: 1e-14, relAngularTol: 1e-14);
 
+	// BarnesHut (5000 steps): relE=5.04e-10, relP=3.26e-15, relL=1.27e-14
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task StandardConservesMomentumAngularTwoBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 2000, 1e-2, 1e-12, 1e-12);
+	public async Task AdaptiveBarnesHutConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 5000, 
+			relEnergyTol: 1e-9, relMomentumTol: 1e-14, relAngularTol: 3e-14);
 
+	// ParticleMesh (2000 steps, uses Direct for 2 bodies): relE=1.53e-7, relP=1.40e-15, relL=0
 	[TestMethod]
-	public async Task TestConservationAdaptiveAsync()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 5000, 1e-3, 1e-12, 1e-12);
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task ParticleMeshConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 2000, 
+			relEnergyTol: 5e-7, relMomentumTol: 1e-14, relAngularTol: 1e-14);
+
+	// FastMultipole (2000 steps, uses Direct for 2 bodies): relE=1.53e-7, relP=1.40e-15, relL=0
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task FastMultipoleConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 2000, 
+			relEnergyTol: 5e-7, relMomentumTol: 1e-14, relAngularTol: 1e-14);
 
 	#endregion
+
 
 	#region Implementation
 
@@ -121,23 +137,13 @@ public sealed class ConservationTests
 		var eN = TotalKineticEnergy(bodies) + TotalPotentialEnergy(bodies);
 		(var pN, var lN) = TotalMomentumAndAngularMomentum(bodies);
 
-		if(debugOutput)
-		{
-			Console.WriteLine($"Final state:");
-			Console.WriteLine($"  EN = {eN:E6}");
-			Console.WriteLine($"  PN = {pN}");
-			Console.WriteLine($"  LN = {lN}");
-			foreach(var b in bodies)
-				Console.WriteLine($"  Body: pos={b.Position}, v={b.v}");
-		}
-
 		const double eps = 1e-15;
 		var relE = Math.Abs(eN - e0) / Math.Max(eps, Math.Abs(e0));
 		var relP = (pN - p0).Length / Math.Max(eps, p0.Length);
 		var relL = (lN - l0).Length / Math.Max(eps, l0.Length);
 
-		if(debugOutput)
-			Console.WriteLine($"Results: relE={relE:E6}, relP={relP:E6}, relL={relL:E6}");
+		if (debugOutput)
+			Console.WriteLine($"[{engineType}] relE={relE:E3}, relP={relP:E3}, relL={relL:E3}");
 
 		// Assert actual <= tolerance
 		Assert.IsLessThanOrEqualTo(relEnergyTol, relE, $"Energy drift {relE} exceeds tolerance {relEnergyTol}");

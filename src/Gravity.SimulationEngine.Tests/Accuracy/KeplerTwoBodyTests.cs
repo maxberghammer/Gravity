@@ -13,21 +13,37 @@ public sealed class KeplerTwoBodyTests
 {
 	#region Interface
 
+	// Tolerances are set to ~2x measured values to catch regressions
+	// Standard: relPeriod=2.76e-4, relEnergy=6.35e-5, relAngular=1.10e-14
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task StandardTwoBodyKeplerPeriodAccurate()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000, 
+			relPeriodTol: 5e-4, relEnergyTol: 1.5e-4, relAngularMomentumTol: 5e-14);
 
+	// BarnesHut: relPeriod=3.23e-4, relEnergy=2.51e-9, relAngular=7.26e-14
 	[TestMethod]
-	public async Task TestKeplerAdaptiveAsync()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 1e-2, 1e-12);
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task AdaptiveBarnesHutKeplerPeriodAccurate()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.TwoBodiesSimulation, 10000, 
+			relPeriodTol: 5e-4, relEnergyTol: 1e-8, relAngularMomentumTol: 2e-13);
 
+	// ParticleMesh: relPeriod=3.23e-4, relEnergy=2.51e-9, relAngular=8.01e-14 (uses Direct for 2 bodies)
 	[TestMethod]
 	[Timeout(120000, CooperativeCancellation = true)]
-	public async Task TestKeplerParticleMeshAsync()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 10000, 5e-4, 0.5, 1e-12);
+	public async Task ParticleMeshKeplerPeriodAccurate()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 10000, 
+			relPeriodTol: 5e-4, relEnergyTol: 1e-8, relAngularMomentumTol: 2e-13);
+
+	// FastMultipole: relPeriod=3.23e-4, relEnergy=2.51e-9, relAngular=8.01e-14 (uses Direct for 2 bodies)
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task FastMultipoleKeplerPeriodAccurate()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 10000, 
+			relPeriodTol: 5e-4, relEnergyTol: 1e-8, relAngularMomentumTol: 2e-13);
 
 	#endregion
+
 
 	#region Implementation
 
