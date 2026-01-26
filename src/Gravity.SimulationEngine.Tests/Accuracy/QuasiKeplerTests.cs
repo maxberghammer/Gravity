@@ -63,7 +63,7 @@ public sealed class QuasiKeplerTests
 		
 		// Identify central star (heaviest body)
 		var star = bodies.OrderByDescending(b => b.m).First();
-		var planets = bodies.Where(b => b != star && !b.IsAbsorbed).ToList();
+		var planets = bodies.Where(b => b != star ).ToList();
 
 		// Record initial orbital parameters for each planet
 		var initialOrbits = planets.Select(p => new
@@ -77,12 +77,14 @@ public sealed class QuasiKeplerTests
 		for (var s = 0; s < steps; s++)
 			engine.Simulate(world, viewport, dt);
 
+		// Test 0: All planets should still exist (none absorbed/removed)
+		var currentPlanets = bodies.Where(b => b != star).ToList();
+		Assert.HasCount(planets.Count, currentPlanets, 
+			$"{planets.Count - currentPlanets.Count} planet(s) were removed/absorbed - orbits are unstable!");
+
 		// Check orbit stability for each planet
 		foreach (var orbit in initialOrbits)
 		{
-			if (orbit.Planet.IsAbsorbed)
-				continue; // Skip absorbed planets
-
 			var finalRadius = (orbit.Planet.Position - star.Position).Length;
 			var finalVelocity = orbit.Planet.v.Length;
 
@@ -96,13 +98,14 @@ public sealed class QuasiKeplerTests
 			Assert.IsLessThan(maxPeriodDrift, velocityDrift,
 				$"Planet orbital velocity drifted too much: {velocityDrift * 100:F1}% (initial={orbit.InitialVelocity:F3}, final={finalVelocity:F3})");
 
+
 			// Test 3: Planet is still orbiting (not flying away)
 			Assert.IsLessThan(1000.0, finalRadius,
 				$"Planet flew away: radius={finalRadius:F1} > 1000");
 		}
 
-		// Test 4: No planets escaped (allow some absorption due to collisions)
-		var escapedCount = planets.Count(p => !p.IsAbsorbed && (p.Position - star.Position).Length > 1000);
+		// Test 4: No planets escaped
+		var escapedCount = currentPlanets.Count(p => (p.Position - star.Position).Length > 1000);
 		Assert.AreEqual(0, escapedCount, $"{escapedCount} planet(s) escaped from the system");
 
 		// Test 5: Star should stay approximately stationary (momentum conservation)
@@ -113,3 +116,4 @@ public sealed class QuasiKeplerTests
 
 	#endregion
 }
+

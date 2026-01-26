@@ -62,7 +62,7 @@ public class Body
 
 	public int Id { get; }
 
-	public bool IsAbsorbed { get; private set; }
+	internal bool IsAbsorbed { get; private set; }
 
 	public Color Color { get; }
 
@@ -110,7 +110,7 @@ public class Body
 					 AtmosphereColor,
 					 AtmosphereThickness);
 
-	public void Absorb(Body other)
+	internal void Absorb(Body other)
 	{
 		ArgumentNullException.ThrowIfNull(other);
 

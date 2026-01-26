@@ -22,7 +22,7 @@ public abstract class EngineTestsBase
 
 		// Store initial state
 		var initialPositions = bodies.Select(b => b.Position).ToArray();
-		var initialActiveCount = bodies.Count(b => !b.IsAbsorbed);
+		var initialActiveCount = bodies.Count;
 		var initialEnergy = ComputeTotalEnergy(bodies);
 
 		// Run simulation
@@ -49,9 +49,8 @@ public abstract class EngineTestsBase
 
 		// 3. Simulation actually happened: at least one body moved
 		var anyMoved = false;
-		for (var i = 0; i < bodies.Count; i++)
+		for (var i = 0; i < Math.Min(bodies.Count, initialPositions.Length); i++)
 		{
-			if (bodies[i].IsAbsorbed) continue;
 			var displacement = (bodies[i].Position - initialPositions[i]).Length;
 			if (displacement > 1e-10)
 			{
@@ -61,11 +60,10 @@ public abstract class EngineTestsBase
 		}
 		Assert.IsTrue(anyMoved, "No body moved - simulation may not be running");
 
-		// 4. At least one body was accelerated (unless all absorbed)
-		var activeCount = bodies.Count(b => !b.IsAbsorbed);
-		if (activeCount > 1) // Need at least 2 bodies for gravitational acceleration
+		// 4. At least one body was accelerated
+		if (bodies.Count > 1) // Need at least 2 bodies for gravitational acceleration
 		{
-			var anyAccelerated = bodies.Any(b => !b.IsAbsorbed && b.a.Length > 1e-20);
+			var anyAccelerated = bodies.Any(b => b.a.Length > 1e-20);
 			Assert.IsTrue(anyAccelerated, "No body was accelerated - gravity may not be computed");
 		}
 
@@ -78,18 +76,17 @@ public abstract class EngineTestsBase
 		const double reasonableBound = 1e10; // 10 billion meters
 		foreach (var body in bodies)
 		{
-			if (body.IsAbsorbed) continue;
 			var distance = body.Position.Length;
 			Assert.IsLessThan(reasonableBound, distance, 
 				$"Body flew too far: {distance:E3} m (> {reasonableBound:E3} m)");
 		}
 
-		// 7. No spontaneous absorption (bodies don't disappear without collisions in non-collision scenarios)
-		// Allow up to 50% absorption (some test scenarios may have collisions)
-		var finalActiveCount = bodies.Count(b => !b.IsAbsorbed);
-		var absorptionRate = (initialActiveCount - finalActiveCount) / (double)initialActiveCount;
-		Assert.IsLessThan(0.5, absorptionRate, 
-			$"Too many bodies absorbed: {initialActiveCount} -> {finalActiveCount} ({absorptionRate*100:F0}% lost)");
+		// 7. No spontaneous removal (bodies don't disappear - they're removed from list when absorbed)
+		// Allow up to 50% loss (some test scenarios may have collisions)
+		var finalCount = bodies.Count;
+		var lossRate = (initialActiveCount - finalCount) / (double)initialActiveCount;
+		Assert.IsLessThan(0.5, lossRate, 
+			$"Too many bodies removed: {initialActiveCount} -> {finalCount} ({lossRate*100:F0}% lost)");
 	}
 
 	private static double ComputeTotalEnergy(System.Collections.Generic.IReadOnlyList<Body> bodies)
@@ -98,7 +95,6 @@ public abstract class EngineTestsBase
 		var ke = 0.0;
 		foreach (var b in bodies)
 		{
-			if (b.IsAbsorbed) continue;
 			ke += 0.5 * b.m * b.v.LengthSquared;
 		}
 
@@ -106,15 +102,14 @@ public abstract class EngineTestsBase
 		var pe = 0.0;
 		for (var i = 0; i < bodies.Count; i++)
 		{
-			if (bodies[i].IsAbsorbed) continue;
 			for (var j = i + 1; j < bodies.Count; j++)
 			{
-				if (bodies[j].IsAbsorbed) continue;
 				var r = (bodies[i].Position - bodies[j].Position).Length;
 				var rEff = Math.Max(r, 1e-12);
 				pe -= IWorld.G * bodies[i].m * bodies[j].m / rEff;
 			}
 		}
+
 
 		return ke + pe;
 	}

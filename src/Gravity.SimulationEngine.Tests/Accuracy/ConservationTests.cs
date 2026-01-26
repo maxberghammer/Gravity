@@ -80,11 +80,15 @@ public sealed class ConservationTests
 
 
 
+
+
+
+
 	#region Implementation
 
 
 	private static double TotalKineticEnergy(IReadOnlyList<Body> bodies)
-		=> bodies.Where(b => !b.IsAbsorbed).Sum(b => 0.5 * b.m * b.v.LengthSquared);
+		=> bodies.Sum(b => 0.5 * b.m * b.v.LengthSquared);
 
 	private static double TotalPotentialEnergy(IReadOnlyList<Body> bodies)
 	{
@@ -94,15 +98,9 @@ public sealed class ConservationTests
 		{
 			var bi = bodies[i];
 
-			if(bi.IsAbsorbed)
-				continue;
-
 			for(var j = i + 1; j < bodies.Count; j++)
 			{
 				var bj = bodies[j];
-
-				if(bj.IsAbsorbed)
-					continue;
 
 				var r = (bi.Position - bj.Position).Length;
 				var rEff = Math.Max(r, 1e-12);
@@ -118,12 +116,8 @@ public sealed class ConservationTests
 		var p = Vector3D.Zero;
 		var l = Vector3D.Zero;
 
-		for(var i = 0; i < bodies.Count; i++)
+		foreach(var b in bodies)
 		{
-			var b = bodies[i];
-
-			if(b.IsAbsorbed)
-				continue;
 
 			p += b.m * b.v;
 			// Angular momentum L = r × p = r × (m * v)
