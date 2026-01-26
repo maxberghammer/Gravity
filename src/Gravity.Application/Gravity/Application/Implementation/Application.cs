@@ -51,6 +51,11 @@ internal sealed class Application : IApplication,
 		},
 		new()
 		{
+			Type = Factory.SimulationEngineType.AdaptiveFastMultipole,
+			Name = "Adaptive (Fast Multipole)"
+		},
+		new()
+		{
 			Type = Factory.SimulationEngineType.Standard,
 			Name = "Direkte N-Body"
 		}

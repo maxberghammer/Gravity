@@ -14,7 +14,8 @@ public static class Factory
 	{
 		Standard,
 		AdaptiveBarnesHut,
-		AdaptiveParticleMesh
+		AdaptiveParticleMesh,
+		AdaptiveFastMultipole
 	}
 
 	#endregion
@@ -40,6 +41,12 @@ public static class Factory
 																															0.5),
 																								new ParticleMesh(),
 																								new Grid()),
+			   SimulationEngineType.AdaptiveFastMultipole => new Implementation.SimulationEngine(new Leapfrog(),
+																								 new MinDiameterCrossingTime(64,
+																															 TimeSpan.FromSeconds(1e-7),
+																															 0.5),
+																								 new FastMultipole(),
+																								 new Grid()),
 			   var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		   };
 
