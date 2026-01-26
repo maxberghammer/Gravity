@@ -143,12 +143,17 @@ public sealed class KeplerTwoBodyTests
 		return (period, a);
 	}
 
+
+
+
+
+
+
 	private static async Task AssertKeplerAsync(Factory.SimulationEngineType engineType, string resourcePath, int steps, double relPeriodTol, double relEnergyTol, double relAngularMomentumTol)
 	{
 		var engine = Factory.Create(engineType);
-		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
+		(var world, var viewport, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
 		world = world.CreateMock();
-		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodies = world.GetBodies();
 		// Select two bodies: primary (heavier) and satellite

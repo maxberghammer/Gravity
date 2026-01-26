@@ -13,10 +13,9 @@ public abstract class EngineTestsBase
 	protected async Task RunAsync(string jsonResourcePath, int steps)
 	{
 		var engine = Factory.Create(EngineType);
-		(var world, var deltaTime) = await IWorld.CreateFromJsonResourceAsync(jsonResourcePath);
+		(var world, var viewport, var deltaTime) = await IWorld.CreateFromJsonResourceAsync(jsonResourcePath);
 
 		world = world.CreateMock();
-		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 		var bodies = world.GetBodies();
 
 		for (var s = 0; s < steps; s++)

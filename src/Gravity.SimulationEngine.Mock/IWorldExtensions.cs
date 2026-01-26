@@ -17,7 +17,7 @@ public static class IWorldExtensions
 	{
 		#region Interface
 
-		public static async Task<(IWorld World, TimeSpan DeltaTime)> CreateFromJsonAsync(string json)
+		public static async Task<(IWorld World, IViewport Viewport, TimeSpan DeltaTime)> CreateFromJsonAsync(string json)
 		{
 			var bytes = Encoding.UTF8.GetBytes(json);
 			using var ms = new MemoryStream(bytes);
@@ -29,23 +29,28 @@ public static class IWorldExtensions
 			{
 				var bodyState = state.World.Bodies[i];
 				bodies[i] = new(new(bodyState.Position.X, bodyState.Position.Y, bodyState.Position.Z),
-								  bodyState.r,
-								  bodyState.m,
-								  new(bodyState.v.X, bodyState.v.Y, bodyState.v.Z),
-								  Vector3D.Zero,
-								  string.IsNullOrEmpty(bodyState.Color)
-									  ? Color.Transparent
-									  : Color.Parse(bodyState.Color),
-								  string.IsNullOrEmpty(bodyState.AtmosphereColor)
-									  ? null
-									  : Color.Parse(bodyState.AtmosphereColor),
-								  bodyState.AtmosphereThickness);
+								bodyState.r,
+								bodyState.m,
+								new(bodyState.v.X, bodyState.v.Y, bodyState.v.Z),
+								Vector3D.Zero,
+								string.IsNullOrEmpty(bodyState.Color)
+									? Color.Transparent
+									: Color.Parse(bodyState.Color),
+								string.IsNullOrEmpty(bodyState.AtmosphereColor)
+									? null
+									: Color.Parse(bodyState.AtmosphereColor),
+								bodyState.AtmosphereThickness);
 			}
 
-			return (new WorldMock(state.World.ClosedBoundaries, state.World.ElasticCollisions, bodies, state.World.Timescale), TimeSpan.FromSeconds(1.0d / 60.0d * state.World.Timescale));
+			var viewport = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, state.Viewport.TopLeft.Z),
+											new(state.Viewport.BottomRight.X, state.Viewport.BottomRight.Y, state.Viewport.BottomRight.Z));
+
+			return (new WorldMock(state.World.ClosedBoundaries, state.World.ElasticCollisions, bodies, state.World.Timescale),
+					viewport,
+					TimeSpan.FromSeconds(1.0d / 60.0d * state.World.Timescale));
 		}
 
-		public static async Task<(IWorld World, TimeSpan DeltaTime)> CreateFromJsonResourceAsync(string jsonResourcePath, Assembly? resourceAssembly = null)
+		public static async Task<(IWorld World, IViewport Viewport, TimeSpan DeltaTime)> CreateFromJsonResourceAsync(string jsonResourcePath, Assembly? resourceAssembly = null)
 		{
 			if(string.IsNullOrWhiteSpace(jsonResourcePath))
 				throw new ArgumentNullException(nameof(jsonResourcePath));

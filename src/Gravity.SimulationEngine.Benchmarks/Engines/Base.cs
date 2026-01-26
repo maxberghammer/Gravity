@@ -15,7 +15,7 @@ public abstract class Base
 {
 	#region Fields
 
-	private readonly Dictionary<string, (IWorld World, TimeSpan Dt)> _cache = new();
+	private readonly Dictionary<string, (IWorld World, IViewport Viewport, TimeSpan Dt)> _cache = new();
 
 	#endregion
 
@@ -27,9 +27,19 @@ public abstract class Base
 	protected ISimulationEngine Standard { get; private set; } = null!;
 
 	/// <summary>
-	/// Adaptive engine using Barnes-Hut O(n log n) computation.
+	/// Adaptive Barnes-Hut engine using O(n log n) tree-based computation.
 	/// </summary>
-	protected ISimulationEngine Adaptive { get; private set; } = null!;
+	protected ISimulationEngine AdaptiveBarnesHut { get; private set; } = null!;
+
+	/// <summary>
+	/// Adaptive Particle-Mesh engine using O(N + Grid³ log Grid) FFT-based computation.
+	/// </summary>
+	protected ISimulationEngine AdaptiveParticleMesh { get; private set; } = null!;
+
+	/// <summary>
+	/// Adaptive Fast Multipole Method engine using O(N) multipole expansion.
+	/// </summary>
+	protected ISimulationEngine AdaptiveFastMultipole { get; private set; } = null!;
 
 	[GlobalSetup]
 	public async Task SetupAsync()
@@ -40,7 +50,9 @@ public abstract class Base
 
 		// Create all engines
 		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
-		Adaptive = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
+		AdaptiveBarnesHut = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
+		AdaptiveParticleMesh = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
+		AdaptiveFastMultipole = Factory.Create(Factory.SimulationEngineType.AdaptiveFastMultipole);
 	}
 
 	#endregion
@@ -58,9 +70,8 @@ public abstract class Base
 			entry = _cache[resourcePath];
 		}
 
-		(var world, var dt) = entry;
+		(var world, var viewport, var dt) = entry;
 		world = world.CreateMock();
-		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 		var bodies = world.GetBodies();
 		double sum = 0;
 
@@ -78,8 +89,8 @@ public abstract class Base
 		if (_cache.ContainsKey(resourcePath))
 			return;
 
-		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
-		_cache[resourcePath] = (world, dt);
+		(var world, var viewport, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
+		_cache[resourcePath] = (world, viewport, dt);
 	}
 
 	#endregion

@@ -105,9 +105,8 @@ public sealed class ConservationTests
 													  bool debugOutput = false)
 	{
 		var engine = Factory.Create(engineType);
-		(var world, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
+		(var world, var viewport, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);
 		world = world.CreateMock();
-		var viewport = new ViewportMock(new(-1000, -1000, -1000), new(1000, 1000, 1000));
 
 		var bodies = world.GetBodies();
 		var e0 = TotalKineticEnergy(bodies) + TotalPotentialEnergy(bodies);
