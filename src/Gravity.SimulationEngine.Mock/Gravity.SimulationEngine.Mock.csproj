@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<!-- Allgemeine Projekt-Einstellungen -->
 	<Import Project="$(CommonProjectSettingsFilePath)" />
@@ -7,7 +7,9 @@
 		<EmbeddedResource Include="Resources\10000bodies.grv" />
 		<EmbeddedResource Include="Resources\1000bodies.grv" />
 		<EmbeddedResource Include="Resources\2body.grv" />
+		<EmbeddedResource Include="Resources\solarsystem.grv" />
 	</ItemGroup>
+	
 	
 	<ItemGroup>
 	  <ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />
