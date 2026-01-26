@@ -12,7 +12,9 @@ public sealed class ConservationTests
 {
 	#region Interface
 
+	// ==== Two Body Tests ====
 	// Tolerances are set to ~2x measured values to catch regressions
+	
 	// Standard (2000 steps): relE=8.86e-4, relP=3.97e-15, relL=3.51e-15
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
@@ -34,6 +36,7 @@ public sealed class ConservationTests
 		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 2000, 
 			relEnergyTol: 5e-7, relMomentumTol: 1e-14, relAngularTol: 1e-14);
 
+
 	// FastMultipole (2000 steps, uses Direct for 2 bodies): relE=1.53e-7, relP=1.40e-15, relL=0
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
@@ -41,10 +44,44 @@ public sealed class ConservationTests
 		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 2000, 
 			relEnergyTol: 5e-7, relMomentumTol: 1e-14, relAngularTol: 1e-14);
 
+	// ==== Thousand Body Tests ====
+	// N-body systems are harder to conserve due to accumulation of numerical errors
+	// We use more relaxed tolerances for many-body systems
+
+	// Standard (1000 steps, 1000 bodies): O(N²) is slow but most accurate
+	[TestMethod]
+	[Timeout(1800000, CooperativeCancellation = true)] // 30 minutes timeout
+	public async Task StandardConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.ThousandBodiesSimulation, 1000, 
+			relEnergyTol: 0.1, relMomentumTol: 1e-10, relAngularTol: 1e-10);
+
+	// AdaptiveBarnesHut (1000 steps, 1000 bodies)
+	[TestMethod]
+	[Timeout(600000, CooperativeCancellation = true)] // 10 minutes timeout
+	public async Task AdaptiveBarnesHutConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.ThousandBodiesSimulation, 1000, 
+			relEnergyTol: 0.2, relMomentumTol: 1e-3, relAngularTol: 1e-3);
+
+	// AdaptiveParticleMesh (1000 steps, 1000 bodies): PM can drift more due to grid discretization
+	[TestMethod]
+	[Timeout(600000, CooperativeCancellation = true)] // 10 minutes timeout
+	public async Task ParticleMeshConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.ThousandBodiesSimulation, 1000, 
+			relEnergyTol: 0.3, relMomentumTol: 5e-3, relAngularTol: 5e-3);
+
+	// AdaptiveFastMultipole (1000 steps, 1000 bodies): FMM multipole approximation can introduce small errors
+	[TestMethod]
+	[Timeout(600000, CooperativeCancellation = true)] // 10 minutes timeout
+	public async Task FastMultipoleConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.ThousandBodiesSimulation, 1000, 
+			relEnergyTol: 0.25, relMomentumTol: 2e-4, relAngularTol: 2e-4);
+
 	#endregion
 
 
+
 	#region Implementation
+
 
 	private static double TotalKineticEnergy(IReadOnlyList<Body> bodies)
 		=> bodies.Where(b => !b.IsAbsorbed).Sum(b => 0.5 * b.m * b.v.LengthSquared);
