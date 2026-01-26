@@ -39,7 +39,8 @@ public static class IWorldExtensions
 								string.IsNullOrEmpty(bodyState.AtmosphereColor)
 									? null
 									: Color.Parse(bodyState.AtmosphereColor),
-								bodyState.AtmosphereThickness);
+								bodyState.AtmosphereThickness,
+								bodyState.Name);
 			}
 
 			var viewport = new ViewportMock(new(state.Viewport.TopLeft.X, state.Viewport.TopLeft.Y, state.Viewport.TopLeft.Z),

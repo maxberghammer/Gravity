@@ -30,15 +30,15 @@ public class BarnesHutTreeInsert
 			var x = RandomNumberGenerator.GetInt32(-500, 500);
 			var y = RandomNumberGenerator.GetInt32(-500, 500);
 			var z = RandomNumberGenerator.GetInt32(-500, 500);
-			bodies[i] = new Body(
-			new Vector3D(x, y, z),
-				10.0,
-				1e12,
-				Vector3D.Zero,
-				Vector3D.Zero,
-				Color.White,
-				null,
-				0);
+			bodies[i] = new Body(new Vector3D(x, y, z),
+								 10.0,
+								 1e12,
+								 Vector3D.Zero,
+								 Vector3D.Zero,
+								 Color.White,
+								 null,
+								 0,
+								 null);
 		}
 		
 		return bodies;

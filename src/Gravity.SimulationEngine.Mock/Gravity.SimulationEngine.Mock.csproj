@@ -8,7 +8,9 @@
 		<EmbeddedResource Include="Resources\1000bodies.grv" />
 		<EmbeddedResource Include="Resources\2body.grv" />
 		<EmbeddedResource Include="Resources\solarsystem.grv" />
+		<EmbeddedResource Include="Resources\solarsystem-real.grv" />
 	</ItemGroup>
+	
 	
 	
 	<ItemGroup>

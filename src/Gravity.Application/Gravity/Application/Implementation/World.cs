@@ -35,7 +35,8 @@ internal sealed class World : IWorld,
 													   new(b.Position.X, b.Position.Y, b.Position.Z),
 													   new(b.v.X, b.v.Y, b.v.Z),
 													   b.r,
-													   b.m))
+													   b.m,
+													   b.Name))
 					  .ToArray());
 
 	public void ApplyState(State.WorldState state)
@@ -55,7 +56,8 @@ internal sealed class World : IWorld,
 													string.IsNullOrEmpty(b.AtmosphereColor)
 														? null
 														: Color.Parse(b.AtmosphereColor),
-													b.AtmosphereThickness)));
+													b.AtmosphereThickness,
+													b.Name)));
 	}
 
 	public IReadOnlyList<Body> GetBodies()

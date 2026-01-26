@@ -1,0 +1,1106 @@
+{
+	"Viewport": {
+		"TopLeft": {
+			"X": -1.5e13,
+			"Y": -1.5e13,
+			"Z": -1.5e13
+		},
+		"BottomRight": {
+			"X": 1.5e13,
+			"Y": 1.5e13,
+			"Z": 1.5e13
+		},
+		"Scale": 10,
+		"Autocenter": false
+	},
+	"World": {
+		"ElasticCollisions": false,
+		"ClosedBoundaries": false,
+		"Timescale": 1000000,
+		"Bodies": [
+			{
+				"Id": 0,
+				"Name": "Sun",
+				"Color": "#FFFFFF00",
+				"AtmosphereColor": "#FFFF8800",
+				"AtmosphereThickness": 1e8,
+				"Position": {
+					"X": 0,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 0,
+					"Z": 0
+				},
+				"r": 6.96e8,
+				"m": 1.989e30
+			},
+
+			{
+				"Id": 1,
+				"Name": "Mercury",
+				"Color": "#FF808080",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.79e10,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 47900,
+					"Z": 0
+				},
+				"r": 2.44e6,
+				"m": 3.3e23
+			},
+
+			{
+				"Id": 2,
+				"Name": "Venus",
+				"Color": "#FFFFAA66",
+				"AtmosphereColor": "#FFFFCC99",
+				"AtmosphereThickness": 1e6,
+				"Position": {
+					"X": 1.082e11,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 35000,
+					"Z": 0
+				},
+				"r": 6.05e6,
+				"m": 4.87e24
+			},
+
+			{
+				"Id": 3,
+				"Name": "Earth",
+				"Color": "#FF0080FF",
+				"AtmosphereColor": "#8000CCFF",
+				"AtmosphereThickness": 1e6,
+				"Position": {
+					"X": 1.496e11,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 29800,
+					"Z": 0
+				},
+				"r": 6.371e6,
+				"m": 5.972e24
+			},
+			{
+				"Id": 100,
+				"Name": "Moon",
+				"Color": "#FFCCCCCC",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.496e11,
+					"Y": 3.844e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 1022,
+					"Y": 29800,
+					"Z": 0
+				},
+				"r": 1.737e6,
+				"m": 7.342e22
+			},
+
+			{
+				"Id": 4,
+				"Name": "Mars",
+				"Color": "#FFFF4400",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.279e11,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 24100,
+					"Z": 0
+				},
+				"r": 3.39e6,
+				"m": 6.42e23
+			},
+			{
+				"Id": 101,
+				"Name": "Phobos",
+				"Color": "#FFAAAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.279e11,
+					"Y": 9.376e6,
+					"Z": 0
+				},
+				"v": {
+					"X": 2138,
+					"Y": 24100,
+					"Z": 0
+				},
+				"r": 11267,
+				"m": 1.0659e16
+			},
+			{
+				"Id": 102,
+				"Name": "Deimos",
+				"Color": "#FF999999",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.279e11,
+					"Y": 2.3459e7,
+					"Z": 0
+				},
+				"v": {
+					"X": 1351,
+					"Y": 24100,
+					"Z": 0
+				},
+				"r": 6200,
+				"m": 1.4762e15
+			},
+
+			{
+				"Id": 200,
+				"Name": "Ceres",
+				"Color": "#FF888888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.14e11,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 17900,
+					"Z": 0
+				},
+				"r": 4.73e5,
+				"m": 9.39e20
+			},
+			{
+				"Id": 201,
+				"Name": "Vesta",
+				"Color": "#FF777777",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 3.53e11,
+					"Y": 3e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 19400,
+					"Z": 0
+				},
+				"r": 2.62e5,
+				"m": 2.59e20
+			},
+			{
+				"Id": 202,
+				"Name": "Pallas",
+				"Color": "#FF888888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.14e11,
+					"Y": -3e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 17900,
+					"Z": 0
+				},
+				"r": 2.56e5,
+				"m": 2.04e20
+			},
+			{
+				"Id": 203,
+				"Name": "Hygiea",
+				"Color": "#FF666666",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.7e11,
+					"Y": 2e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 16800,
+					"Z": 0
+				},
+				"r": 2.17e5,
+				"m": 8.67e19
+			},
+			{
+				"Id": 204,
+				"Name": "Interamnia",
+				"Color": "#FF777777",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.5e11,
+					"Y": -2e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 17200,
+					"Z": 0
+				},
+				"r": 1.68e5,
+				"m": 3.5e19
+			},
+			{
+				"Id": 205,
+				"Name": "Davida",
+				"Color": "#FF888888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.75e11,
+					"Y": 1.5e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 16700,
+					"Z": 0
+				},
+				"r": 1.45e5,
+				"m": 3.84e19
+			},
+			{
+				"Id": 206,
+				"Name": "Sylvia",
+				"Color": "#FF666666",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.2e11,
+					"Y": -1e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 16000,
+					"Z": 0
+				},
+				"r": 1.36e5,
+				"m": 1.478e19
+			},
+			{
+				"Id": 207,
+				"Name": "Eunomia",
+				"Color": "#FF777777",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 3.95e11,
+					"Y": 2.5e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 18300,
+					"Z": 0
+				},
+				"r": 1.36e5,
+				"m": 3.12e19
+			},
+			{
+				"Id": 208,
+				"Name": "Juno",
+				"Color": "#FF888888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 3.99e11,
+					"Y": -1.8e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 18200,
+					"Z": 0
+				},
+				"r": 1.17e5,
+				"m": 2.67e19
+			},
+			{
+				"Id": 209,
+				"Name": "Euphrosyne",
+				"Color": "#FF666666",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.7e11,
+					"Y": 3.2e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 16800,
+					"Z": 0
+				},
+				"r": 1.28e5,
+				"m": 5.55e18
+			},
+			{
+				"Id": 210,
+				"Name": "Psyche",
+				"Color": "#FF999999",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.37e11,
+					"Y": -2.8e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 17500,
+					"Z": 0
+				},
+				"r": 1.13e5,
+				"m": 2.72e19
+			},
+
+			{
+				"Id": 5,
+				"Name": "Jupiter",
+				"Color": "#FFFFCC99",
+				"AtmosphereColor": "#80FFEECC",
+				"AtmosphereThickness": 5e7,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 6.9911e7,
+				"m": 1.898e27
+			},
+			{
+				"Id": 103,
+				"Name": "Io",
+				"Color": "#FFFFFF99",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 4.217e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 17300,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 1.821e6,
+				"m": 8.93e22
+			},
+			{
+				"Id": 104,
+				"Name": "Europa",
+				"Color": "#FFEEEEEE",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 6.711e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 13740,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 1.560e6,
+				"m": 4.80e22
+			},
+			{
+				"Id": 105,
+				"Name": "Ganymede",
+				"Color": "#FFDDDDDD",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 1.0704e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 10880,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 2.634e6,
+				"m": 1.48e23
+			},
+			{
+				"Id": 106,
+				"Name": "Callisto",
+				"Color": "#FFCCCCCC",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 1.8827e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 8200,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 2.410e6,
+				"m": 1.08e23
+			},
+			{
+				"Id": 107,
+				"Name": "Amalthea",
+				"Color": "#FFBBBBBB",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 1.814e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 26500,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 83500,
+				"m": 2.08e18
+			},
+			{
+				"Id": 108,
+				"Name": "Himalia",
+				"Color": "#FFAAAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 7.783e11,
+					"Y": 1.148e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 3310,
+					"Y": 13100,
+					"Z": 0
+				},
+				"r": 85000,
+				"m": 4.2e18
+			},
+
+			{
+				"Id": 6,
+				"Name": "Saturn",
+				"Color": "#FFFFDDAA",
+				"AtmosphereColor": "#80FFFFDD",
+				"AtmosphereThickness": 4e7,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 5.8232e7,
+				"m": 5.683e26
+			},
+			{
+				"Id": 109,
+				"Name": "Titan",
+				"Color": "#FFFFDDAA",
+				"AtmosphereColor": "#80FFEECC",
+				"AtmosphereThickness": 1e5,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 1.22187e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 5570,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 2.575e6,
+				"m": 1.35e23
+			},
+			{
+				"Id": 110,
+				"Name": "Rhea",
+				"Color": "#FFEEEEEE",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 5.27108e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 8480,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 7.64e5,
+				"m": 2.31e21
+			},
+			{
+				"Id": 111,
+				"Name": "Iapetus",
+				"Color": "#FFDDDDDD",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 3.56082e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 3260,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 7.35e5,
+				"m": 1.81e21
+			},
+			{
+				"Id": 112,
+				"Name": "Dione",
+				"Color": "#FFCCCCCC",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 3.77396e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 10030,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 5.61e5,
+				"m": 1.10e21
+			},
+			{
+				"Id": 113,
+				"Name": "Tethys",
+				"Color": "#FFBBBBBB",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 2.94619e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 11350,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 5.31e5,
+				"m": 6.17e20
+			},
+			{
+				"Id": 114,
+				"Name": "Enceladus",
+				"Color": "#FFAAAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 2.38e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 12630,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 2.52e5,
+				"m": 1.08e20
+			},
+			{
+				"Id": 115,
+				"Name": "Mimas",
+				"Color": "#FF999999",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 1.8552e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 14280,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 1.98e5,
+				"m": 3.75e19
+			},
+			{
+				"Id": 116,
+				"Name": "Hyperion",
+				"Color": "#FF888888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 1.481e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 5060,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 1.35e5,
+				"m": 5.6e18
+			},
+			{
+				"Id": 117,
+				"Name": "Phoebe",
+				"Color": "#FF777777",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.432e12,
+					"Y": 1.2952e10,
+					"Z": 0
+				},
+				"v": {
+					"X": 1710,
+					"Y": 9700,
+					"Z": 0
+				},
+				"r": 1.06e5,
+				"m": 8.3e18
+			},
+
+			{
+				"Id": 7,
+				"Name": "Uranus",
+				"Color": "#FF00DDFF",
+				"AtmosphereColor": "#8000EEFF",
+				"AtmosphereThickness": 2e7,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 2.5362e7,
+				"m": 8.681e25
+			},
+			{
+				"Id": 118,
+				"Name": "Titania",
+				"Color": "#FFE0E0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 4.363e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 3640,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 7.88e5,
+				"m": 3.53e21
+			},
+			{
+				"Id": 119,
+				"Name": "Oberon",
+				"Color": "#FFD0D0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 5.835e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 3150,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 7.61e5,
+				"m": 3.01e21
+			},
+			{
+				"Id": 120,
+				"Name": "Umbriel",
+				"Color": "#FFC0C0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 2.66e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 4660,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 5.85e5,
+				"m": 1.17e21
+			},
+			{
+				"Id": 121,
+				"Name": "Ariel",
+				"Color": "#FFB0B0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 1.909e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 5510,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 5.79e5,
+				"m": 1.35e21
+			},
+			{
+				"Id": 122,
+				"Name": "Miranda",
+				"Color": "#FFA0A0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 2.867e12,
+					"Y": 1.296e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 6680,
+					"Y": 6800,
+					"Z": 0
+				},
+				"r": 2.36e5,
+				"m": 6.59e19
+			},
+
+			{
+				"Id": 8,
+				"Name": "Neptune",
+				"Color": "#FF0044FF",
+				"AtmosphereColor": "#800088FF",
+				"AtmosphereThickness": 2e7,
+				"Position": {
+					"X": 4.515e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 5400,
+					"Z": 0
+				},
+				"r": 2.4622e7,
+				"m": 1.024e26
+			},
+			{
+				"Id": 123,
+				"Name": "Triton",
+				"Color": "#FFD0D0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.515e12,
+					"Y": 3.548e8,
+					"Z": 0
+				},
+				"v": {
+					"X": -4390,
+					"Y": 5400,
+					"Z": 0
+				},
+				"r": 1.353e6,
+				"m": 2.14e22
+			},
+			{
+				"Id": 124,
+				"Name": "Proteus",
+				"Color": "#FFC0C0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.515e12,
+					"Y": 1.176e8,
+					"Z": 0
+				},
+				"v": {
+					"X": 7620,
+					"Y": 5400,
+					"Z": 0
+				},
+				"r": 2.1e5,
+				"m": 5e19
+			},
+			{
+				"Id": 125,
+				"Name": "Nereid",
+				"Color": "#FFB0B0FF",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 4.515e12,
+					"Y": 5.5134e9,
+					"Z": 0
+				},
+				"v": {
+					"X": 934,
+					"Y": 5400,
+					"Z": 0
+				},
+				"r": 1.7e5,
+				"m": 3.1e19
+			},
+
+			{
+				"Id": 9,
+				"Name": "Pluto",
+				"Color": "#FFCCAA88",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.9064e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 4740,
+					"Z": 0
+				},
+				"r": 1.188e6,
+				"m": 1.303e22
+			},
+			{
+				"Id": 126,
+				"Name": "Charon",
+				"Color": "#FFBBAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.9064e12,
+					"Y": 1.9591e7,
+					"Z": 0
+				},
+				"v": {
+					"X": 210,
+					"Y": 4740,
+					"Z": 0
+				},
+				"r": 6.06e5,
+				"m": 1.586e21
+			},
+			{
+				"Id": 127,
+				"Name": "Nix",
+				"Color": "#FFAAAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.9064e12,
+					"Y": 4.865e7,
+					"Z": 0
+				},
+				"v": {
+					"X": 148,
+					"Y": 4740,
+					"Z": 0
+				},
+				"r": 2.3e4,
+				"m": 5e16
+			},
+			{
+				"Id": 128,
+				"Name": "Hydra",
+				"Color": "#FF999999",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.9064e12,
+					"Y": 6.49e7,
+					"Z": 0
+				},
+				"v": {
+					"X": 135,
+					"Y": 4740,
+					"Z": 0
+				},
+				"r": 3.05e4,
+				"m": 5e16
+			},
+
+			{
+				"Id": 300,
+				"Name": "Eris",
+				"Color": "#FFDDDDDD",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.014e13,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 3430,
+					"Z": 0
+				},
+				"r": 1.163e6,
+				"m": 1.66e22
+			},
+			{
+				"Id": 301,
+				"Name": "Makemake",
+				"Color": "#FFCCCCCC",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 6.85e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 4420,
+					"Z": 0
+				},
+				"r": 7.15e5,
+				"m": 3e21
+			},
+			{
+				"Id": 302,
+				"Name": "Haumea",
+				"Color": "#FFBBBBBB",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 6.45e12,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 4550,
+					"Z": 0
+				},
+				"r": 8.16e5,
+				"m": 4.01e21
+			},
+			{
+				"Id": 303,
+				"Name": "Quaoar",
+				"Color": "#FFAAAAAA",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 6.53e12,
+					"Y": 5e11,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 4520,
+					"Z": 0
+				},
+				"r": 5.55e5,
+				"m": 1.4e21
+			},
+			{
+				"Id": 304,
+				"Name": "Sedna",
+				"Color": "#FFFF8888",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 1.36e13,
+					"Y": 0,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 2960,
+					"Z": 0
+				},
+				"r": 4.98e5,
+				"m": 1e21
+			},
+			{
+				"Id": 305,
+				"Name": "Orcus",
+				"Color": "#FF999999",
+				"AtmosphereColor": "#00000000",
+				"AtmosphereThickness": 0,
+				"Position": {
+					"X": 5.9e12,
+					"Y": -3e11,
+					"Z": 0
+				},
+				"v": {
+					"X": 0,
+					"Y": 4750,
+					"Z": 0
+				},
+				"r": 4.58e5,
+				"m": 6.35e20
+			}
+		]
+	},
+	"ShowPath": true,
+	"SelectedBodyPresetId": "00000000-0000-0000-0000-000000000000",
+	"RespawnerId": null,
+	"RngState": {
+		"Seed": 42,
+		"Generated": 0
+	},
+	"Runtime": "00:00:00"
+}

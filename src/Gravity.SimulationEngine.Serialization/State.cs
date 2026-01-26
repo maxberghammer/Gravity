@@ -30,7 +30,8 @@ public sealed class State
 								   double r,
 								   // ReSharper disable once InconsistentNaming
 								   [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Das heisst halt in der Physik so")]
-								   double m);
+								   double m,
+								   string? Name);
 
 	#endregion
 

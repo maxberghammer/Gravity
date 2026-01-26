@@ -284,7 +284,8 @@ internal sealed class Application : IApplication,
 							  Vector3D.Zero,
 							  _selectedBodyPreset.Color,
 							  _selectedBodyPreset.AtmosphereColor,
-							  _selectedBodyPreset.AtmosphereThickness));
+							  _selectedBodyPreset.AtmosphereThickness,
+							  null));
 
 	private void AddOrbitBody(Vector3D position, Vector3D velocity)
 	{

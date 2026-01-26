@@ -25,7 +25,8 @@ public class Body
 				Vector3D acceleration,
 				Color fill,
 				Color? stroke,
-				double strokeWidth)
+				double strokeWidth,
+				string? name)
 		// ReSharper restore InconsistentNaming
 	{
 		Position = position;
@@ -38,6 +39,7 @@ public class Body
 		m = mass;
 		a = acceleration;
 		Id = _maxId++;
+		Name = name;
 	}
 
 	public Body(Body other)
@@ -51,6 +53,7 @@ public class Body
 		m = other.m;
 		a = other.a;
 		Id = other.Id;
+		Name = other.Name;
 	}
 
 	#endregion
@@ -61,6 +64,8 @@ public class Body
 		=> _maxId = 0;
 
 	public int Id { get; }
+
+	public string? Name { get; set; }
 
 	internal bool IsAbsorbed { get; private set; }
 
@@ -108,7 +113,8 @@ public class Body
 						 : Vector3D.Zero,
 					 Color,
 					 AtmosphereColor,
-					 AtmosphereThickness);
+					 AtmosphereThickness,
+					 Name);
 
 	internal void Absorb(Body other)
 	{
