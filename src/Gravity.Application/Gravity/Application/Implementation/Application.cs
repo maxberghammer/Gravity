@@ -245,7 +245,8 @@ internal sealed class Application : IApplication,
 		_viewport.ApplyState(state.Viewport);
 		_world.ApplyState(state.World);
 
-		_selectedBodyPreset = _bodyPresets.First(p => p.Id == state.SelectedBodyPresetId);
+		_selectedBodyPreset = _bodyPresets.FirstOrDefault(p => p.Id == state.SelectedBodyPresetId) 
+							  ?? _bodyPresets[0];
 		_currentRespawnerId = state.RespawnerId;
 		_rng.State = state.RngState;
 		_runtime = state.Runtime;
