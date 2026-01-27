@@ -12,7 +12,7 @@ public sealed class State
 
 	public sealed record Vector(double X, double Y, double Z = 0);
 
-	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale, bool Autocenter);
+	public sealed record ViewportState(Vector TopLeft, Vector BottomRight, double Scale, bool Autocenter, double CameraYaw = 0, double CameraPitch = 0);
 
 	[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Für die Serialisierung duadses scho")]
 	public sealed record WorldState(bool ElasticCollisions, bool ClosedBoundaries, double Timescale, BodyState[] Bodies);

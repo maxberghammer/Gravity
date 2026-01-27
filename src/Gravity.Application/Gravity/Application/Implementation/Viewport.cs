@@ -99,25 +99,31 @@ internal class Viewport : IViewport,
 	public bool Autocenter { get; private set; }
 
 	public State.ViewportState GetState()
-		=> new(new(TopLeft.X, TopLeft.Y, TopLeft.Z),
-			   new(BottomRight.X, BottomRight.Y, BottomRight.Z),
-			   _scale,
-			   Autocenter);
+	=> new(new(TopLeft.X, TopLeft.Y, TopLeft.Z),
+		new(BottomRight.X, BottomRight.Y, BottomRight.Z),
+		_scale,
+		Autocenter,
+		_cameraYaw,
+		_cameraPitch);
 
 	public void ApplyState(State.ViewportState state)
 	{
-		TopLeft = new(state.TopLeft.X, state.TopLeft.Y, state.TopLeft.Z);
-		BottomRight = new(state.BottomRight.X, state.BottomRight.Y, state.BottomRight.Z);
-		_scale = state.Scale;
-		Autocenter = state.Autocenter;
+	TopLeft = new(state.TopLeft.X, state.TopLeft.Y, state.TopLeft.Z);
+	BottomRight = new(state.BottomRight.X, state.BottomRight.Y, state.BottomRight.Z);
+	_scale = state.Scale;
+	Autocenter = state.Autocenter;
+	_cameraYaw = state.CameraYaw;
+	_cameraPitch = state.CameraPitch;
+	_rawYaw = state.CameraYaw;
+	_rawPitch = state.CameraPitch;
 	}
 
 	public void Reset()
-		=> SetBoundsAroundCenter(Vector3D.Zero, Size3D);
+	=> SetBoundsAroundCenter(Vector3D.Zero, Size3D);
 
 	// ReSharper disable once UnusedMember.Global
 	public void CenterTo(Body entity)
-		=> SetBoundsAroundCenter(entity.Position, Size3D);
+	=> SetBoundsAroundCenter(entity.Position, Size3D);
 
 	/// <summary>
 	/// Sets the viewport bounds centered around the given point, keeping the current size.
@@ -132,10 +138,11 @@ internal class Viewport : IViewport,
 	/// </summary>
 	public Vector3D GetCameraForward()
 	{
-		var cosYaw = Math.Cos(_cameraYaw);
-		var sinYaw = Math.Sin(_cameraYaw);
-		var cosPitch = Math.Cos(_cameraPitch);
-		var sinPitch = Math.Sin(_cameraPitch);
+		var (yaw, pitch) = GetEffectiveCameraAngles();
+		var cosYaw = Math.Cos(yaw);
+		var sinYaw = Math.Sin(yaw);
+		var cosPitch = Math.Cos(pitch);
+		var sinPitch = Math.Sin(pitch);
 
 		// Forward direction (into the screen, -Z in default view)
 		// This matches the renderer's camera setup
@@ -182,6 +189,7 @@ internal class Viewport : IViewport,
 	Vector3D IApplication.IViewport.CurrentCenter
 		=> Center;
 
+
 	/// <inheritdoc />
 	double IApplication.IViewport.CurrentScale
 		=> _scale;
@@ -192,11 +200,11 @@ internal class Viewport : IViewport,
 
 	/// <inheritdoc/>
 	double IApplication.IViewport.CurrentCameraYaw
-		=> _cameraYaw;
+		=> GetEffectiveCameraAngles().Yaw;
 
 	/// <inheritdoc/>
 	double IApplication.IViewport.CurrentCameraPitch
-		=> _cameraPitch;
+		=> GetEffectiveCameraAngles().Pitch;
 
 	/// <inheritdoc/>
 	Vector3D IViewport.TopLeft
@@ -289,7 +297,7 @@ internal class Viewport : IViewport,
 	{
 		if(snap)
 		{
-			// Accumulate raw rotation
+			// Accumulate raw rotation (unbounded)
 			_rawYaw += deltaYaw;
 			_rawPitch += deltaPitch;
 
@@ -299,7 +307,7 @@ internal class Viewport : IViewport,
 		}
 		else
 		{
-			// Normal rotation
+			// Normal rotation (unbounded)
 			_cameraYaw += deltaYaw;
 			_cameraPitch += deltaPitch;
 
@@ -307,6 +315,32 @@ internal class Viewport : IViewport,
 			_rawYaw = _cameraYaw;
 			_rawPitch = _cameraPitch;
 		}
+	}
+
+	/// <summary>
+	/// Gets the effective yaw and pitch for camera calculations.
+	/// Handles the gimbal lock problem by computing equivalent angles
+	/// that keep pitch within ±90° while adjusting yaw accordingly.
+	/// </summary>
+	private (double Yaw, double Pitch) GetEffectiveCameraAngles()
+	{
+		const double twoPi = Math.PI * 2;
+		// Limit pitch to just under 90° to avoid gimbal lock
+		// This allows nearly full rotation while preventing the flip
+		const double maxPitch = Math.PI / 2 - 0.001; // ~89.94°
+
+		var yaw = _cameraYaw;
+		var pitch = _cameraPitch;
+
+		// Normalize yaw to 0 to 2π range
+		yaw = yaw % twoPi;
+		if(yaw < 0)
+			yaw += twoPi;
+
+		// Clamp pitch to avoid gimbal lock - no flip, just limit
+		pitch = Math.Clamp(pitch, -maxPitch, maxPitch);
+
+		return (yaw, pitch);
 	}
 
 	/// <inheritdoc/>
@@ -332,10 +366,11 @@ internal class Viewport : IViewport,
 		var offsetWorld = worldPoint - Center;
 
 		// Calculate camera basis vectors matching CreateLookAt (same as in ToWorld)
-		var cosYaw = Math.Cos(_cameraYaw);
-		var sinYaw = Math.Sin(_cameraYaw);
-		var cosPitch = Math.Cos(_cameraPitch);
-		var sinPitch = Math.Sin(_cameraPitch);
+		var (yaw, pitch) = GetEffectiveCameraAngles();
+		var cosYaw = Math.Cos(yaw);
+		var sinYaw = Math.Sin(yaw);
+		var cosPitch = Math.Cos(pitch);
+		var sinPitch = Math.Sin(pitch);
 
 		// Right vector - matches CreateLookAt
 		var rightX = cosYaw;
@@ -375,46 +410,47 @@ internal class Viewport : IViewport,
 	/// Snaps an angle to the nearest multiple of snapAngle
 	/// </summary>
 	private static double SnapToAngle(double angle, double snapAngle)
-		=> Math.Round(angle / snapAngle) * snapAngle;
+	=> Math.Round(angle / snapAngle) * snapAngle;
 
 	private Vector3D ToWorld(Vector2 viewportPoint)
 	{
-		// Use stored pixel dimensions for screen center
-		// This ensures correct mouse-to-world conversion regardless of scale
-		var screenCenterX = _viewportPixelWidth / 2;
-		var screenCenterY = _viewportPixelHeight / 2;
-		var offsetX = (viewportPoint.X - screenCenterX) / ScaleFactor;
-		var offsetY = (viewportPoint.Y - screenCenterY) / ScaleFactor;
+	// Use stored pixel dimensions for screen center
+	// This ensures correct mouse-to-world conversion regardless of scale
+	var screenCenterX = _viewportPixelWidth / 2;
+	var screenCenterY = _viewportPixelHeight / 2;
+	var offsetX = (viewportPoint.X - screenCenterX) / ScaleFactor;
+	var offsetY = (viewportPoint.Y - screenCenterY) / ScaleFactor;
 
-		// Calculate camera basis vectors matching CreateLookAt calculation:
-		// zaxis = normalize(-forward), xaxis = Cross(worldUp, zaxis), yaxis = Cross(zaxis, xaxis)
-		var cosYaw = Math.Cos(_cameraYaw);
-		var sinYaw = Math.Sin(_cameraYaw);
-		var cosPitch = Math.Cos(_cameraPitch);
-		var sinPitch = Math.Sin(_cameraPitch);
+	// Calculate camera basis vectors matching CreateLookAt calculation:
+	// zaxis = normalize(-forward), xaxis = Cross(worldUp, zaxis), yaxis = Cross(zaxis, xaxis)
+	var (yaw, pitch) = GetEffectiveCameraAngles();
+	var cosYaw = Math.Cos(yaw);
+	var sinYaw = Math.Sin(yaw);
+	var cosPitch = Math.Cos(pitch);
+	var sinPitch = Math.Sin(pitch);
 
-		// Right vector (camera X axis) - matches CreateLookAt: Cross(worldUp, zaxis)
-		// At yaw=0: (1, 0, 0), at yaw=45°: (0.707, 0, -0.707)
-		var rightX = cosYaw;
-		var rightY = 0.0;
-		var rightZ = -sinYaw;
+	// Right vector (camera X axis) - matches CreateLookAt: Cross(worldUp, zaxis)
+	// At yaw=0: (1, 0, 0), at yaw=45°: (0.707, 0, -0.707)
+	var rightX = cosYaw;
+	var rightY = 0.0;
+	var rightZ = -sinYaw;
 
-		// Up vector (camera Y axis) - matches CreateLookAt: Cross(zaxis, xaxis)
-		var upX = -sinYaw * sinPitch;
-		var upY = cosPitch;
-		var upZ = -cosYaw * sinPitch;
+	// Up vector (camera Y axis) - matches CreateLookAt: Cross(zaxis, xaxis)
+	var upX = -sinYaw * sinPitch;
+	var upY = cosPitch;
+	var upZ = -cosYaw * sinPitch;
 
-		// Calculate world position: center + offset in camera space
-		// offsetX moves along Right, offsetY moves opposite to Up (screen Y is inverted)
-		var worldX = Center.X + offsetX * rightX - offsetY * upX;
-		var worldY = Center.Y + offsetX * rightY - offsetY * upY;
-		var worldZ = Center.Z + offsetX * rightZ - offsetY * upZ;
+	// Calculate world position: center + offset in camera space
+	// offsetX moves along Right, offsetY moves opposite to Up (screen Y is inverted)
+	var worldX = Center.X + offsetX * rightX - offsetY * upX;
+	var worldY = Center.Y + offsetX * rightY - offsetY * upY;
+	var worldZ = Center.Z + offsetX * rightZ - offsetY * upZ;
 
-		return new(worldX, worldY, worldZ);
+	return new(worldX, worldY, worldZ);
 	}
 
 	private double ToWorld(float viewportLength)
-		=> viewportLength / ScaleFactor;
+	=> viewportLength / ScaleFactor;
 
 	#endregion
-}
+	}
