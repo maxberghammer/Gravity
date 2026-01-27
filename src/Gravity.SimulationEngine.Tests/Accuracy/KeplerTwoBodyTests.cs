@@ -36,12 +36,22 @@ public sealed class KeplerTwoBodyTests
 		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveParticleMesh, ResourcePaths.TwoBodiesSimulation, 10000,
 								   5e-4, 1e-8, 2e-13);
 
+
 	// FastMultipole: relPeriod=3.23e-4, relEnergy=2.51e-9, relAngular=8.01e-14 (uses Direct for 2 bodies)
 	[TestMethod]
 	[Timeout(120000, CooperativeCancellation = true)]
 	public async Task FastMultipoleKeplerPeriodAccurate()
 		=> await AssertKeplerAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 10000,
 								   5e-4, 1e-8, 2e-13);
+
+	// HierarchicalBlockDirect: uses hierarchical timesteps with Leapfrog integrator
+	// Note: HierarchicalBlock uses larger timesteps for efficiency, so accuracy is lower
+	// Measured: relPeriod=4%, relEnergy=1.42e-6, relAngular=4.5e-8
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task HierarchicalBlockDirectKeplerPeriodAccurate()
+	=> await AssertKeplerAsync(Factory.SimulationEngineType.HierarchicalBlockDirect, ResourcePaths.TwoBodiesSimulation, 10000,
+			0.1, 5e-6, 1e-7);
 
 	#endregion
 

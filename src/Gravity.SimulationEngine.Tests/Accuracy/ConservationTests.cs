@@ -40,8 +40,17 @@ public sealed class ConservationTests
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
 	public async Task FastMultipoleConservesInvariantsTwoBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 2000,
-										 5e-7, 1e-14, 1e-14);
+	=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.TwoBodiesSimulation, 2000,
+			5e-7, 1e-14, 1e-14);
+
+	// HierarchicalBlockDirect (2000 steps): uses Leapfrog with hierarchical timesteps
+	// Note: Larger timesteps mean less accurate energy conservation
+	// Measured: relE=3.76e-7, relP=7.24e-6, relL=9e-6
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task HierarchicalBlockDirectConservesInvariantsTwoBody()
+	=> await AssertConservationAsync(Factory.SimulationEngineType.HierarchicalBlockDirect, ResourcePaths.TwoBodiesSimulation, 2000,
+			1e-6, 2e-5, 2e-5);
 
 	// ==== Thousand Body Tests ====
 	// N-body systems are harder to conserve due to accumulation of numerical errors
@@ -61,6 +70,7 @@ public sealed class ConservationTests
 		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveBarnesHut, ResourcePaths.ThousandBodiesSimulation, 1000,
 										 0.2, 1e-3, 1e-3);
 
+
 	// AdaptiveParticleMesh (1000 steps, 1000 bodies): PM can drift more due to grid discretization
 	[TestMethod]
 	[Timeout(600000, CooperativeCancellation = true)] // 10 minutes timeout
@@ -74,6 +84,14 @@ public sealed class ConservationTests
 	public async Task FastMultipoleConservesInvariantsThousandBody()
 		=> await AssertConservationAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.ThousandBodiesSimulation, 1000,
 										 0.25, 2e-4, 2e-4);
+
+	// HierarchicalBlockDirect (1000 steps, 1000 bodies): Uses Direct O(n²) with hierarchical timesteps
+	// Should have good conservation due to symplectic Leapfrog integrator
+	[TestMethod]
+	[Timeout(1800000, CooperativeCancellation = true)] // 30 minutes timeout (O(n²) is slow)
+	public async Task HierarchicalBlockDirectConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.HierarchicalBlockDirect, ResourcePaths.ThousandBodiesSimulation, 1000,
+										 0.15, 1e-3, 1e-3);
 
 	#endregion
 

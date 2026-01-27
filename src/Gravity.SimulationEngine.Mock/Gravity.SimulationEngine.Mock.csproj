@@ -4,14 +4,8 @@
 	<Import Project="$(CommonProjectSettingsFilePath)" />
 	
 	<ItemGroup>
-		<EmbeddedResource Include="Resources\10000bodies.grv" />
-		<EmbeddedResource Include="Resources\1000bodies.grv" />
-		<EmbeddedResource Include="Resources\2body.grv" />
-		<EmbeddedResource Include="Resources\solarsystem.grv" />
-		<EmbeddedResource Include="Resources\solarsystem-real.grv" />
+		<EmbeddedResource Include="Resources\**" />
 	</ItemGroup>
-	
-	
 	
 	<ItemGroup>
 	  <ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />

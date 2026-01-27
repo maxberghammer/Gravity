@@ -177,10 +177,12 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 		}
 
 		// If no valid crossing time found (e.g., all bodies stationary), 
-		// return a reasonable fraction of maxDt instead of the full maxDt
-		return double.IsInfinity(minCrossingTime) || minCrossingTime <= 0.0
-				   ? TimeSpan.FromSeconds(maxDt.TotalSeconds / 64.0) // Same as MinDiameterCrossingTime's maxSteps default
-				   : TimeSpan.FromSeconds(minCrossingTime);
+		// return a reasonable fraction of maxDt
+		if(double.IsInfinity(minCrossingTime) || minCrossingTime <= 0.0)
+			return TimeSpan.FromSeconds(maxDt.TotalSeconds / 64.0);
+
+		// Clamp to maxDt - timestep should never exceed the frame time
+		return TimeSpan.FromSeconds(Math.Min(minCrossingTime, maxDt.TotalSeconds));
 	}
 
 	/// <summary>

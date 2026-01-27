@@ -40,8 +40,14 @@ public sealed class QuasiKeplerTests
 	[TestMethod]
 	[Timeout(120000, CooperativeCancellation = true)]
 	public async Task FastMultipoleMaintainsStableOrbits()
-		=> await AssertOrbitStabilityAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.SolarSystemSimulation, 5000,
-										   0.12, 0.12);
+	=> await AssertOrbitStabilityAsync(Factory.SimulationEngineType.AdaptiveFastMultipole, ResourcePaths.SolarSystemSimulation, 5000,
+				0.12, 0.12);
+
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task HierarchicalBlockDirectMaintainsStableOrbits()
+	=> await AssertOrbitStabilityAsync(Factory.SimulationEngineType.HierarchicalBlockDirect, ResourcePaths.SolarSystemSimulation, 5000,
+				0.1, 0.1);
 
 	#endregion
 

@@ -16,7 +16,7 @@
 	"World": {
 		"ElasticCollisions": false,
 		"ClosedBoundaries": false,
-		"Timescale": 1000000,
+		"Timescale": 100000,
 		"Bodies": [
 			{
 				"Id": 0,

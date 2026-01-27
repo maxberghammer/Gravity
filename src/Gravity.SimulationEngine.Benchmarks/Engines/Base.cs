@@ -33,7 +33,8 @@ public abstract class Base
 		AdaptiveBarnesHut = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
 		AdaptiveParticleMesh = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
 		AdaptiveFastMultipole = Factory.Create(Factory.SimulationEngineType.AdaptiveFastMultipole);
-	}
+		HierarchicalBlockDirect = Factory.Create(Factory.SimulationEngineType.HierarchicalBlockDirect);
+		}
 
 	#endregion
 
@@ -58,6 +59,12 @@ public abstract class Base
 	/// Adaptive Fast Multipole Method engine using O(N) multipole expansion.
 	/// </summary>
 	protected ISimulationEngine AdaptiveFastMultipole { get; private set; } = null!;
+
+	/// <summary>
+	/// Hierarchical Block Direct engine using hierarchical timesteps with O(n²) direct computation.
+	/// Optimized for systems with mixed timescales (e.g., planetary systems).
+	/// </summary>
+	protected ISimulationEngine HierarchicalBlockDirect { get; private set; } = null!;
 
 	[SuppressMessage("Usage", "VSTHRD002:Avoid problematic synchronous waits")]
 	protected double Run(ISimulationEngine engine, string resourcePath, int steps)
