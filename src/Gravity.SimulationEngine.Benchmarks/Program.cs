@@ -1,8 +1,6 @@
-using BenchmarkDotNet.Running;
-using System;
-using System.Linq;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Running;
 
 namespace Gravity.SimulationEngine.Benchmarks;
 
@@ -14,9 +12,9 @@ internal static class Program
 	{
 		// Configure job with reduced iterations for long-running benchmarks
 		var config = DefaultConfig.Instance
-			.AddJob(Job.Default
-				.WithWarmupCount(5)
-				.WithIterationCount(5));
+								  .AddJob(Job.Default
+											 .WithWarmupCount(5)
+											 .WithIterationCount(5));
 
 		BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);
 	}

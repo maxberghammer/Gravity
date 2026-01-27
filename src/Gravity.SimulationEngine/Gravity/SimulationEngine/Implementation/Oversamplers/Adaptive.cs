@@ -27,7 +27,11 @@ internal abstract class Adaptive : SimulationEngine.IOversampler
 	#region Implementation of IOversampler
 
 	/// <inheritdoc/>
-	int SimulationEngine.IOversampler.Oversample(IWorld world, IReadOnlyList<Body> bodies, TimeSpan timeSpan, Action<IReadOnlyList<Body>, TimeSpan> processBodies, Diagnostics diagnostics)
+	int SimulationEngine.IOversampler.Oversample(IWorld world,
+												 IReadOnlyList<Body> bodies,
+												 TimeSpan timeSpan,
+												 Action<IReadOnlyList<Body>, TimeSpan> processBodies,
+												 Diagnostics diagnostics)
 	{
 		var remaining = timeSpan;
 		var steps = 0;

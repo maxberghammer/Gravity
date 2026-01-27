@@ -4,7 +4,6 @@ using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
 using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
 using Gravity.Wpf.Viewmodel;
@@ -18,13 +17,12 @@ internal sealed partial class MainWindow
 	#region Fields
 
 	private const double _cameraRotationSensitivity = 0.005;
+	private const double _displayFrequencyInHz = 60;
 	private const string _stateFileExtension = "grv";
 	private const int _viewportSelectionSearchRadius = 30;
 	private static Vector3D? _referencePosition;
-
 	private Point? _lastMousePosition;
 	private bool _wasSimulationRunning;
-	private const double _displayFrequencyInHz = 60;
 
 	#endregion
 
@@ -57,10 +55,10 @@ internal sealed partial class MainWindow
 
 	#endregion
 
+	#region Implementation
+
 	private Main Viewmodel
 		=> (Main)DataContext;
-
-	#region Implementation
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
@@ -74,7 +72,6 @@ internal sealed partial class MainWindow
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
 			Viewmodel.SelectedBody = Viewmodel.Application.FindClosestBody(Vector2.Create(viewportPoint), _viewportSelectionSearchRadius);
-
 
 			if(null != Viewmodel.SelectedBody)
 			{
@@ -155,8 +152,8 @@ internal sealed partial class MainWindow
 			var velocity = Viewmodel.CalculateVelocityPerSimulationStep(_referencePosition.Value, position);
 
 			Viewmodel.DragIndicator.Label = args.RightButton == MouseButtonState.Pressed
-														  ? $"Δv={velocity}m/s"
-														  : $"v={velocity}m/s";
+												? $"Δv={velocity}m/s"
+												: $"v={velocity}m/s";
 
 			return;
 		}
@@ -215,7 +212,7 @@ internal sealed partial class MainWindow
 		var velocity = Viewmodel.CalculateVelocityPerSimulationStep(Viewmodel.SelectedBody.Position, position);
 
 		// Dragged: change velocity
-		if (Keyboard.IsKeyDown(Key.LeftAlt))
+		if(Keyboard.IsKeyDown(Key.LeftAlt))
 			Viewmodel.SelectedBody.v += velocity;
 		else
 			Viewmodel.SelectedBody.v = velocity;

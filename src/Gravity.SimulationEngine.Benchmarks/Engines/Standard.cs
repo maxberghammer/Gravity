@@ -10,15 +10,19 @@ namespace Gravity.SimulationEngine.Benchmarks.Engines;
 [CPUUsageDiagnoser]
 public class Standard : Base
 {
+	#region Interface
+
 	[Benchmark]
-	public double Bodies1000Steps1000() 
+	public double Bodies1000Steps1000()
 		=> Run(Standard, ResourcePaths.ThousandBodiesSimulation, 1000);
 
 	[Benchmark]
-	public double Bodies10000Steps100() 
+	public double Bodies10000Steps100()
 		=> Run(Standard, ResourcePaths.TenKBodiesSimulation, 100);
 
 	[Benchmark]
-	public double Bodies10000Steps1000() 
+	public double Bodies10000Steps1000()
 		=> Run(Standard, ResourcePaths.TenKBodiesSimulation, 1000);
+
+	#endregion
 }

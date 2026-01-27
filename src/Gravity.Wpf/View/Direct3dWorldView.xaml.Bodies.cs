@@ -2,7 +2,6 @@
 // Erstellt von: Max Berghammer
 
 using System;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Gravity.Wpf.Viewmodel;
@@ -23,107 +22,107 @@ public partial class Direct3dWorldView
 		#region Fields
 
 		private const string _hlsl = """
-			
-			struct Body
-			{
-			    float3 Position;      // 3D world position
-			    float Radius;
-			    float StrokeWidth;
-			    float3 FillColor;
-			    uint Flags;
-			    float3 StrokeColor;
-			};
 
-			StructuredBuffer<Body> Bodies : register(t0);
+									 struct Body
+									 {
+									     float3 Position;      // 3D world position
+									     float Radius;
+									     float StrokeWidth;
+									     float3 FillColor;
+									     uint Flags;
+									     float3 StrokeColor;
+									 };
 
-			cbuffer Camera : register(b0)
-			{
-			    float4x4 ViewProj;     // Combined View * Projection matrix
-			    float3 CameraRight;    // For billboard orientation
-			    float _pad0;
-			    float3 CameraUp;       // For billboard orientation
-			    float _pad1;
-			    float2 ScreenSize;     // Screen dimensions
-			    float  Scale;          // Zoom factor
-			    float _pad2;
-			};
+									 StructuredBuffer<Body> Bodies : register(t0);
 
-			struct VSIn
-			{
-			    float2 Pos : POSITION;    // Quad vertex (-1..1)
-			    uint   InstanceID : SV_InstanceID;
-			};
+									 cbuffer Camera : register(b0)
+									 {
+									     float4x4 ViewProj;     // Combined View * Projection matrix
+									     float3 CameraRight;    // For billboard orientation
+									     float _pad0;
+									     float3 CameraUp;       // For billboard orientation
+									     float _pad1;
+									     float2 ScreenSize;     // Screen dimensions
+									     float  Scale;          // Zoom factor
+									     float _pad2;
+									 };
 
-			struct VSOut
-			{
-			    float4 Pos : SV_POSITION;
-			    float2 UV  : TEXCOORD;
-			    float  Radius : RADIUS;
-			    float  Stroke : STROKE;
-			    float3 Fill   : FILL;
-			    float3 StrokeCol : STROKECOL;
-			    uint   Flags  : FLAGS;
-			};
+									 struct VSIn
+									 {
+									     float2 Pos : POSITION;    // Quad vertex (-1..1)
+									     uint   InstanceID : SV_InstanceID;
+									 };
 
-			VSOut VS(VSIn i)
-			{
-			    Body e = Bodies[i.InstanceID];
+									 struct VSOut
+									 {
+									     float4 Pos : SV_POSITION;
+									     float2 UV  : TEXCOORD;
+									     float  Radius : RADIUS;
+									     float  Stroke : STROKE;
+									     float3 Fill   : FILL;
+									     float3 StrokeCol : STROKECOL;
+									     uint   Flags  : FLAGS;
+									 };
 
-			    VSOut o;
+									 VSOut VS(VSIn i)
+									 {
+									     Body e = Bodies[i.InstanceID];
 
-			    // Billboard: expand quad in camera-aligned plane
-			    float size = e.Radius + e.StrokeWidth;
-			    float3 worldPos = e.Position 
-			                    + CameraRight * (i.Pos.x * size)
-			                    + CameraUp * (i.Pos.y * size);
+									     VSOut o;
 
-			    // Transform to clip space
-			    o.Pos = mul(float4(worldPos, 1.0), ViewProj);
-			    o.UV  = i.Pos;
-			    o.Radius = e.Radius;
-			    o.Stroke = e.StrokeWidth;
-			    o.Fill   = e.FillColor;
-			    o.StrokeCol = e.StrokeColor;
-			    o.Flags  = e.Flags;
+									     // Billboard: expand quad in camera-aligned plane
+									     float size = e.Radius + e.StrokeWidth;
+									     float3 worldPos = e.Position 
+									                     + CameraRight * (i.Pos.x * size)
+									                     + CameraUp * (i.Pos.y * size);
 
-			    return o;
-			}
+									     // Transform to clip space
+									     o.Pos = mul(float4(worldPos, 1.0), ViewProj);
+									     o.UV  = i.Pos;
+									     o.Radius = e.Radius;
+									     o.Stroke = e.StrokeWidth;
+									     o.Fill   = e.FillColor;
+									     o.StrokeCol = e.StrokeColor;
+									     o.Flags  = e.Flags;
 
-			float4 PS(VSOut i) : SV_Target
-			{
-			    // Kreismaske
-			    float d = dot(i.UV, i.UV);
-			    if (d > 1) discard;
-			
-			    // "Kugel"-Normal aus UV (Z zeigt zur Kamera)
-			    float z = sqrt(1 - d);
-			    float3 n = normalize(float3(i.UV, z));
-			
-			    // Vorderlicht (zur Kamera): front = n.z
-			    float front = saturate(n.z);
-			
-			    // Sanfter Verlauf: Ambient + Diffuse (Half-Lambert-ähnlich)
-			    const float ambient = 0.15;
-			    float diffuse = front * 0.85;
-			    float shade = ambient + diffuse; // 0.15..1.0
-			
-			    // Dezentes Specular-Hotspot in der Mitte
-			    float spec = pow(front, 32.0) * 0.15;
-			
-			    // Innen- vs. Außenfarbe (Stroke)
-			    float inner = i.Radius / (i.Radius + i.Stroke);
-			    float3 baseCol = (d > inner * inner) ? i.StrokeCol : i.Fill;
-			
-			    // Selektion übersteuern (wie bisher)
-			    if ((i.Flags & 1) != 0 && d > 0.85)
-			        baseCol = float3(1,1,0);
-			
-			    float3 col = baseCol * shade + spec;
-			
-			    return float4(col, 1);
-			}
-			
-			""";
+									     return o;
+									 }
+
+									 float4 PS(VSOut i) : SV_Target
+									 {
+									     // Kreismaske
+									     float d = dot(i.UV, i.UV);
+									     if (d > 1) discard;
+
+									     // "Kugel"-Normal aus UV (Z zeigt zur Kamera)
+									     float z = sqrt(1 - d);
+									     float3 n = normalize(float3(i.UV, z));
+
+									     // Vorderlicht (zur Kamera): front = n.z
+									     float front = saturate(n.z);
+
+									     // Sanfter Verlauf: Ambient + Diffuse (Half-Lambert-ähnlich)
+									     const float ambient = 0.15;
+									     float diffuse = front * 0.85;
+									     float shade = ambient + diffuse; // 0.15..1.0
+
+									     // Dezentes Specular-Hotspot in der Mitte
+									     float spec = pow(front, 32.0) * 0.15;
+
+									     // Innen- vs. Außenfarbe (Stroke)
+									     float inner = i.Radius / (i.Radius + i.Stroke);
+									     float3 baseCol = (d > inner * inner) ? i.StrokeCol : i.Fill;
+
+									     // Selektion übersteuern (wie bisher)
+									     if ((i.Flags & 1) != 0 && d > 0.85)
+									         baseCol = float3(1,1,0);
+
+									     float3 col = baseCol * shade + spec;
+
+									     return float4(col, 1);
+									 }
+
+									 """;
 
 		private static readonly Vector2[] _quad = [new(-1, -1), new(1, -1), new(-1, 1), new(-1, 1), new(1, -1), new(1, 1)];
 		private ID3D11Buffer? _bodyBuffer;
@@ -191,7 +190,7 @@ public partial class Direct3dWorldView
 			e.Context.DrawInstanced(6, (uint)count, 0, 0);
 		}
 
-		/// <inheritdoc />
+		/// <inheritdoc/>
 		protected override void OnAfterDraw(DrawEventArgs e)
 		{
 		}

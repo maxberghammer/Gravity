@@ -67,8 +67,6 @@ public class Body
 
 	public string? Name { get; set; }
 
-	internal bool IsAbsorbed { get; private set; }
-
 	public Color Color { get; }
 
 	public Color? AtmosphereColor { get; }
@@ -115,6 +113,12 @@ public class Body
 					 AtmosphereColor,
 					 AtmosphereThickness,
 					 Name);
+
+	#endregion
+
+	#region Implementation
+
+	internal bool IsAbsorbed { get; private set; }
 
 	internal void Absorb(Body other)
 	{

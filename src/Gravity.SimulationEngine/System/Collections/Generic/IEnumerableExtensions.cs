@@ -11,9 +11,9 @@ public static class IEnumerableExtensions
 
 	public static IEnumerable<T[]> Chunked<T>(this IEnumerable<T> enumerable, int chunkSize)
 	{
-        ArgumentNullException.ThrowIfNull(enumerable);
+		ArgumentNullException.ThrowIfNull(enumerable);
 
-        var ret = new List<T>(chunkSize);
+		var ret = new List<T>(chunkSize);
 
 		foreach(var item in enumerable)
 		{

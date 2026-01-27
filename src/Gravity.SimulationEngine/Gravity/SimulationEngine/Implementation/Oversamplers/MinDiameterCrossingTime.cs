@@ -8,8 +8,8 @@ internal sealed class MinDiameterCrossingTime : Adaptive
 	#region Construction
 
 	public MinDiameterCrossingTime(int maxSteps,
-											  TimeSpan minDt,
-											  double safetyFactor)
+								   TimeSpan minDt,
+								   double safetyFactor)
 		: base(maxSteps, minDt, safetyFactor)
 	{
 	}
@@ -18,7 +18,7 @@ internal sealed class MinDiameterCrossingTime : Adaptive
 
 	#region Implementation
 
-	/// <inheritdoc />
+	/// <inheritdoc/>
 	protected override TimeSpan AdaptDt(IReadOnlyList<Body> bodiesToProcess, TimeSpan dt)
 	{
 		// dt bestimmen: kleinstes (Durchmesser / Geschwindigkeit) über alle Entities

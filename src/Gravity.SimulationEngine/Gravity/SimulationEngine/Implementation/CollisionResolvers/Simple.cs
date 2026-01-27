@@ -1,7 +1,6 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace Gravity.SimulationEngine.Implementation.CollisionResolvers;
 
@@ -11,16 +10,16 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 
 	private const double _cellScale = 2.0; // clamp median to avoid extremes; pick scale ~ average diameter
 
-	// Persistent bucket structure - reused across frames to avoid allocations
-	private List<int>?[] _buckets = [];
-	private int _bucketCapacity;
-	
-	// Track which buckets were used for efficient clearing
-	private int[] _usedBucketIndices = [];
-	private int _usedBucketCount;
-	
 	// Pool of reusable List<int> objects
 	private readonly Stack<List<int>> _listPool = new(64);
+	private int _bucketCapacity;
+
+	// Persistent bucket structure - reused across frames to avoid allocations
+	private List<int>?[] _buckets = [];
+	private int _usedBucketCount;
+
+	// Track which buckets were used for efficient clearing
+	private int[] _usedBucketIndices = [];
 
 	#endregion
 
@@ -79,7 +78,8 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 				rMax = ri;
 			rSum += ri;
 			// lightweight sampling for median
-			if(sampleCount < sampleCapacity && i % stride == 0)
+			if(sampleCount < sampleCapacity &&
+			   i % stride == 0)
 				rSample[sampleCount++] = ri;
 		}
 
@@ -87,6 +87,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		if(activeCount <= 1)
 		{
 			activePool.Return(activeIndices);
+
 			return;
 		}
 
@@ -98,6 +99,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		   double.IsInfinity(maxZ))
 		{
 			activePool.Return(activeIndices);
+
 			return;
 		}
 
@@ -132,6 +134,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 		{
 			var bucketIdx = _usedBucketIndices[i];
 			var oldBucket = _buckets[bucketIdx];
+
 			if(oldBucket != null)
 			{
 				oldBucket.Clear();
@@ -139,6 +142,7 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 				_buckets[bucketIdx] = null;
 			}
 		}
+
 		_usedBucketCount = 0;
 
 		// Ensure persistent bucket array is large enough
@@ -172,16 +176,20 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			var cz = Math.Clamp((int)((p.Z - minZ) * invCellSize), 0, depths - 1);
 			var k = cz * colsRows + cy * cols + cx;
 			var bucket = buckets[k];
+
 			if(bucket == null)
 			{
 				// Get a list from the pool or create a new one
-				bucket = _listPool.Count > 0 ? _listPool.Pop() : new List<int>(8);
+				bucket = _listPool.Count > 0
+							 ? _listPool.Pop()
+							 : new(8);
 				buckets[k] = bucket;
 				usedBucketIndices[usedBucketCount++] = k;
 			}
+
 			bucket.Add(activeIndex);
 		}
-		
+
 		_usedBucketCount = usedBucketCount;
 
 		var elastic = world.ElasticCollisions;
@@ -220,18 +228,21 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 			for(var dz = -range; dz <= range; dz++)
 			{
 				var zz = cz + dz;
+
 				if((uint)zz >= (uint)depths)
 					continue;
 
 				for(var dy = -range; dy <= range; dy++)
 				{
 					var yy = cy + dy;
+
 					if((uint)yy >= (uint)rows)
 						continue;
 
 					for(var dx = -range; dx <= range; dx++)
 					{
 						var xx = cx + dx;
+
 						if((uint)xx >= (uint)cols)
 							continue;
 
@@ -239,22 +250,30 @@ internal sealed class Simple : SimulationEngine.ICollisionResolver
 						// Compare (zz, yy, xx) > (cz, cy, cx) lexicographically
 						if(zz < cz)
 							continue;
-						if(zz == cz && yy < cy)
+						if(zz == cz &&
+						   yy < cy)
 							continue;
-						if(zz == cz && yy == cy && xx < cx)
+						if(zz == cz &&
+						   yy == cy &&
+						   xx < cx)
 							continue;
 
 						var bucket = buckets[zz * colsRows + yy * cols + xx];
+
 						if(bucket == null)
 							continue;
 
 						var bucketCount = bucket.Count;
+
 						for(var bi = 0; bi < bucketCount; bi++)
 						{
 							var j = bucket[bi];
 
 							// within same cell ensure j>i to avoid duplicates
-							if(xx == cx && yy == cy && zz == cz && j <= i)
+							if(xx == cx &&
+							   yy == cy &&
+							   zz == cz &&
+							   j <= i)
 								continue;
 
 							var body2 = bodies[j];

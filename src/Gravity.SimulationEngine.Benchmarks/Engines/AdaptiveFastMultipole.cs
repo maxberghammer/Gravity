@@ -10,15 +10,19 @@ namespace Gravity.SimulationEngine.Benchmarks.Engines;
 [CPUUsageDiagnoser]
 public class AdaptiveFastMultipole : Base
 {
+	#region Interface
+
 	[Benchmark]
-	public double Bodies1000Steps1000() 
+	public double Bodies1000Steps1000()
 		=> Run(AdaptiveFastMultipole, ResourcePaths.ThousandBodiesSimulation, 1000);
 
 	[Benchmark]
-	public double Bodies10000Steps100() 
+	public double Bodies10000Steps100()
 		=> Run(AdaptiveFastMultipole, ResourcePaths.TenKBodiesSimulation, 100);
 
 	[Benchmark]
-	public double Bodies10000Steps1000() 
+	public double Bodies10000Steps1000()
 		=> Run(AdaptiveFastMultipole, ResourcePaths.TenKBodiesSimulation, 1000);
+
+	#endregion
 }

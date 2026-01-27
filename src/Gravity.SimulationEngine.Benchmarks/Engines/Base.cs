@@ -21,6 +21,24 @@ public abstract class Base
 
 	#region Interface
 
+	[GlobalSetup]
+	public async Task SetupAsync()
+	{
+		// Preload all resources
+		await PreloadAsync(ResourcePaths.ThousandBodiesSimulation);
+		await PreloadAsync(ResourcePaths.TenKBodiesSimulation);
+
+		// Create all engines
+		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
+		AdaptiveBarnesHut = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
+		AdaptiveParticleMesh = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
+		AdaptiveFastMultipole = Factory.Create(Factory.SimulationEngineType.AdaptiveFastMultipole);
+	}
+
+	#endregion
+
+	#region Implementation
+
 	/// <summary>
 	/// Standard engine using O(n²) direct computation.
 	/// </summary>
@@ -41,30 +59,12 @@ public abstract class Base
 	/// </summary>
 	protected ISimulationEngine AdaptiveFastMultipole { get; private set; } = null!;
 
-	[GlobalSetup]
-	public async Task SetupAsync()
-	{
-		// Preload all resources
-		await PreloadAsync(ResourcePaths.ThousandBodiesSimulation);
-		await PreloadAsync(ResourcePaths.TenKBodiesSimulation);
-
-		// Create all engines
-		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
-		AdaptiveBarnesHut = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
-		AdaptiveParticleMesh = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
-		AdaptiveFastMultipole = Factory.Create(Factory.SimulationEngineType.AdaptiveFastMultipole);
-	}
-
-	#endregion
-
-	#region Implementation
-
 	[SuppressMessage("Usage", "VSTHRD002:Avoid problematic synchronous waits")]
 	protected double Run(ISimulationEngine engine, string resourcePath, int steps)
 	{
 		ArgumentNullException.ThrowIfNull(engine);
 
-		if (!_cache.TryGetValue(resourcePath, out var entry))
+		if(!_cache.TryGetValue(resourcePath, out var entry))
 		{
 			PreloadAsync(resourcePath).GetAwaiter().GetResult();
 			entry = _cache[resourcePath];
@@ -75,7 +75,7 @@ public abstract class Base
 		var bodies = world.GetBodies();
 		double sum = 0;
 
-		for (var i = 0; i < steps; i++)
+		for(var i = 0; i < steps; i++)
 		{
 			engine.Simulate(world, viewport, dt);
 			sum += bodies.Sum(body => body.v.Length);
@@ -86,7 +86,7 @@ public abstract class Base
 
 	private async Task PreloadAsync(string resourcePath)
 	{
-		if (_cache.ContainsKey(resourcePath))
+		if(_cache.ContainsKey(resourcePath))
 			return;
 
 		(var world, var viewport, var dt) = await IWorld.CreateFromJsonResourceAsync(resourcePath);

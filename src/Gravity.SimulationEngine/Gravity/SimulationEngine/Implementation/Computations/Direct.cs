@@ -48,7 +48,7 @@ internal sealed class Direct : SimulationEngine.IComputation
 							   var body = bodiesToUpdate[i];
 
 							   body.a = CalculateGravity(body, allBodies.Where(e => !ReferenceEquals(e, body)));
-                           });
+						   });
 	}
 
 	private static Vector3D CalculateGravity(Body body, IEnumerable<Body> others)
@@ -63,7 +63,7 @@ internal sealed class Direct : SimulationEngine.IComputation
 		{
 			var dist = body.Position - other.Position;
 			var distSq = dist.LengthSquared;
-			
+
 			// Prevent singularity: clamp distance to sum of radii
 			// Bodies closer than this should collide anyway
 			var minDist = bodyR + other.r;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Gravity.SimulationEngine.Mock;
@@ -8,6 +9,20 @@ namespace Gravity.SimulationEngine.Tests.Common;
 
 public abstract class EngineTestsBase
 {
+	#region Interface
+
+	[TestMethod]
+	[Timeout(60000, CooperativeCancellation = true)]
+	public async Task Run1000Steps2BodyAsync()
+		=> await RunAsync(ResourcePaths.TwoBodiesSimulation, 1000);
+
+	[TestMethod]
+	[Timeout(120000, CooperativeCancellation = true)]
+	public async Task Run1000Steps1000BodyAsync()
+		=> await RunAsync(ResourcePaths.ThousandBodiesSimulation, 1000);
+
+	#endregion
+
 	#region Implementation
 
 	protected abstract Factory.SimulationEngineType EngineType { get; }
@@ -26,42 +41,46 @@ public abstract class EngineTestsBase
 		var initialEnergy = ComputeTotalEnergy(bodies);
 
 		// Run simulation
-		for (var s = 0; s < steps; s++)
+		for(var s = 0; s < steps; s++)
 			engine.Simulate(world, viewport, deltaTime);
 
 		// 1. No NaN or Infinity in positions
-		foreach (var body in bodies)
+		foreach(var body in bodies)
 		{
 			Assert.IsFalse(double.IsNaN(body.Position.X) || double.IsNaN(body.Position.Y) || double.IsNaN(body.Position.Z),
-				$"Body position contains NaN: {body.Position}");
+						   $"Body position contains NaN: {body.Position}");
 			Assert.IsFalse(double.IsInfinity(body.Position.X) || double.IsInfinity(body.Position.Y) || double.IsInfinity(body.Position.Z),
-				$"Body position contains Infinity: {body.Position}");
+						   $"Body position contains Infinity: {body.Position}");
 		}
 
 		// 2. No NaN or Infinity in velocities
-		foreach (var body in bodies)
+		foreach(var body in bodies)
 		{
 			Assert.IsFalse(double.IsNaN(body.v.X) || double.IsNaN(body.v.Y) || double.IsNaN(body.v.Z),
-				$"Body velocity contains NaN: {body.v}");
+						   $"Body velocity contains NaN: {body.v}");
 			Assert.IsFalse(double.IsInfinity(body.v.X) || double.IsInfinity(body.v.Y) || double.IsInfinity(body.v.Z),
-				$"Body velocity contains Infinity: {body.v}");
+						   $"Body velocity contains Infinity: {body.v}");
 		}
 
 		// 3. Simulation actually happened: at least one body moved
 		var anyMoved = false;
-		for (var i = 0; i < Math.Min(bodies.Count, initialPositions.Length); i++)
+
+		for(var i = 0; i < Math.Min(bodies.Count, initialPositions.Length); i++)
 		{
 			var displacement = (bodies[i].Position - initialPositions[i]).Length;
-			if (displacement > 1e-10)
+
+			if(displacement > 1e-10)
 			{
 				anyMoved = true;
+
 				break;
 			}
 		}
+
 		Assert.IsTrue(anyMoved, "No body moved - simulation may not be running");
 
 		// 4. At least one body was accelerated
-		if (bodies.Count > 1) // Need at least 2 bodies for gravitational acceleration
+		if(bodies.Count > 1) // Need at least 2 bodies for gravitational acceleration
 		{
 			var anyAccelerated = bodies.Any(b => b.a.Length > 1e-20);
 			Assert.IsTrue(anyAccelerated, "No body was accelerated - gravity may not be computed");
@@ -74,35 +93,35 @@ public abstract class EngineTestsBase
 
 		// 6. Positions stayed in reasonable bounds (not flying to infinity)
 		const double reasonableBound = 1e10; // 10 billion meters
-		foreach (var body in bodies)
+
+		foreach(var body in bodies)
 		{
 			var distance = body.Position.Length;
-			Assert.IsLessThan(reasonableBound, distance, 
-				$"Body flew too far: {distance:E3} m (> {reasonableBound:E3} m)");
+			Assert.IsLessThan(reasonableBound, distance,
+							  $"Body flew too far: {distance:E3} m (> {reasonableBound:E3} m)");
 		}
 
 		// 7. No spontaneous removal (bodies don't disappear - they're removed from list when absorbed)
 		// Allow up to 50% loss (some test scenarios may have collisions)
 		var finalCount = bodies.Count;
 		var lossRate = (initialActiveCount - finalCount) / (double)initialActiveCount;
-		Assert.IsLessThan(0.5, lossRate, 
-			$"Too many bodies removed: {initialActiveCount} -> {finalCount} ({lossRate*100:F0}% lost)");
+		Assert.IsLessThan(0.5, lossRate,
+						  $"Too many bodies removed: {initialActiveCount} -> {finalCount} ({lossRate * 100:F0}% lost)");
 	}
 
-	private static double ComputeTotalEnergy(System.Collections.Generic.IReadOnlyList<Body> bodies)
+	private static double ComputeTotalEnergy(IReadOnlyList<Body> bodies)
 	{
 		// Kinetic energy
 		var ke = 0.0;
-		foreach (var b in bodies)
-		{
+		foreach(var b in bodies)
 			ke += 0.5 * b.m * b.v.LengthSquared;
-		}
 
 		// Potential energy
 		var pe = 0.0;
-		for (var i = 0; i < bodies.Count; i++)
+
+		for(var i = 0; i < bodies.Count; i++)
 		{
-			for (var j = i + 1; j < bodies.Count; j++)
+			for(var j = i + 1; j < bodies.Count; j++)
 			{
 				var r = (bodies[i].Position - bodies[j].Position).Length;
 				var rEff = Math.Max(r, 1e-12);
@@ -110,19 +129,8 @@ public abstract class EngineTestsBase
 			}
 		}
 
-
 		return ke + pe;
 	}
-
-	[TestMethod]
-	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task Run1000Steps2BodyAsync()
-		=> await RunAsync(ResourcePaths.TwoBodiesSimulation, 1000);
-
-	[TestMethod]
-	[Timeout(120000, CooperativeCancellation = true)]
-	public async Task Run1000Steps1000BodyAsync()
-		=> await RunAsync(ResourcePaths.ThousandBodiesSimulation, 1000);
 
 	#endregion
 }

@@ -41,11 +41,6 @@ internal sealed class Application : IApplication,
 	[
 		new()
 		{
-			Type = Factory.SimulationEngineType.HierarchicalBlockDirect,
-			Name = "Hierarchical Block (Direct N-Body)"
-		},
-		new()
-		{
 			Type = Factory.SimulationEngineType.AdaptiveBarnesHut,
 			Name = "Adaptive (Barnes-Hut)"
 		},
@@ -58,6 +53,11 @@ internal sealed class Application : IApplication,
 		{
 			Type = Factory.SimulationEngineType.AdaptiveFastMultipole,
 			Name = "Adaptive (Fast Multipole)"
+		},
+		new()
+		{
+			Type = Factory.SimulationEngineType.HierarchicalBlockDirect,
+			Name = "Hierarchical Block (Direct N-Body)"
 		},
 		new()
 		{
@@ -250,7 +250,7 @@ internal sealed class Application : IApplication,
 		_viewport.ApplyState(state.Viewport);
 		_world.ApplyState(state.World);
 
-		_selectedBodyPreset = _bodyPresets.FirstOrDefault(p => p.Id == state.SelectedBodyPresetId) 
+		_selectedBodyPreset = _bodyPresets.FirstOrDefault(p => p.Id == state.SelectedBodyPresetId)
 							  ?? _bodyPresets[0];
 		_currentRespawnerId = state.RespawnerId;
 		_rng.State = state.RngState;
@@ -470,6 +470,7 @@ internal sealed class Application : IApplication,
 		if(_selectedBody is not null)
 		{
 			_viewport.SetCenter(_selectedBody.Position);
+
 			return;
 		}
 

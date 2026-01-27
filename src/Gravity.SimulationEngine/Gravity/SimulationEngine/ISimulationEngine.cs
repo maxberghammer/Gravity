@@ -8,10 +8,14 @@ namespace Gravity.SimulationEngine;
 
 public interface ISimulationEngine
 {
+	#region Internal types
+
 	public interface IDiagnostics
 	{
 		IReadOnlyDictionary<string, object> Fields { get; }
 	}
+
+	#endregion
 
 	void Simulate(IWorld world, IViewport viewport, TimeSpan deltaTime);
 

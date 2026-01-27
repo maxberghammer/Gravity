@@ -66,19 +66,19 @@ internal sealed class SimulationEngine : ISimulationEngine
 			return;
 
 		var steps = _oversampler.Oversample(world,
-										bodies,
-										deltaTime,
-										(b, dt) =>
-										{
-											_integrator.Step(world,
-															 b,
-															 dt.TotalSeconds,
-															 bs => _computation.Compute(world, bodies, bs, _diagnostics),
-															 _diagnostics);
+											bodies,
+											deltaTime,
+											(b, dt) =>
+											{
+												_integrator.Step(world,
+																 b,
+																 dt.TotalSeconds,
+																 bs => _computation.Compute(world, bodies, bs, _diagnostics),
+																 _diagnostics);
 
-											_collisionResolver.ResolveCollisions(world, bodies, _diagnostics);
-										},
-										_diagnostics);
+												_collisionResolver.ResolveCollisions(world, bodies, _diagnostics);
+											},
+											_diagnostics);
 
 		// Report oversampling for diagnostics
 		_diagnostics.SetField("Oversampling",

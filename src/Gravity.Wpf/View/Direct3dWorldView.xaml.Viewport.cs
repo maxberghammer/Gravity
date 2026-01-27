@@ -20,10 +20,10 @@ public partial class Direct3dWorldView
 		#region Fields
 
 		private const int _msaaSamples = 8;
-		private bool _msaaActive;
 		private ID3D11Buffer? _cameraBuffer;
 		private int _currentHeight;
 		private int _currentWidth;
+		private bool _msaaActive;
 
 		// MSAA
 		private ID3D11Texture2D? _msaaColor;
@@ -65,12 +65,12 @@ public partial class Direct3dWorldView
 
 			var screenSize = new Size(e.Surface.ActualWidth, e.Surface.ActualHeight);
 			var center = Viewmodel.Application.Viewport.CurrentCenter;
-			
+
 			// 3D Camera setup with orthogonal projection
 			var yaw = (float)Viewmodel.Application.Viewport.CurrentCameraYaw;
 			var pitch = (float)Viewmodel.Application.Viewport.CurrentCameraPitch;
 			var distance = (float)Viewmodel.Application.Viewport.ToWorld((float)Viewmodel.Application.Viewport.CurrentCameraDistance);
-			
+
 			// Camera position: orbit around the center point
 			var cosYaw = MathF.Cos(yaw);
 			var sinYaw = MathF.Sin(yaw);
@@ -83,25 +83,25 @@ public partial class Direct3dWorldView
 			var forward = new Vector3(-sinYaw * cosPitch, -sinPitch, -cosYaw * cosPitch);
 			var cameraPos = new Vector3((float)center.X, (float)center.Y, (float)center.Z) - forward * distance;
 			var cameraTarget = new Vector3((float)center.X, (float)center.Y, (float)center.Z);
-			
+
 			// World up is Y-axis
 			var worldUp = new Vector3(0, 1, 0);
-			
+
 			// Camera right and up vectors (for billboard orientation)
 			var cameraRight = Vector3.Normalize(Vector3.Cross(worldUp, forward));
 			var cameraUp = Vector3.Normalize(Vector3.Cross(forward, cameraRight));
-			
+
 			// View matrix
 			var view = Matrix4x4.CreateLookAt(cameraPos, cameraTarget, worldUp);
-			
+
 			// Orthographic projection
 			var orthoWidth = (float)Viewmodel.Application.Viewport.ToWorld((float)screenSize.Width);
 			var orthoHeight = (float)Viewmodel.Application.Viewport.ToWorld((float)screenSize.Height);
 			var proj = Matrix4x4.CreateOrthographic(orthoWidth, orthoHeight, 0.1f, distance * 10f);
-			
+
 			// Combined ViewProjection matrix (transposed for HLSL column-major)
 			var viewProj = Matrix4x4.Transpose(view * proj);
-			
+
 			e.Context.MapConstantBuffer(_cameraBuffer!,
 										new CameraGpu
 										{
@@ -121,7 +121,7 @@ public partial class Direct3dWorldView
 				e.Context.RSSetViewport(new(0, 0, (float)e.Surface.ActualWidth, (float)e.Surface.ActualHeight, 0, 1));
 
 				e.Context.ClearDepthStencilView(_msaaDsv, DepthStencilClearFlags.Depth, 1.0f, 0);
-				e.Context.ClearRenderTargetView(_msaaRtv, new(0, 0, 0, 1));
+				e.Context.ClearRenderTargetView(_msaaRtv, new(0, 0, 0));
 			}
 			else
 			{
@@ -129,7 +129,7 @@ public partial class Direct3dWorldView
 				e.Context.OMSetRenderTargets(e.Surface.ColorTextureView!, e.Surface.DepthStencilView);
 				if(e.Surface.DepthStencilView != null)
 					e.Context.ClearDepthStencilView(e.Surface.DepthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
-				e.Context.ClearRenderTargetView(e.Surface.ColorTextureView, new(0, 0, 0, 1));
+				e.Context.ClearRenderTargetView(e.Surface.ColorTextureView, new(0, 0, 0));
 				e.Context.RSSetViewport(new(0, 0, (float)e.Surface.ActualWidth, (float)e.Surface.ActualHeight, 0, 1));
 				e.Context.RSSetState(_rasterizerState);
 			}
@@ -137,7 +137,7 @@ public partial class Direct3dWorldView
 			e.Context.VSSetConstantBuffer(0, _cameraBuffer);
 		}
 
-		/// <inheritdoc />
+		/// <inheritdoc/>
 		protected override void OnAfterDraw(DrawEventArgs e)
 		{
 			if(_msaaActive &&
@@ -218,10 +218,8 @@ public partial class Direct3dWorldView
 			_msaaActive = samples > 1;
 
 			if(!_msaaActive)
-			{
 				// Kein MSAA möglich → Fallback: direkt in ColorTextureView rendern (kein Resolve)
 				return;
-			}
 
 			_msaaColor = device.CreateTexture2D(new()
 												{

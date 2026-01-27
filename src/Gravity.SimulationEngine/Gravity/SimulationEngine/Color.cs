@@ -12,9 +12,9 @@ public struct Color : IEquatable<Color>
 	public static readonly Color DarkGray = new(0xFFA9A9A9);
 	public static readonly Color Green = new(0xFF008000);
 	public static readonly Color Red = new(0xFFFF0000);
+	public static readonly Color Transparent = new(0x00000000);
 	public static readonly Color White = new(0xFFFFFFFF);
 	public static readonly Color Yellow = new(0xFFFFFF00);
-	public static readonly Color Transparent = new(0x00000000);
 
 	#endregion
 

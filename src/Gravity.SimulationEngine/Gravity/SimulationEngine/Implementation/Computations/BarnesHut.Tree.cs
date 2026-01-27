@@ -296,18 +296,19 @@ internal sealed partial class BarnesHut
 					// For leaf nodes with a body, use sum of radii for clamping
 					// For aggregated nodes, use a conservative estimate based on node width
 					double minDistSq;
+
 					if(isLeaf && n._body != null)
 					{
 						var sumR = e.r + n._body.r;
 						minDistSq = sumR * sumR;
 					}
 					else
-					{
 						// For aggregated masses, use body radius * 4 as conservative minimum
 						minDistSq = 16.0 * e.r * e.r;
-					}
-					
-					var effectiveDist2 = dist2 < minDistSq ? minDistSq : dist2;
+
+					var effectiveDist2 = dist2 < minDistSq
+											 ? minDistSq
+											 : dist2;
 					var effectiveDist = Math.Sqrt(effectiveDist2);
 					var invLen3 = 1.0 / (effectiveDist2 * effectiveDist);
 					var factor = -IWorld.G * mass * invLen3;

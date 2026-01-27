@@ -19,7 +19,7 @@ internal sealed class Program : ProgramBase<Program, AppSettings, Startup, App>
 	/// <inheritdoc/>
 	protected override Version ApplicationVersion
 		=> new(1, 0);
-	
+
 	// ReSharper disable once InconsistentNaming
 	private static async Task Main(string[] args)
 		=> await RunAsync(args);

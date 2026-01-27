@@ -12,6 +12,10 @@ namespace Gravity.SimulationEngine.Tests;
 [SuppressMessage("Security", "CA5394", Justification = "Non-security test data generation")]
 public class AdaptiveParticleMeshTests : EngineTestsBase
 {
+	#region Implementation
+
 	protected override Factory.SimulationEngineType EngineType
 		=> Factory.SimulationEngineType.AdaptiveParticleMesh;
+
+	#endregion
 }

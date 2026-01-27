@@ -18,7 +18,7 @@ internal static class Win32
 	#region Internal types
 
 	[StructLayout(LayoutKind.Sequential)]
-    public struct DEVMODE
+	public struct DEVMODE
 	{
 		#region Fields
 
@@ -64,11 +64,11 @@ internal static class Win32
 		#endregion
 	}
 
-    #endregion
+	#endregion
 
-    #region Fields
+	#region Fields
 
-    private const int ENUM_CURRENT_SETTINGS = -1;
+	private const int ENUM_CURRENT_SETTINGS = -1;
 	private const int ENUM_REGISTRY_SETTINGS = -2;
 
 	#endregion
@@ -76,7 +76,7 @@ internal static class Win32
 	#region Interface
 
 	[DllImport("user32.dll")]
-    public static extern bool EnumDisplaySettings(string? deviceName, int modeNum, ref DEVMODE devMode);
+	public static extern bool EnumDisplaySettings(string? deviceName, int modeNum, ref DEVMODE devMode);
 
 	#endregion
 }

@@ -7,38 +7,50 @@ public partial class Direct3dWorldView
 {
 	#region Internal types
 
-	[StructLayout(LayoutKind.Sequential)]
+	// GPU struct - field order doesn't matter thanks to explicit offsets
+	[StructLayout(LayoutKind.Explicit, Size = 48)]
 	private struct BodyGpu
 	{
-		public Vector3 Position;  // 3D position
-		public float Radius;
-		
-		public float StrokeWidth;
-		public Vector3 FillColor;
-		
-		public uint Flags; // bit 0 = selected
-		public Vector3 StrokeColor;
+		#region Fields
+
+		[FieldOffset(20)] public Vector3 FillColor; // 12 bytes
+		[FieldOffset(32)] public uint Flags; // 4 bytes (bit 0 = selected)
+		[FieldOffset(0)] public Vector3 Position; // 12 bytes
+		[FieldOffset(12)] public float Radius; // 4 bytes
+		[FieldOffset(36)] public Vector3 StrokeColor; // 12 bytes
+		[FieldOffset(16)] public float StrokeWidth; // 4 bytes
+
+		#endregion
 	}
 
-	// 3D Orthogonal camera with View/Projection matrices
-	[StructLayout(LayoutKind.Sequential)]
+	// GPU cbuffer - field order doesn't matter thanks to explicit offsets
+	[StructLayout(LayoutKind.Explicit, Size = 112)]
 	private struct CameraGpu
 	{
-		public Matrix4x4 ViewProj;     // Combined View * Projection matrix (64 bytes)
-		public Vector3 CameraRight;    // For billboard orientation
-		public float _pad0;
-		public Vector3 CameraUp;       // For billboard orientation
-		public float _pad1;
-		public Vector2 ScreenSize;     // Screen dimensions
-		public float Scale;            // Zoom factor (world units per screen unit)
-		public float _pad2;
+		#region Fields
+
+		[FieldOffset(76)] public float _pad0; // 4 bytes
+		[FieldOffset(92)] public float _pad1; // 4 bytes
+		[FieldOffset(108)] public float _pad2; // 4 bytes
+		[FieldOffset(64)] public Vector3 CameraRight; // 12 bytes - For billboard orientation
+		[FieldOffset(80)] public Vector3 CameraUp; // 12 bytes - For billboard orientation
+		[FieldOffset(104)] public float Scale; // 4 bytes - Zoom factor
+		[FieldOffset(96)] public Vector2 ScreenSize; // 8 bytes - Screen dimensions
+		[FieldOffset(0)] public Matrix4x4 ViewProj; // 64 bytes - Combined View * Projection matrix
+
+		#endregion
 	}
 
-	[StructLayout(LayoutKind.Sequential)]
+	// GPU cbuffer - field order doesn't matter thanks to explicit offsets
+	[StructLayout(LayoutKind.Explicit, Size = 16)]
 	private struct PathParams
 	{
-		public uint PathVertexCount;
-		private Vector3 _pad;
+		#region Fields
+
+		[FieldOffset(0)] public uint PathVertexCount; // 4 bytes
+		[FieldOffset(4)] private Vector3 _pad; // 12 bytes
+
+		#endregion
 	}
 
 	#endregion

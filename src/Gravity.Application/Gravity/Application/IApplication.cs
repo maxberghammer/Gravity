@@ -190,10 +190,10 @@ public interface IApplication
 
 	public delegate State UpdateStateHandler(State state);
 
-    #endregion
+	#endregion
 
-    [SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
-    event ApplyStateHandler? ApplyState;
+	[SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
+	event ApplyStateHandler? ApplyState;
 
 	[SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
 	event UpdateStateHandler? UpdateState;
