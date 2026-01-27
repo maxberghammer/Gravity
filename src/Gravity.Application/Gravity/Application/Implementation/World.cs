@@ -93,7 +93,7 @@ internal sealed class World : IWorld,
 		=> _elasticCollisions;
 
 	/// <inheritdoc/>
-	int IApplication.IWorld.BodyCount
+	int IApplication.IWorld.CurrentBodyCount
 		=> BodyCount;
 
 	/// <inheritdoc/>

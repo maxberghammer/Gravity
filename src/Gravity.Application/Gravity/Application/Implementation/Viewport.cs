@@ -175,19 +175,23 @@ internal class Viewport : IViewport,
 	#region Implementation of IViewport
 
 	/// <inheritdoc/>
-	Vector3D IApplication.IViewport.Center
+	Vector3D IApplication.IViewport.CurrentCenter
 		=> Center;
 
+	/// <inheritdoc />
+	double IApplication.IViewport.CurrentScale
+		=> _scale;
+
 	/// <inheritdoc/>
-	double IApplication.IViewport.CameraDistance
+	double IApplication.IViewport.CurrentCameraDistance
 		=> 1000;
 
 	/// <inheritdoc/>
-	double IApplication.IViewport.CameraYaw
+	double IApplication.IViewport.CurrentCameraYaw
 		=> _cameraYaw;
 
 	/// <inheritdoc/>
-	double IApplication.IViewport.CameraPitch
+	double IApplication.IViewport.CurrentCameraPitch
 		=> _cameraPitch;
 
 	/// <inheritdoc/>
@@ -200,23 +204,26 @@ internal class Viewport : IViewport,
 
 	void IApplication.IViewport.Zoom(Vector3D zoomCenter, double zoomFactor)
 	{
-		var previousScaleFactor = ScaleFactor;
-		var previousSize = Size3D;
-		var previousCenter = Center;
+	var previousScaleFactor = ScaleFactor;
+	var previousSize = Size3D;
+	var previousCenter = Center;
 
-		_scale = _scale + zoomFactor;
+	_scale = _scale + zoomFactor;
 
-		var sizeRatio = previousScaleFactor / ScaleFactor;
-		var newWidth = previousSize.X * sizeRatio;
-		var newHeight = previousSize.Y * sizeRatio;
-		var newDepth = CalculateDepthFromHeight(newHeight);
-		var newSize = new Vector3D(newWidth, newHeight, newDepth);
+	var sizeRatio = previousScaleFactor / ScaleFactor;
+	var newWidth = previousSize.X * sizeRatio;
+	var newHeight = previousSize.Y * sizeRatio;
+	var newDepth = CalculateDepthFromHeight(newHeight);
+	var newSize = new Vector3D(newWidth, newHeight, newDepth);
 
-		// Zoom to cursor: keep the zoom center point at the same screen position
-		// The center moves towards/away from the zoom point proportionally to the size change
-		var newCenter = zoomCenter + (previousCenter - zoomCenter) * sizeRatio;
+	// Zoom to cursor: keep the zoom center point at the same screen position
+	// Calculate the offset from center to zoom point, then scale it
+	// This avoids precision issues with large absolute coordinates
+	var offsetFromCenter = previousCenter - zoomCenter;
+	var scaledOffset = offsetFromCenter * sizeRatio;
+	var newCenter = zoomCenter + scaledOffset;
 
-		SetBoundsAroundCenter(newCenter, newSize);
+	SetBoundsAroundCenter(newCenter, newSize);
 	}
 
 	/// <inheritdoc/>

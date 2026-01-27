@@ -117,7 +117,7 @@ internal sealed class Application : IApplication,
 		=> _viewport;
 
 	/// <inheritdoc/>
-	TimeSpan IApplication.Runtime
+	TimeSpan IApplication.CurrentRuntime
 		=> _runtime;
 
 	/// <inheritdoc/>

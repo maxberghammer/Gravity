@@ -64,12 +64,12 @@ public partial class Direct3dWorldView
 			EnsureMsaaTargets(e.Device, (int)e.Surface.ActualWidth, (int)e.Surface.ActualHeight);
 
 			var screenSize = new Size(e.Surface.ActualWidth, e.Surface.ActualHeight);
-			var center = Viewmodel.Application.Viewport.Center;
+			var center = Viewmodel.Application.Viewport.CurrentCenter;
 			
 			// 3D Camera setup with orthogonal projection
-			var yaw = (float)Viewmodel.Application.Viewport.CameraYaw;
-			var pitch = (float)Viewmodel.Application.Viewport.CameraPitch;
-			var distance = (float)Viewmodel.Application.Viewport.ToWorld((float)Viewmodel.Application.Viewport.CameraDistance);
+			var yaw = (float)Viewmodel.Application.Viewport.CurrentCameraYaw;
+			var pitch = (float)Viewmodel.Application.Viewport.CurrentCameraPitch;
+			var distance = (float)Viewmodel.Application.Viewport.ToWorld((float)Viewmodel.Application.Viewport.CurrentCameraDistance);
 			
 			// Camera position: orbit around the center point
 			var cosYaw = MathF.Cos(yaw);

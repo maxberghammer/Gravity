@@ -191,9 +191,10 @@ public sealed class Main : NotifyPropertyChanged,
 	{
 		FramesPerSecond = (int)Math.Round(1000.0d / Application.FrameDiagnostics.LastMeasurement.LastFrameDurationInMs);
 		CpuUtilizationInPercent = Application.FrameDiagnostics.LastMeasurement.CpuUtilizationInPercent;
-		Runtime = Application.Runtime;
-		BodyCount = Application.World.BodyCount;
+		Runtime = Application.CurrentRuntime;
+		BodyCount = Application.World.CurrentBodyCount;
 		IsBodySelected = SelectedBody is not null;
+		Viewport.Scale = Application.Viewport.CurrentScale;
 	}
 
 	#endregion

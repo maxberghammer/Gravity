@@ -81,22 +81,27 @@ public interface IApplication
 		/// <summary>
 		/// Camera yaw angle in radians (rotation around Y axis)
 		/// </summary>
-		double CameraYaw { get; }
+		double CurrentCameraYaw { get; }
 
 		/// <summary>
 		/// Camera pitch angle in radians (rotation around X axis)
 		/// </summary>
-		double CameraPitch { get; }
+		double CurrentCameraPitch { get; }
 
 		/// <summary>
 		/// Camera distance from center
 		/// </summary>
-		double CameraDistance { get; }
+		double CurrentCameraDistance { get; }
 
 		/// <summary>
 		/// Gets the center point of the viewport in three-dimensional space.
 		/// </summary>
-		Vector3D Center { get; }
+		Vector3D CurrentCenter { get; }
+
+		/// <summary>
+		/// Gets the current scale factor of the viewport, defined as the ratio of viewport size to world size.
+		/// </summary>
+		double CurrentScale { get; }
 
 		/// <summary>
 		/// Converts a point from world coordinates to viewport coordinates.
@@ -162,7 +167,7 @@ public interface IApplication
 
 	public interface IWorld
 	{
-		int BodyCount { get; }
+		int CurrentBodyCount { get; }
 
 		TimeSpan ToWorld(TimeSpan applicationTimeSpan);
 
@@ -203,7 +208,7 @@ public interface IApplication
 
 	FrameDiagnostics FrameDiagnostics { get; }
 
-	TimeSpan Runtime { get; }
+	TimeSpan CurrentRuntime { get; }
 
 	void Select(BodyPreset bodyPreset);
 

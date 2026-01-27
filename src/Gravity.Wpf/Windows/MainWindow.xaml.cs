@@ -343,8 +343,8 @@ internal sealed partial class MainWindow
 		if(!visible)
 			return;
 
-		var yaw = Viewmodel.Application.Viewport.CameraYaw;
-		var pitch = Viewmodel.Application.Viewport.CameraPitch;
+		var yaw = Viewmodel.Application.Viewport.CurrentCameraYaw;
+		var pitch = Viewmodel.Application.Viewport.CurrentCameraPitch;
 		const double axisLength = 50;
 		const double centerX = 60;
 		const double centerY = 60;
