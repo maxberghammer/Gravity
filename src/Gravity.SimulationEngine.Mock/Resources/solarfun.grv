@@ -1,0 +1,176 @@
+{
+  "Viewport": {
+    "TopLeft": {
+      "X": -400,
+      "Y": -400,
+      "Z": -400
+    },
+    "BottomRight": {
+      "X": 400,
+      "Y": 400,
+      "Z": 400
+    },
+    "Scale": 0,
+    "Autocenter": true,
+    "CameraYaw": 0.4,
+    "CameraPitch": 0.3
+  },
+  "World": {
+    "ElasticCollisions": false,
+    "ClosedBoundaries": false,
+    "Timescale": 15,
+    "Bodies": [
+      {
+        "Id": 0,
+        "Name": "Helios",
+        "Color": "#FFFFCC00",
+        "AtmosphereColor": "#FFFF6600",
+        "AtmosphereThickness": 20,
+        "Position": { "X": 0, "Y": 0, "Z": 0 },
+        "v": { "X": 0, "Y": 0, "Z": 0 },
+        "r": 20,
+        "m": 1e13
+      },
+      {
+        "Id": 1,
+        "Name": "Inferno",
+        "Color": "#FFFF3300",
+        "AtmosphereColor": "#FFFF9900",
+        "AtmosphereThickness": 3,
+        "Position": { "X": 40, "Y": 0, "Z": 5 },
+        "v": { "X": 0, "Y": 4.05, "Z": 0.3 },
+        "r": 3,
+        "m": 5e9
+      },
+      {
+        "Id": 2,
+        "Name": "Aquaria",
+        "Color": "#FF0066FF",
+        "AtmosphereColor": "#FF00CCFF",
+        "AtmosphereThickness": 4,
+        "Position": { "X": 0, "Y": 60, "Z": 10 },
+        "v": { "X": -3.3, "Y": 0, "Z": 0.4 },
+        "r": 4,
+        "m": 8e9
+      },
+      {
+        "Id": 3,
+        "Name": "Verdant",
+        "Color": "#FF00CC44",
+        "AtmosphereColor": "#FF88FF88",
+        "AtmosphereThickness": 3,
+        "Position": { "X": -80, "Y": 0, "Z": -15 },
+        "v": { "X": 0, "Y": -2.85, "Z": -0.4 },
+        "r": 4.5,
+        "m": 1e10
+      },
+      {
+        "Id": 4,
+        "Name": "Rustica",
+        "Color": "#FFCC6633",
+        "AtmosphereColor": "#FFFF9966",
+        "AtmosphereThickness": 2,
+        "Position": { "X": 100, "Y": 20, "Z": 25 },
+        "v": { "X": -0.3, "Y": 2.55, "Z": -0.2 },
+        "r": 3,
+        "m": 4e9
+      },
+      {
+        "Id": 5,
+        "Name": "Colossus",
+        "Color": "#FFFF9944",
+        "AtmosphereColor": "#FFFFCC88",
+        "AtmosphereThickness": 10,
+        "Position": { "X": -130, "Y": -30, "Z": -40 },
+        "v": { "X": 0.3, "Y": -2.2, "Z": 0.5 },
+        "r": 12,
+        "m": 2e11
+      },
+      {
+        "Id": 6,
+        "Name": "Ringed Wonder",
+        "Color": "#FFEECC88",
+        "AtmosphereColor": "#FFDDBB77",
+        "AtmosphereThickness": 8,
+        "Position": { "X": 170, "Y": 0, "Z": -30 },
+        "v": { "X": 0, "Y": 1.95, "Z": 0.25 },
+        "r": 10,
+        "m": 1.5e11
+      },
+      {
+        "Id": 7,
+        "Name": "Glacius",
+        "Color": "#FF88DDFF",
+        "AtmosphereColor": "#FFAAEEFF",
+        "AtmosphereThickness": 6,
+        "Position": { "X": 0, "Y": -200, "Z": 50 },
+        "v": { "X": 1.8, "Y": 0, "Z": 0.3 },
+        "r": 7,
+        "m": 6e10
+      },
+      {
+        "Id": 8,
+        "Name": "Tempest",
+        "Color": "#FF4488CC",
+        "AtmosphereColor": "#FF66AAEE",
+        "AtmosphereThickness": 5,
+        "Position": { "X": -220, "Y": 80, "Z": 60 },
+        "v": { "X": -0.4, "Y": -1.55, "Z": -0.3 },
+        "r": 6,
+        "m": 5e10
+      },
+      {
+        "Id": 9,
+        "Name": "Shadow",
+        "Color": "#FF555566",
+        "AtmosphereColor": "#FF888899",
+        "AtmosphereThickness": 2,
+        "Position": { "X": 260, "Y": -60, "Z": -70 },
+        "v": { "X": 0.2, "Y": 1.55, "Z": 0.35 },
+        "r": 4,
+        "m": 3e9
+      },
+      {
+        "Id": 10,
+        "Name": "Polar",
+        "Color": "#FFFF00FF",
+        "AtmosphereColor": "#FFFF88FF",
+        "AtmosphereThickness": 4,
+        "Position": { "X": 30, "Y": 0, "Z": 120 },
+        "v": { "X": -2.3, "Y": 0.5, "Z": 0 },
+        "r": 5,
+        "m": 1.5e10
+      },
+      {
+        "Id": 11,
+        "Name": "Duo A",
+        "Color": "#FFFF6666",
+        "AtmosphereColor": "#FFFFAAAA",
+        "AtmosphereThickness": 3,
+        "Position": { "X": -300, "Y": 0, "Z": 20 },
+        "v": { "X": 0.1, "Y": -1.5, "Z": 0.15 },
+        "r": 4,
+        "m": 3e10
+      },
+      {
+        "Id": 12,
+        "Name": "Duo B",
+        "Color": "#FF6666FF",
+        "AtmosphereColor": "#FFAAAAFF",
+        "AtmosphereThickness": 3,
+        "Position": { "X": -290, "Y": 15, "Z": 25 },
+        "v": { "X": -0.3, "Y": -1.35, "Z": 0.05 },
+        "r": 3.5,
+        "m": 2.5e10
+      }
+    ]
+  },
+  "ShowPath": true,
+  "SelectedBodyPresetId": "0514f35b-029f-4e91-8071-81fd31c570e0",
+  "RespawnerId": null,
+  "RngState": {
+    "Seed": 42,
+    "Generated": 0
+  },
+  "Runtime": "00:00:00"
+}
