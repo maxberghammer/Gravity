@@ -20,7 +20,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	internal interface IComputation
 	{
-		void Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics);
+		void Compute(IWorld world, IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate, Diagnostics diagnostics);
 	}
 
 	internal interface ICollisionResolver
@@ -66,19 +66,19 @@ internal sealed class SimulationEngine : ISimulationEngine
 			return;
 
 		var steps = _oversampler.Oversample(world,
-											bodies,
-											deltaTime,
-											(b, dt) =>
-											{
-												_integrator.Step(world,
-																 b,
-																 dt.TotalSeconds,
-																 bs => _computation.Compute(world, bs, _diagnostics),
-																 _diagnostics);
+										bodies,
+										deltaTime,
+										(b, dt) =>
+										{
+											_integrator.Step(world,
+															 b,
+															 dt.TotalSeconds,
+															 bs => _computation.Compute(world, bodies, bs, _diagnostics),
+															 _diagnostics);
 
-												_collisionResolver.ResolveCollisions(world, bodies, _diagnostics);
-											},
-											_diagnostics);
+											_collisionResolver.ResolveCollisions(world, bodies, _diagnostics);
+										},
+										_diagnostics);
 
 		// Report oversampling for diagnostics
 		_diagnostics.SetField("Oversampling",

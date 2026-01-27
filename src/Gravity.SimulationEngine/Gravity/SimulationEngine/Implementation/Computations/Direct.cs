@@ -23,32 +23,32 @@ internal sealed class Direct : SimulationEngine.IComputation
 	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate, Diagnostics diagnostics)
 	{
 		// Kollisionen exakt erkennen und auflösen
-		_collisionResolver.ResolveCollisions(world, bodies, diagnostics);
+		_collisionResolver.ResolveCollisions(world, allBodies, diagnostics);
 
 		// Beschleunigungen berechnen
-		ComputeAccelerations(bodies);
+		ComputeAccelerations(allBodies, bodiesToUpdate);
 	}
 
 	#endregion
 
 	#region Implementation
 
-	private static void ComputeAccelerations(IReadOnlyList<Body> bodies)
+	private static void ComputeAccelerations(IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate)
 	{
-		var n = bodies.Count;
+		var n = bodiesToUpdate.Count;
 
 		if(n == 0)
 			return;
 
 		Parallel.For(0, n, i =>
 						   {
-							   var body = bodies[i];
+							   var body = bodiesToUpdate[i];
 
-							   body.a = CalculateGravity(body, bodies.Where(e => !ReferenceEquals(e, body)));
-						   });
+							   body.a = CalculateGravity(body, allBodies.Where(e => !ReferenceEquals(e, body)));
+                           });
 	}
 
 	private static Vector3D CalculateGravity(Body body, IEnumerable<Body> others)

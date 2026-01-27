@@ -15,7 +15,8 @@ public static class Factory
 		Standard,
 		AdaptiveBarnesHut,
 		AdaptiveParticleMesh,
-		AdaptiveFastMultipole
+		AdaptiveFastMultipole,
+		HierarchicalBlockDirect
 	}
 
 	#endregion
@@ -47,6 +48,10 @@ public static class Factory
 																															 0.5),
 																								 new FastMultipole(),
 																								 new Grid()),
+			   SimulationEngineType.HierarchicalBlockDirect => new Implementation.SimulationEngine(new Leapfrog(),
+																									 new HierarchicalBlock(4, TimeSpan.FromSeconds(1e-7), 0.5),
+																									 new Direct(new Grid()),
+																									 new Grid()),
 			   var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		   };
 

@@ -22,16 +22,16 @@ internal sealed class FastMultipole : SimulationEngine.IComputation
 	private const int _maxDepth = 10;
 	private const double _theta = 0.5; // Opening angle for well-separated criterion
 
-	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate, Diagnostics diagnostics)
 	{
-		var nBodies = bodies.Count;
+		var nBodies = allBodies.Count;
 		if (nBodies == 0) return;
 
 		// Zero accelerations and count active
 		var activeCount = 0;
 		for (var i = 0; i < nBodies; i++)
 		{
-			var b = bodies[i];
+			var b = allBodies[i];
 			if (b.IsAbsorbed) continue;
 			b.a = Vector3D.Zero;
 			activeCount++;
@@ -42,20 +42,20 @@ internal sealed class FastMultipole : SimulationEngine.IComputation
 		// For small N, use direct
 		if (activeCount <= 64)
 		{
-			ComputeDirect(bodies);
+			ComputeDirect(allBodies);
 			diagnostics.SetField("Strategy", "FMM-Direct");
 			diagnostics.SetField("Bodies", activeCount);
 			return;
 		}
 
 		// Build octree
-		var root = BuildOctree(bodies);
+		var root = BuildOctree(allBodies);
 
 		// Upward pass: compute multipoles
-		ComputeMultipoles(root, bodies);
+		ComputeMultipoles(root, allBodies);
 
-		// Downward pass + direct evaluation
-		EvaluateForces(root, bodies);
+		// Downward pass + direct evaluation - only update bodiesToUpdate
+		EvaluateForces(root, bodiesToUpdate);
 
 		// Count cells
 		var cellCount = CountCells(root);

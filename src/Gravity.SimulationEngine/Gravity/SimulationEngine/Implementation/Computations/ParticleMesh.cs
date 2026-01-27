@@ -20,9 +20,9 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 	private double[]? _massGrid;
 	private Complex[]? _rhoK, _axK, _ayK, _azK;
 
-	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate, Diagnostics diagnostics)
 	{
-		var nBodies = bodies.Count;
+		var nBodies = allBodies.Count;
 		if (nBodies == 0) return;
 
 		// Count active and get bounds - single pass
@@ -32,7 +32,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 
 		for (var i = 0; i < nBodies; i++)
 		{
-			var b = bodies[i];
+			var b = allBodies[i];
 			if (b.IsAbsorbed) continue;
 			activeCount++;
 			b.a = Vector3D.Zero;
@@ -49,7 +49,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 
 		if (activeCount <= _directThreshold)
 		{
-			ComputeDirect(bodies);
+			ComputeDirect(allBodies);
 			diagnostics.SetField("Strategy", "Particle-Mesh-Direct");
 			diagnostics.SetField("Bodies", activeCount);
 			return;
@@ -73,7 +73,7 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 		Array.Clear(_massGrid!, 0, n * n * n);
 
 		// CIC assignment
-		AssignMassFast(bodies, n, originX, originY, originZ, invH);
+		AssignMassFast(allBodies, n, originX, originY, originZ, invH);
 
 		// FFT
 		var gridVol = n * n * n;
@@ -87,8 +87,8 @@ internal sealed class ParticleMesh : SimulationEngine.IComputation
 		FFT3DFast(_ayK!, n, false);
 		FFT3DFast(_azK!, n, false);
 
-		// Interpolate
-		InterpolateFast(bodies, n, originX, originY, originZ, invH);
+		// Interpolate - only update bodiesToUpdate but use full grid built from allBodies
+		InterpolateFast(bodiesToUpdate, n, originX, originY, originZ, invH);
 
 		diagnostics.SetField("Strategy", "Particle-Mesh-FFT");
 		diagnostics.SetField("GridSize", n);

@@ -13,9 +13,9 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 	#region Implementation of IComputation
 
 	/// <inheritdoc/>
-	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> bodies, Diagnostics diagnostics)
+	void SimulationEngine.IComputation.Compute(IWorld world, IReadOnlyList<Body> allBodies, IReadOnlyList<Body> bodiesToUpdate, Diagnostics diagnostics)
 	{
-		var n = bodies.Count;
+		var n = allBodies.Count;
 
 		if(n == 0)
 			return;
@@ -30,7 +30,7 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 
 		for(var i = 0; i < n; i++)
 		{
-			var p = bodies[i].Position;
+			var p = allBodies[i].Position;
 			if(p.X < minX)
 				minX = p.X;
 			if(p.Y < minY)
@@ -57,15 +57,15 @@ internal sealed partial class BarnesHut : SimulationEngine.IComputation
 		}
 
 		// Theta adaptiv wie in Barnes–Hut (inkl. Small-N-Overrides)
-		var theta = ComputeTheta(bodies, minX, minY, minZ, maxX, maxY, maxZ);
+		var theta = ComputeTheta(allBodies, minX, minY, minZ, maxX, maxY, maxZ);
 
 		var tree = new Tree(new(minX, minY, minZ), new(maxX, maxY, maxZ), theta, n);
 		// Presort by Morton-order for better locality
-		tree.AddRange(bodies);
+		tree.AddRange(allBodies);
 		tree.ComputeMassDistribution();
 		tree.CollectDiagnostics = false;
 		// Update diagnostics locally
-		Parallel.For(0, n, i => { bodies[i].a = tree.CalculateGravity(bodies[i]); });
+		Parallel.For(0, bodiesToUpdate.Count, i => { bodiesToUpdate[i].a = tree.CalculateGravity(bodiesToUpdate[i]); });
 
 		diagnostics.SetField("Strategy", "Barnes-Hut");
 		diagnostics.SetField("Nodes", tree.NodeCount);

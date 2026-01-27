@@ -41,6 +41,11 @@ internal sealed class Application : IApplication,
 	[
 		new()
 		{
+			Type = Factory.SimulationEngineType.HierarchicalBlockDirect,
+			Name = "Hierarchical Block (Direct N-Body)"
+		},
+		new()
+		{
 			Type = Factory.SimulationEngineType.AdaptiveBarnesHut,
 			Name = "Adaptive (Barnes-Hut)"
 		},
