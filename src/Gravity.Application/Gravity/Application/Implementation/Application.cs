@@ -466,11 +466,19 @@ internal sealed class Application : IApplication,
 
 	private void DoAutoCenterViewport()
 	{
+		// If a body is selected, center on it
+		if(_selectedBody is not null)
+		{
+			_viewport.SetCenter(_selectedBody.Position);
+			return;
+		}
+
 		var bodies = _world.GetBodies();
 
 		if(bodies.Count == 0)
 			return;
 
+		// Calculate geometric center of all bodies
 		var topLeft = new Vector3D(bodies.Min(b => b.Position.X - b.r),
 								   bodies.Min(b => b.Position.Y - b.r),
 								   bodies.Min(b => b.Position.Z - b.r));

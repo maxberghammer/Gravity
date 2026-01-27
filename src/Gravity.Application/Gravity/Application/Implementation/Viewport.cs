@@ -21,6 +21,10 @@ internal class Viewport : IViewport,
 	private double _rawYaw;
 	private double _scale;
 
+	// Viewport size in pixels (set by Resize)
+	private double _viewportPixelWidth;
+	private double _viewportPixelHeight;
+
 	#endregion
 
 	#region Construction
@@ -228,7 +232,13 @@ internal class Viewport : IViewport,
 
 	/// <inheritdoc/>
 	void IApplication.IViewport.Resize(Vector3D newSize)
-		=> SetBoundsAroundCenter(Center, newSize);
+	{
+		// Store pixel dimensions before converting to world coordinates
+		// newSize is in world coordinates, so pixel size = newSize * ScaleFactor
+		_viewportPixelWidth = newSize.X * ScaleFactor;
+		_viewportPixelHeight = newSize.Y * ScaleFactor;
+		SetBoundsAroundCenter(Center, newSize);
+	}
 
 	/// <inheritdoc/>
 	void IApplication.IViewport.EnableAutocenter()
@@ -261,10 +271,14 @@ internal class Viewport : IViewport,
 		if(newSize.X / newSize.Y > previousSize.X / previousSize.Y)
 			newSize = new(newSize.X, newSize.X * previousSize.Y / previousSize.X, newSize.Z);
 
-		SetBoundsAroundCenter(center, newSize);
+	SetBoundsAroundCenter(center, newSize);
 
-		_scale = Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y);
-	}
+	// Update _scale to match the new size
+	// _scale is logarithmic: ScaleFactor = 1 / 10^_scale
+	// newScale = oldScale + log10(newSize / previousSize)
+	var sizeRatio = Math.Max(newSize.X / previousSize.X, newSize.Y / previousSize.Y);
+	_scale = _scale + Math.Log10(sizeRatio);
+}
 
 	/// <inheritdoc/>
 	void IApplication.IViewport.Scale(double scale)
@@ -298,6 +312,7 @@ internal class Viewport : IViewport,
 	/// <inheritdoc/>
 	float IApplication.IViewport.ToViewport(double worldLength)
 		=> (float)(worldLength * ScaleFactor);
+
 
 	/// <summary>
 	/// Converts a viewport point to world coordinates, taking camera rotation into account.
@@ -337,12 +352,13 @@ internal class Viewport : IViewport,
 		// Project onto camera up vector (dot product), negated for screen Y
 		var screenY = -(offsetWorld.X * upX + offsetWorld.Y * upY + offsetWorld.Z * upZ);
 
-		// Convert to viewport coordinates
-		var screenCenterX = Size.X * ScaleFactor / 2;
-		var screenCenterY = Size.Y * ScaleFactor / 2;
+		// Convert to viewport coordinates using stored pixel dimensions
+		var screenCenterX = _viewportPixelWidth / 2;
+		var screenCenterY = _viewportPixelHeight / 2;
 
 		return Vector2.Create(screenCenterX + screenX * ScaleFactor, screenCenterY + screenY * ScaleFactor);
 	}
+
 
 	#endregion
 
@@ -354,6 +370,7 @@ internal class Viewport : IViewport,
 	private static double CalculateDepthFromHeight(double height)
 		=> height; // <- Hier ändern, um andere Tiefenberechnung zu verwenden
 
+
 	/// <summary>
 	/// Snaps an angle to the nearest multiple of snapAngle
 	/// </summary>
@@ -362,9 +379,10 @@ internal class Viewport : IViewport,
 
 	private Vector3D ToWorld(Vector2 viewportPoint)
 	{
-		// Calculate offset from viewport center in screen space
-		var screenCenterX = Size.X * ScaleFactor / 2;
-		var screenCenterY = Size.Y * ScaleFactor / 2;
+		// Use stored pixel dimensions for screen center
+		// This ensures correct mouse-to-world conversion regardless of scale
+		var screenCenterX = _viewportPixelWidth / 2;
+		var screenCenterY = _viewportPixelHeight / 2;
 		var offsetX = (viewportPoint.X - screenCenterX) / ScaleFactor;
 		var offsetY = (viewportPoint.Y - screenCenterY) / ScaleFactor;
 
