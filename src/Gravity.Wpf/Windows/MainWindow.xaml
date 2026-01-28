@@ -1,20 +1,21 @@
 <Window x:Class="Gravity.Wpf.Windows.MainWindow"
-				xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-				xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-				xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-				xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-				xmlns:view="clr-namespace:Gravity.Wpf.View"
-				xmlns:conv="clr-namespace:Gravity.Wpf.Converters"
-				xmlns:application="clr-namespace:Gravity.Application.Gravity.Application;assembly=Gravity.Application"
-				xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
-				d:DataContext="{d:DesignInstance Type=viewmodel:IMain}"
-				mc:Ignorable="d"
-				Title="Gravity"
-				WindowState="Maximized"
-				Background="Black"
-				PreviewKeyDown="OnWindowPreviewKeyDown"
-				PreviewKeyUp="OnWindowPreviewKeyUp"
-				x:ClassModifier="internal">
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+xmlns:view="clr-namespace:Gravity.Wpf.View"
+xmlns:controls="clr-namespace:Gravity.Wpf.Controls"
+xmlns:conv="clr-namespace:Gravity.Wpf.Converters"
+xmlns:application="clr-namespace:Gravity.Application.Gravity.Application;assembly=Gravity.Application"
+xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
+d:DataContext="{d:DesignInstance Type=viewmodel:IMain}"
+mc:Ignorable="d"
+Title="Gravity"
+WindowState="Maximized"
+Background="Black"
+PreviewKeyDown="OnWindowPreviewKeyDown"
+PreviewKeyUp="OnWindowPreviewKeyUp"
+x:ClassModifier="internal">
 	<Window.Resources>
 		<BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 		<conv:ColorToSolidBrushConverter x:Key="ColorToSolidBrushConverter"/>
@@ -130,74 +131,7 @@
 						 IsHitTestVisible="False"/>
 		</Grid>
 
-		<!-- Rotation Gizmo - shown when rotating camera -->
-		<Canvas x:Name="_rotationGizmo"
-						Grid.Row="0"
-						Grid.RowSpan="3"
-						HorizontalAlignment="Left"
-						VerticalAlignment="Bottom"
-						Margin="20,0,0,60"
-						Width="120"
-						Height="120"
-						Visibility="Collapsed"
-						IsHitTestVisible="False">
-			<!-- Background circle -->
-			<Ellipse Width="100"
-							 Height="100"
-							 Canvas.Left="10"
-							 Canvas.Top="10"
-							 Stroke="Gray"
-							 StrokeThickness="1"
-							 Opacity="0.3"/>
-			<!-- X axis (red) -->
-			<Line x:Name="_gizmoAxisX"
-						Stroke="Red"
-						StrokeThickness="2"
-						X1="60"
-						Y1="60"
-						X2="110"
-						Y2="60"/>
-			<TextBlock x:Name="_gizmoLabelX"
-								 Text="X"
-								 Foreground="Red"
-								 FontWeight="Bold"
-								 Canvas.Left="112"
-								 Canvas.Top="52"/>
-			<!-- Y axis (green) -->
-			<Line x:Name="_gizmoAxisY"
-						Stroke="LimeGreen"
-						StrokeThickness="2"
-						X1="60"
-						Y1="60"
-						X2="60"
-						Y2="10"/>
-			<TextBlock x:Name="_gizmoLabelY"
-								 Text="Y"
-								 Foreground="LimeGreen"
-								 FontWeight="Bold"
-								 Canvas.Left="52"
-								 Canvas.Top="-5"/>
-			<!-- Z axis (blue) -->
-			<Line x:Name="_gizmoAxisZ"
-						Stroke="DodgerBlue"
-						StrokeThickness="2"
-						X1="60"
-						Y1="60"
-						X2="95"
-						Y2="25"/>
-			<TextBlock x:Name="_gizmoLabelZ"
-								 Text="Z"
-								 Foreground="DodgerBlue"
-								 FontWeight="Bold"
-								 Canvas.Left="97"
-								 Canvas.Top="10"/>
-			<!-- Angle display -->
-			<TextBlock x:Name="_gizmoAngleText"
-								 Foreground="White"
-								 FontSize="10"
-								 Canvas.Left="10"
-								 Canvas.Top="115"/>
-		</Canvas>
+		<!-- Rotation Gizmo - shown when rotating camera --><controls:RotationGizmo x:Name="_rotationGizmo" Grid.Row="0" Grid.RowSpan="3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,60" Visibility="{Binding IsRotationGizmoVisible, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" CameraYaw="{Binding Application.Viewport.CurrentCameraYaw, Mode=OneWay}" CameraPitch="{Binding Application.Viewport.CurrentCameraPitch, Mode=OneWay}"/>
 
 		<DockPanel Grid.Row="0"
 							 HorizontalAlignment="Stretch"
@@ -235,15 +169,11 @@
 			<Button DockPanel.Dock="Right"
 							Margin="0,0,10,0"
 							FontFamily="Wingdings"
-							ToolTip="Speichern"
-							Content="&lt;"
-							Click="OnSaveClicked"/>
+							ToolTip="Speichern" Content="&lt;" Command="{Binding SaveCommand}"/>
 			<Button DockPanel.Dock="Right"
 							Margin="0,0,10,0"
 							FontFamily="Wingdings"
-							ToolTip="Öffnen"
-							Content="1"
-							Click="OnOpenClicked"/>
+							ToolTip="Öffnen" Content="1" Command="{Binding OpenCommand}"/>
 			<Button Name="_btnReset"
 							DockPanel.Dock="Right"
 							Margin="0,0,10,0"

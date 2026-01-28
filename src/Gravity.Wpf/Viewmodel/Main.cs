@@ -1,9 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
 using Gravity.SimulationEngine.Serialization;
+using Gravity.Wpf.Commands;
+using Microsoft.Win32;
 using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
@@ -14,6 +20,7 @@ public sealed class Main : NotifyPropertyChanged,
 	#region Fields
 
 	private readonly DispatcherTimer _uiUpdateTimer;
+	private const string _stateFileExtension = "grv";
 
 	#endregion
 
@@ -30,6 +37,10 @@ public sealed class Main : NotifyPropertyChanged,
 
 		application.ApplyState += OnApplyState;
 		application.UpdateState += OnUpdateState;
+
+		// Initialize commands
+		SaveCommand = new AsyncRelayCommand(ExecuteSaveAsync);
+		OpenCommand = new AsyncRelayCommand(ExecuteOpenAsync);
 	}
 
 	#endregion
@@ -106,6 +117,8 @@ public sealed class Main : NotifyPropertyChanged,
 
 	public bool IsEngineSelectionVisible { get; set => SetProperty(ref field, value); }
 
+	public bool IsRotationGizmoVisible { get; set => SetProperty(ref field, value); }
+
 	public required bool ShowPath { get; set => SetProperty(ref field, value); }
 
 	public Body? SelectedBody
@@ -166,6 +179,12 @@ public sealed class Main : NotifyPropertyChanged,
 
 	public DragIndicator? DragIndicator { get; set => SetProperty(ref field, value); }
 
+	/// <inheritdoc/>
+	public ICommand SaveCommand { get; }
+
+	/// <inheritdoc/>
+	public ICommand OpenCommand { get; }
+
 	#endregion
 
 	#region Implementation
@@ -195,6 +214,52 @@ public sealed class Main : NotifyPropertyChanged,
 		BodyCount = Application.World.CurrentBodyCount;
 		IsBodySelected = SelectedBody is not null;
 		Viewport.Scale = Application.Viewport.CurrentScale;
+	}
+
+	[SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Top-level exception handler for user feedback")]
+	private async Task ExecuteSaveAsync()
+	{
+		try
+		{
+			var dlg = new SaveFileDialog
+					  {
+						  DefaultExt = _stateFileExtension,
+						  Filter = $"Gravity Files | *.{_stateFileExtension}"
+					  };
+			var dlgResult = dlg.ShowDialog();
+
+			if(dlgResult is not true)
+				return;
+
+			await Application.SaveAsync(dlg.FileName);
+		}
+		catch(Exception ex)
+		{
+			MessageBox.Show($"Fehler beim Speichern: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+		}
+	}
+
+	[SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Top-level exception handler for user feedback")]
+	private async Task ExecuteOpenAsync()
+	{
+		try
+		{
+			var dlg = new OpenFileDialog
+					  {
+						  DefaultExt = _stateFileExtension,
+						  Filter = $"Gravity Files | *.{_stateFileExtension}"
+					  };
+			var dlgResult = dlg.ShowDialog();
+
+			if(dlgResult is not true)
+				return;
+
+			await Application.OpenAsync(dlg.FileName);
+		}
+		catch(Exception ex)
+		{
+			MessageBox.Show($"Fehler beim Öffnen: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+		}
 	}
 
 	#endregion

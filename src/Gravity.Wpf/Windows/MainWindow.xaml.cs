@@ -7,7 +7,6 @@ using System.Windows.Input;
 using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
 using Gravity.Wpf.Viewmodel;
-using Microsoft.Win32;
 
 namespace Gravity.Wpf.Windows;
 
@@ -16,10 +15,9 @@ internal sealed partial class MainWindow
 {
 	#region Fields
 
-	private const double _cameraRotationSensitivity = 0.005;
 	private const double _cameraPanningSensitivity = 1.0;
+	private const double _cameraRotationSensitivity = 0.005;
 	private const double _displayFrequencyInHz = 60;
-	private const string _stateFileExtension = "grv";
 	private const int _viewportSelectionSearchRadius = 30;
 	private static Vector3D? _referencePosition;
 	private Point? _lastMousePosition;
@@ -113,7 +111,7 @@ internal sealed partial class MainWindow
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
 		_worldView ??= (FrameworkElement)sender;
-		
+
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 		var worldPos = Viewmodel.Viewport.ToWorld(viewportPoint);
 
@@ -124,7 +122,7 @@ internal sealed partial class MainWindow
 		if(Keyboard.IsKeyDown(Key.P))
 		{
 			_worldView.Cursor = Cursors.SizeAll;
-			
+
 			if(_lastMousePosition.HasValue)
 			{
 				var deltaX = viewportPoint.X - _lastMousePosition.Value.X;
@@ -142,7 +140,7 @@ internal sealed partial class MainWindow
 		if(Keyboard.IsKeyDown(Key.R))
 		{
 			_worldView.Cursor = Cursors.Hand;
-			UpdateRotationGizmo(true);
+			Viewmodel.IsRotationGizmoVisible = true;
 
 			if(_lastMousePosition.HasValue)
 			{
@@ -162,7 +160,7 @@ internal sealed partial class MainWindow
 
 		_worldView.Cursor = Cursors.Arrow;
 		_lastMousePosition = null;
-		UpdateRotationGizmo(false);
+		Viewmodel.IsRotationGizmoVisible = false;
 
 		if(null == Viewmodel.DragIndicator)
 			return;
@@ -294,40 +292,6 @@ internal sealed partial class MainWindow
 	private void OnBodyPresetSelectionChanged(object sender, SelectionChangedEventArgs args)
 		=> Viewmodel.IsBodyPresetSelectionVisible = false;
 
-	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
-	private async void OnSaveClicked(object sender, RoutedEventArgs args)
-	{
-		var dlg = new SaveFileDialog
-				  {
-					  DefaultExt = _stateFileExtension,
-					  Filter = $"Gravity Files | *.{_stateFileExtension}"
-				  };
-		var dlgResult = dlg.ShowDialog(this);
-
-		if(dlgResult is not true)
-			return;
-
-		await Viewmodel.Application
-					   .SaveAsync(dlg.FileName);
-	}
-
-	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "<Pending>")]
-	private async void OnOpenClicked(object sender, RoutedEventArgs args)
-	{
-		var dlg = new OpenFileDialog
-				  {
-					  DefaultExt = _stateFileExtension,
-					  Filter = $"Gravity Files | *.{_stateFileExtension}"
-				  };
-		var dlgResult = dlg.ShowDialog(this);
-
-		if(dlgResult is not true)
-			return;
-
-		await Viewmodel.Application
-					   .OpenAsync(dlg.FileName);
-	}
-
 	private void OnEngineTypeSelectionChanged(object sender, SelectionChangedEventArgs e)
 		=> Viewmodel.IsEngineSelectionVisible = false;
 
@@ -335,7 +299,7 @@ internal sealed partial class MainWindow
 	{
 		if(e.Key == Key.R)
 		{
-			UpdateRotationGizmo(true);
+			Viewmodel.IsRotationGizmoVisible = true;
 			e.Handled = true;
 			_worldView?.Cursor = Cursors.Hand;
 		}
@@ -350,60 +314,15 @@ internal sealed partial class MainWindow
 	{
 		if(e.Key == Key.R)
 		{
-			UpdateRotationGizmo(false);
+			Viewmodel.IsRotationGizmoVisible = false;
 			e.Handled = true;
+			_worldView?.Cursor = Cursors.Arrow;
 		}
 		else if(e.Key == Key.P)
 		{
 			e.Handled = true;
+			_worldView?.Cursor = Cursors.Arrow;
 		}
-
-		_worldView?.Cursor = Cursors.Arrow;
-	}
-
-	private void UpdateRotationGizmo(bool visible)
-	{
-		_rotationGizmo.Visibility = visible
-										? Visibility.Visible
-										: Visibility.Collapsed;
-
-		if(!visible)
-			return;
-
-		var yaw = Viewmodel.Application.Viewport.CurrentCameraYaw;
-		var pitch = Viewmodel.Application.Viewport.CurrentCameraPitch;
-		const double axisLength = 50;
-		const double centerX = 60;
-		const double centerY = 60;
-
-		// Project 3D axes to 2D using the camera rotation
-		var cosYaw = Math.Cos(yaw);
-		var sinYaw = Math.Sin(yaw);
-		var cosPitch = Math.Cos(pitch);
-		var sinPitch = Math.Sin(pitch);
-
-		// X axis (red) - points right in world space
-		var xEndX = centerX + axisLength * cosYaw;
-		var xEndY = centerY + axisLength * sinYaw * sinPitch;
-		_gizmoAxisX.X2 = xEndX;
-		_gizmoAxisX.Y2 = xEndY;
-
-		// Y axis (green) - points up in world space
-		var yEndX = centerX;
-		var yEndY = centerY - axisLength * cosPitch;
-		_gizmoAxisY.X2 = yEndX;
-		_gizmoAxisY.Y2 = yEndY;
-
-		// Z axis (blue) - points towards viewer in world space
-		var zEndX = centerX + axisLength * sinYaw;
-		var zEndY = centerY - axisLength * cosYaw * sinPitch;
-		_gizmoAxisZ.X2 = zEndX;
-		_gizmoAxisZ.Y2 = zEndY;
-
-		// Update angle text
-		var yawDeg = yaw * 180 / Math.PI;
-		var pitchDeg = pitch * 180 / Math.PI;
-		_gizmoAngleText.Text = $"Yaw: {yawDeg:F1}°  Pitch: {pitchDeg:F1}°";
 	}
 
 	#endregion

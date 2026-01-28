@@ -1,9 +1,7 @@
-// Erstellt am: 23.01.2026
-// Erstellt von: MaxBerghammer
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Windows.Input;
 using Gravity.Application.Gravity.Application;
 using Gravity.SimulationEngine;
 
@@ -51,6 +49,8 @@ public interface IMain : INotifyPropertyChanged
 
 	bool IsEngineSelectionVisible { get; set; }
 
+	bool IsRotationGizmoVisible { get; set; }
+
 	bool ShowPath { get; set; }
 
 	Body? SelectedBody { get; set; }
@@ -72,4 +72,8 @@ public interface IMain : INotifyPropertyChanged
 	bool IsBodySelected { get; set; }
 
 	DragIndicator? DragIndicator { get; set; }
+
+	ICommand SaveCommand { get; }
+
+	ICommand OpenCommand { get; }
 }
