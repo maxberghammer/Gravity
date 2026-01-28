@@ -326,6 +326,41 @@ internal class Viewport : IViewport,
 	}
 
 	/// <inheritdoc/>
+	void IApplication.IViewport.Pan(double deltaX, double deltaY)
+	{
+		// Convert pixel deltas to world coordinates
+		var worldDeltaX = deltaX / ScaleFactor;
+		var worldDeltaY = deltaY / ScaleFactor;
+
+		// Get camera basis vectors
+		(var yaw, var pitch) = GetEffectiveCameraAngles();
+		var cosYaw = Math.Cos(yaw);
+		var sinYaw = Math.Sin(yaw);
+		var cosPitch = Math.Cos(pitch);
+		var sinPitch = Math.Sin(pitch);
+
+		// Right vector (camera X axis)
+		var rightX = cosYaw;
+		var rightZ = -sinYaw;
+
+		// Up vector (camera Y axis)
+		var upX = -sinYaw * sinPitch;
+		var upY = cosPitch;
+		var upZ = -cosYaw * sinPitch;
+
+		// Calculate pan offset in world space
+		// Move along camera right and up vectors (screen Y is inverted)
+		var panOffsetX = worldDeltaX * rightX - worldDeltaY * upX;
+		var panOffsetY = -worldDeltaY * upY;
+		var panOffsetZ = worldDeltaX * rightZ - worldDeltaY * upZ;
+
+		// Apply pan offset to viewport bounds
+		var panOffset = new Vector3D(panOffsetX, panOffsetY, panOffsetZ);
+		TopLeft += panOffset;
+		BottomRight += panOffset;
+	}
+
+	/// <inheritdoc/>
 	float IApplication.IViewport.ToViewport(double worldLength)
 		=> (float)(worldLength * ScaleFactor);
 

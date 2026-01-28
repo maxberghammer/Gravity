@@ -17,12 +17,14 @@ internal sealed partial class MainWindow
 	#region Fields
 
 	private const double _cameraRotationSensitivity = 0.005;
+	private const double _cameraPanningSensitivity = 1.0;
 	private const double _displayFrequencyInHz = 60;
 	private const string _stateFileExtension = "grv";
 	private const int _viewportSelectionSearchRadius = 30;
 	private static Vector3D? _referencePosition;
 	private Point? _lastMousePosition;
 	private bool _wasSimulationRunning;
+	private FrameworkElement? _worldView;
 
 	#endregion
 
@@ -110,15 +112,36 @@ internal sealed partial class MainWindow
 
 	private void OnWorldMouseMove(object sender, MouseEventArgs args)
 	{
+		_worldView ??= (FrameworkElement)sender;
+		
 		var viewportPoint = args.GetPosition((IInputElement)sender);
 		var worldPos = Viewmodel.Viewport.ToWorld(viewportPoint);
 
 		// Update mouse coordinates display
 		_lblMouseCoordinates.Content = $"X: {worldPos.X:F1}  Y: {worldPos.Y:F1}  Z: {worldPos.Z:F1}";
 
+		// Camera panning with P key + mouse movement - pan the viewport
+		if(Keyboard.IsKeyDown(Key.P))
+		{
+			_worldView.Cursor = Cursors.SizeAll;
+			
+			if(_lastMousePosition.HasValue)
+			{
+				var deltaX = viewportPoint.X - _lastMousePosition.Value.X;
+				var deltaY = viewportPoint.Y - _lastMousePosition.Value.Y;
+
+				Viewmodel.Application.Viewport.Pan(-deltaX * _cameraPanningSensitivity, -deltaY * _cameraPanningSensitivity);
+			}
+
+			_lastMousePosition = viewportPoint;
+
+			return;
+		}
+
 		// Camera rotation with R key + mouse movement - always rotate around viewport center
 		if(Keyboard.IsKeyDown(Key.R))
 		{
+			_worldView.Cursor = Cursors.Hand;
 			UpdateRotationGizmo(true);
 
 			if(_lastMousePosition.HasValue)
@@ -137,6 +160,7 @@ internal sealed partial class MainWindow
 			return;
 		}
 
+		_worldView.Cursor = Cursors.Arrow;
 		_lastMousePosition = null;
 		UpdateRotationGizmo(false);
 
@@ -307,28 +331,34 @@ internal sealed partial class MainWindow
 	private void OnEngineTypeSelectionChanged(object sender, SelectionChangedEventArgs e)
 		=> Viewmodel.IsEngineSelectionVisible = false;
 
-	private void OnWorldKeyDown(object sender, KeyEventArgs e)
-	{
-		if(e.Key == Key.R)
-			UpdateRotationGizmo(true);
-	}
-
-	private void OnWorldKeyUp(object sender, KeyEventArgs e)
-	{
-		if(e.Key == Key.R)
-			UpdateRotationGizmo(false);
-	}
-
 	private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
 	{
 		if(e.Key == Key.R)
+		{
 			UpdateRotationGizmo(true);
+			e.Handled = true;
+			_worldView?.Cursor = Cursors.Hand;
+		}
+		else if(e.Key == Key.P)
+		{
+			e.Handled = true;
+			_worldView?.Cursor = Cursors.SizeAll;
+		}
 	}
 
 	private void OnWindowPreviewKeyUp(object sender, KeyEventArgs e)
 	{
 		if(e.Key == Key.R)
+		{
 			UpdateRotationGizmo(false);
+			e.Handled = true;
+		}
+		else if(e.Key == Key.P)
+		{
+			e.Handled = true;
+		}
+
+		_worldView?.Cursor = Cursors.Arrow;
 	}
 
 	private void UpdateRotationGizmo(bool visible)

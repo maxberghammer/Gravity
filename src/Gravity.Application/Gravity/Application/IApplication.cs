@@ -143,6 +143,11 @@ public interface IApplication
 		void RotateCamera(double deltaYaw, double deltaPitch, bool snap = false);
 
 		/// <summary>
+		/// Pans the viewport by the given pixel deltas, taking camera rotation into account.
+		/// </summary>
+		void Pan(double deltaX, double deltaY);
+
+		/// <summary>
 		/// Resizes the viewport to the specified dimensions.
 		/// </summary>
 		/// <param name="newSize">
