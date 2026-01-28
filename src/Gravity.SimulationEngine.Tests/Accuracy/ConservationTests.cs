@@ -18,8 +18,8 @@ public sealed class ConservationTests
 	// Standard (2000 steps): relE=8.86e-4, relP=3.97e-15, relL=3.51e-15
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task StandardConservesInvariantsTwoBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 2000,
+	public async Task DirectConservesInvariantsTwoBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Direct, ResourcePaths.TwoBodiesSimulation, 2000,
 										 2e-3, 1e-14, 1e-14);
 
 	// BarnesHut (5000 steps): relE=5.04e-10, relP=3.26e-15, relL=1.27e-14
@@ -59,8 +59,8 @@ public sealed class ConservationTests
 	// Standard (1000 steps, 1000 bodies): O(N²) is slow but most accurate
 	[TestMethod]
 	[Timeout(1800000, CooperativeCancellation = true)] // 30 minutes timeout
-	public async Task StandardConservesInvariantsThousandBody()
-		=> await AssertConservationAsync(Factory.SimulationEngineType.Standard, ResourcePaths.ThousandBodiesSimulation, 1000,
+	public async Task DirectConservesInvariantsThousandBody()
+		=> await AssertConservationAsync(Factory.SimulationEngineType.Direct, ResourcePaths.ThousandBodiesSimulation, 1000,
 										 0.1, 1e-10, 1e-10);
 
 	// AdaptiveBarnesHut (1000 steps, 1000 bodies)

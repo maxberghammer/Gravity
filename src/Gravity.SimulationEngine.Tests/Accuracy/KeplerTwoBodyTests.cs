@@ -18,8 +18,8 @@ public sealed class KeplerTwoBodyTests
 	// Standard: relPeriod=2.76e-4, relEnergy=6.35e-5, relAngular=1.10e-14
 	[TestMethod]
 	[Timeout(60000, CooperativeCancellation = true)]
-	public async Task StandardTwoBodyKeplerPeriodAccurate()
-		=> await AssertKeplerAsync(Factory.SimulationEngineType.Standard, ResourcePaths.TwoBodiesSimulation, 10000,
+	public async Task DirectTwoBodyKeplerPeriodAccurate()
+		=> await AssertKeplerAsync(Factory.SimulationEngineType.Direct, ResourcePaths.TwoBodiesSimulation, 10000,
 								   5e-4, 1.5e-4, 5e-14);
 
 	// BarnesHut: relPeriod=3.23e-4, relEnergy=2.51e-9, relAngular=7.26e-14

@@ -61,8 +61,13 @@ internal sealed class Application : IApplication,
 		},
 		new()
 		{
-			Type = Factory.SimulationEngineType.Standard,
-			Name = "Direkte N-Body"
+			Type = Factory.SimulationEngineType.AdaptiveDirect,
+			Name = "Adaptive (Direct N-Body)"
+		},
+		new()
+		{
+			Type = Factory.SimulationEngineType.Direct,
+			Name = "Direct N-Body"
 		}
 	];
 

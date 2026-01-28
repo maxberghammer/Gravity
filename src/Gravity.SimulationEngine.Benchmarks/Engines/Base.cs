@@ -29,12 +29,13 @@ public abstract class Base
 		await PreloadAsync(ResourcePaths.TenKBodiesSimulation);
 
 		// Create all engines
-		Standard = Factory.Create(Factory.SimulationEngineType.Standard);
+		Direct = Factory.Create(Factory.SimulationEngineType.Direct);
 		AdaptiveBarnesHut = Factory.Create(Factory.SimulationEngineType.AdaptiveBarnesHut);
 		AdaptiveParticleMesh = Factory.Create(Factory.SimulationEngineType.AdaptiveParticleMesh);
 		AdaptiveFastMultipole = Factory.Create(Factory.SimulationEngineType.AdaptiveFastMultipole);
 		HierarchicalBlockDirect = Factory.Create(Factory.SimulationEngineType.HierarchicalBlockDirect);
-		}
+		AdaptiveDirect = Factory.Create(Factory.SimulationEngineType.AdaptiveDirect);
+	}
 
 	#endregion
 
@@ -43,7 +44,7 @@ public abstract class Base
 	/// <summary>
 	/// Standard engine using O(n²) direct computation.
 	/// </summary>
-	protected ISimulationEngine Standard { get; private set; } = null!;
+	protected ISimulationEngine Direct { get; private set; } = null!;
 
 	/// <summary>
 	/// Adaptive Barnes-Hut engine using O(n log n) tree-based computation.
@@ -65,6 +66,12 @@ public abstract class Base
 	/// Optimized for systems with mixed timescales (e.g., planetary systems).
 	/// </summary>
 	protected ISimulationEngine HierarchicalBlockDirect { get; private set; } = null!;
+
+	/// <summary>
+	/// Adaptive Direct engine using adaptive timesteps with O(n²) direct computation.
+	/// Comparison baseline for HierarchicalBlockDirect.
+	/// </summary>
+	protected ISimulationEngine AdaptiveDirect { get; private set; } = null!;
 
 	[SuppressMessage("Usage", "VSTHRD002:Avoid problematic synchronous waits")]
 	protected double Run(ISimulationEngine engine, string resourcePath, int steps)

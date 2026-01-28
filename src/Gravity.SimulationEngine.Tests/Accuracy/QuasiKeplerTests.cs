@@ -21,8 +21,8 @@ public sealed class QuasiKeplerTests
 
 	[TestMethod]
 	[Timeout(120000, CooperativeCancellation = true)]
-	public async Task StandardMaintainsStableOrbits()
-		=> await AssertOrbitStabilityAsync(Factory.SimulationEngineType.Standard, ResourcePaths.SolarSystemSimulation, 5000,
+	public async Task DirectMaintainsStableOrbits()
+		=> await AssertOrbitStabilityAsync(Factory.SimulationEngineType.Direct, ResourcePaths.SolarSystemSimulation, 5000,
 										   0.05, 0.05);
 
 	[TestMethod]

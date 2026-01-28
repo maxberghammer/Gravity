@@ -6,12 +6,12 @@ namespace Gravity.SimulationEngine.Tests;
 
 [TestClass]
 [SuppressMessage("Security", "CA5394", Justification = "Non-security test data generation")]
-public class StandardTests : EngineTestsBase
+public class DirectTests : EngineTestsBase
 {
 	#region Implementation
 
 	protected override Factory.SimulationEngineType EngineType
-		=> Factory.SimulationEngineType.Standard;
+		=> Factory.SimulationEngineType.Direct;
 
 	#endregion
 }

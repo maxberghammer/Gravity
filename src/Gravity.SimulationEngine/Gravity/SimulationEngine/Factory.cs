@@ -12,11 +12,12 @@ public static class Factory
 
 	public enum SimulationEngineType
 	{
-		Standard,
+		Direct,
+		HierarchicalBlockDirect,
+		AdaptiveDirect,
 		AdaptiveBarnesHut,
 		AdaptiveParticleMesh,
-		AdaptiveFastMultipole,
-		HierarchicalBlockDirect
+		AdaptiveFastMultipole
 	}
 
 	#endregion
@@ -26,10 +27,10 @@ public static class Factory
 	public static ISimulationEngine Create(SimulationEngineType type)
 		=> type switch
 		   {
-			   SimulationEngineType.Standard => new(new SemiImplicit(),
-													new None(),
-													new Direct(new Grid()),
-													new Grid()),
+			   SimulationEngineType.Direct => new(new SemiImplicit(),
+												  new None(),
+												  new Direct(new Grid()),
+												  new Grid()),
 			   SimulationEngineType.AdaptiveBarnesHut => new(new Leapfrog(),
 															 new MinDiameterCrossingTime(64,
 																						 TimeSpan.FromSeconds(1e-7),
@@ -48,10 +49,16 @@ public static class Factory
 																							 0.5),
 																 new FastMultipole(),
 																 new Grid()),
-			   SimulationEngineType.HierarchicalBlockDirect => new Implementation.SimulationEngine(new Leapfrog(),
-																								   new HierarchicalBlock(4, TimeSpan.FromSeconds(1e-7)),
-																								   new Direct(new Grid()),
-																								   new Grid()),
+			   SimulationEngineType.HierarchicalBlockDirect => new(new Leapfrog(),
+																   new HierarchicalBlock(4, TimeSpan.FromSeconds(1e-7)),
+																   new Direct(new Grid()),
+																   new Grid()),
+			   SimulationEngineType.AdaptiveDirect => new Implementation.SimulationEngine(new Leapfrog(),
+																						  new MinDiameterCrossingTime(64,
+																													  TimeSpan.FromSeconds(1e-7),
+																													  0.5),
+																						  new Direct(new Grid()),
+																						  new Grid()),
 			   var _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 		   };
 

@@ -33,6 +33,10 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 	private readonly TimeSpan _minDt;
 	private readonly int _numBins;
 	private readonly double _safetyFactor;
+	
+	// Cache for body-to-bin assignments to avoid reallocations
+	private int[]? _bodyBinCache;
+	private Body[][]? _binBodiesCache;
 
 	#endregion
 
@@ -71,18 +75,34 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 		var baseTimestep = CalculateBaseTimestep(bodies, timeSpan);
 		baseTimestep = TimeSpan.Max(_minDt, TimeSpan.FromSeconds(_safetyFactor * baseTimestep.TotalSeconds));
 
-		// Assign bodies to bins
-		var bodyBins = AssignBodiesToBins(bodies, baseTimestep);
+		// Assign bodies to bins (reuse cache if possible)
+		if(_bodyBinCache == null || _bodyBinCache.Length != bodies.Count)
+			_bodyBinCache = new int[bodies.Count];
+		
+		AssignBodiesToBins(bodies, baseTimestep, _bodyBinCache);
 
-		// Create bins with their respective bodies
-		var bins = new List<Body>[_numBins];
+		// Count bodies per bin
+		Span<int> binCounts = stackalloc int[_numBins];
+		foreach(var bin in _bodyBinCache.AsSpan())
+			binCounts[bin]++;
+
+		// Allocate bin arrays (reuse cache if possible)
+		if(_binBodiesCache == null || _binBodiesCache.Length != _numBins)
+			_binBodiesCache = new Body[_numBins][];
+		
 		for(var i = 0; i < _numBins; i++)
-			bins[i] = new();
+		{
+			if(_binBodiesCache[i] == null || _binBodiesCache[i].Length != binCounts[i])
+				_binBodiesCache[i] = new Body[binCounts[i]];
+		}
 
+		// Fill bin arrays
+		Span<int> binIndices = stackalloc int[_numBins];
 		for(var i = 0; i < bodies.Count; i++)
 		{
-			var bin = bodyBins[i];
-			bins[bin].Add(bodies[i]);
+			var bin = _bodyBinCache[i];
+			var idx = binIndices[bin]++;
+			_binBodiesCache[bin][idx] = bodies[i];
 		}
 
 		// Fixed maximum cycles for performance
@@ -98,18 +118,20 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 		var totalCycles = (int)Math.Ceiling(timeSpan.TotalSeconds / baseTimestep.TotalSeconds);
 
 		var steps = 0;
-
-#pragma warning disable S6670
-		// DEBUG: Show bin distribution
-		Trace.WriteLine("=== HierarchicalBlock Bin Distribution ===");
-		for(var b = 0; b < _numBins; b++)
-			Trace.WriteLine($"Bin {b}: {bins[b].Count} bodies (dt={TimeSpan.FromSeconds(baseTimestep.TotalSeconds * (1 << b)).TotalSeconds:F6}s)");
-		Trace.WriteLine($"Base timestep: {baseTimestep.TotalSeconds:F6}s, Total cycles: {totalCycles}, TimeSpan: {timeSpan.TotalSeconds:F6}s");
-#pragma warning restore S6670
+		var baseTimestepSeconds = baseTimestep.TotalSeconds;
+		var targetSeconds = timeSpan.TotalSeconds;
 
 		// Execute cycles
 		for(var cycle = 0; cycle < totalCycles; cycle++)
 		{
+			var elapsedTime = cycle * baseTimestepSeconds;
+			
+			// Early exit if we've used up all time
+			if(elapsedTime >= targetSeconds)
+				break;
+			
+			var remaining = targetSeconds - elapsedTime;
+
 			// Determine which bins to integrate in this cycle
 			// Bin b integrates every 2^b cycles
 			for(var bin = 0; bin < _numBins; bin++)
@@ -117,37 +139,21 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 				var binPeriod = 1 << bin; // 2^bin (power of 2)
 
 				// This bin integrates if cycle is divisible by its period
-				if(cycle % binPeriod == 0)
-				{
-					var binBodies = bins[bin];
+				if(cycle % binPeriod != 0)
+					continue;
 
-					if(binBodies.Count > 0)
-					{
-						// Timestep for this bin
-						// Timestep for this bin
-						var binTimestepSeconds = baseTimestep.TotalSeconds * binPeriod;
+				var binBodies = _binBodiesCache[bin];
+				if(binBodies.Length == 0)
+					continue;
 
-						// Clamp to remaining time in frame (to avoid overshooting)
-						var elapsedTime = cycle * baseTimestep.TotalSeconds;
-						var remaining = timeSpan.TotalSeconds - elapsedTime;
-						binTimestepSeconds = Math.Min(binTimestepSeconds, remaining);
+				// Timestep for this bin
+				var binTimestepSeconds = Math.Min(baseTimestepSeconds * binPeriod, remaining);
+				var binTimestep = TimeSpan.FromSeconds(binTimestepSeconds);
 
-						var binTimestep = TimeSpan.FromSeconds(binTimestepSeconds);
-
-						// Integrate all bodies in this bin
-						processBodies(binBodies, binTimestep);
-						steps++;
-
-						// Check if we've used up all time
-						if(elapsedTime >= timeSpan.TotalSeconds)
-							break;
-					}
-				}
+				// Integrate all bodies in this bin
+				processBodies(binBodies, binTimestep);
+				steps++;
 			}
-
-			// Break outer loop if time is used up
-			if(cycle * baseTimestep.TotalSeconds >= timeSpan.TotalSeconds)
-				break;
 		}
 
 		return steps;
@@ -187,56 +193,41 @@ internal sealed class HierarchicalBlock : SimulationEngine.IOversampler
 
 	/// <summary>
 	/// Assigns each body to a time bin based on its required timestep.
-	/// Returns array where index is body index, value is bin number (0 = fastest).
+	/// Directly bins bodies without sorting for maximum performance.
 	/// </summary>
-	[SuppressMessage("Major Code Smell", "S1172:Unused method parameters should be removed", Justification = "<Pending>")]
-	/// <summary>
-	/// Assigns each body to a time bin based on its required timestep.
-	/// Uses dynamic clustering: bodies with similar speeds are grouped together,
-	/// with bin boundaries at large speed differences (ratio > threshold).
-	/// This ensures efficient distribution regardless of body count.
-	/// </summary>
-	private int[] AssignBodiesToBins(IReadOnlyList<Body> bodies, TimeSpan baseTimestep)
+	private void AssignBodiesToBins(IReadOnlyList<Body> bodies, TimeSpan baseTimestep, int[] bins)
 	{
-		var bins = new int[bodies.Count];
-
-		// Calculate required timestep for each body
-		var bodyTimesteps = new List<(int index, double requiredDt)>();
-
+		var baseTimestepSeconds = baseTimestep.TotalSeconds;
+		
+		// Directly assign bins based on required timestep vs base timestep
+		// No sorting needed - just calculate which power-of-2 bin each body belongs to
 		for(var i = 0; i < bodies.Count; i++)
 		{
 			var body = bodies[i];
 			var vlen = body.v.Length;
-			var requiredDt = vlen > 0.0 && body.r > 0.0
-								 ? 2.0 * body.r / vlen
-								 : double.MaxValue;
-
-			bodyTimesteps.Add((i, requiredDt));
+			
+			if(vlen <= 0.0 || body.r <= 0.0)
+			{
+				// Static bodies go to slowest bin
+				bins[i] = _numBins - 1;
+				continue;
+			}
+			
+			var requiredDt = 2.0 * body.r / vlen;
+			
+			// Calculate which bin this body should be in
+			// Bin 0: dt <= baseTimestep
+			// Bin 1: dt <= 2 * baseTimestep
+			// Bin 2: dt <= 4 * baseTimestep
+			// etc.
+			var ratio = requiredDt / baseTimestepSeconds;
+			
+			// Use Log2 to find appropriate bin
+			var bin = ratio <= 1.0 ? 0 : (int)Math.Floor(Math.Log2(ratio));
+			
+			// Clamp to valid bin range
+			bins[i] = Math.Min(bin, _numBins - 1);
 		}
-
-		// Sort by required dt (smallest first = fastest = Bin 0)
-		bodyTimesteps.Sort((a, b) => a.requiredDt.CompareTo(b.requiredDt));
-
-		// Dynamically assign bins based on speed differences
-		// Start with Bin 0 for the fastest body
-		var currentBin = 0;
-		bins[bodyTimesteps[0].index] = currentBin;
-
-		// Divide into 4 equal groups (quantiles) based on sorted order
-		var quartile = bodyTimesteps.Count / 4;
-		if(quartile == 0)
-			quartile = 1; // At least 1 body per bin
-
-		for(var i = 0; i < bodyTimesteps.Count; i++)
-		{
-			(var index, var _) = bodyTimesteps[i];
-
-			// Assign bin based on position in sorted list (quartiles)
-			var bin = Math.Min(_numBins - 1, i / quartile);
-			bins[index] = bin;
-		}
-
-		return bins;
 	}
 
 	#endregion
