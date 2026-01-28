@@ -169,7 +169,7 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		public Paths(IMain viewmodel)
+		public Paths(Viewmodel.Application viewmodel)
 			: base(viewmodel)
 		{
 			_lastShowPathState = viewmodel.ShowPath;
@@ -195,7 +195,7 @@ public partial class Direct3dWorldView
 			if(!Viewmodel.ShowPath)
 				return;
 
-			var bodies = Viewmodel.Application.World.GetBodies();
+			var bodies = Viewmodel.Domain.World.GetBodies();
 
 			// Build HashSet of current body IDs for O(1) lookup
 			_bodyIdLookup.Clear();
@@ -218,7 +218,7 @@ public partial class Direct3dWorldView
 			}
 
 			// Append when movement threshold exceeded
-			var moveThreshold = (float)Viewmodel.Application.Viewport.ToWorld(1.0f);
+			var moveThreshold = (float)Viewmodel.Domain.Viewport.ToWorld(1.0f);
 
 			for(var i = 0; i < bodies.Count; i++)
 			{

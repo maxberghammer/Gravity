@@ -21,7 +21,7 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		protected VorticeComponent(IMain viewmodel)
+		protected VorticeComponent(Viewmodel.Application viewmodel)
 			=> Viewmodel = viewmodel;
 
 		#endregion
@@ -52,7 +52,7 @@ public partial class Direct3dWorldView
 
 		#region Implementation
 
-		protected IMain Viewmodel { get; }
+		protected Viewmodel.Application Viewmodel { get; }
 
 		protected abstract void OnLoad(DrawingSurfaceEventArgs e);
 

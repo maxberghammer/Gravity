@@ -4,8 +4,7 @@ using Wellenlib.ComponentModel;
 
 namespace Gravity.Wpf.Viewmodel;
 
-public class World : NotifyPropertyChanged,
-					 IMain.IWorld
+public class World : NotifyPropertyChanged
 {
 	#region Fields
 
@@ -20,9 +19,8 @@ public class World : NotifyPropertyChanged,
 
 	#endregion
 
-	#region Implementation of IWorld
+	#region Interface
 
-	/// <inheritdoc/>
 	public required bool ClosedBoundaries
 	{
 		get;
@@ -38,7 +36,6 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	/// <inheritdoc/>
 	public required bool ElasticCollisions
 	{
 		get;
@@ -54,7 +51,6 @@ public class World : NotifyPropertyChanged,
 		}
 	}
 
-	/// <inheritdoc/>
 	public required double LogarithmicTimescale
 	{
 		get;

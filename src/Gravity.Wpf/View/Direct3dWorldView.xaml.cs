@@ -27,8 +27,8 @@ public partial class Direct3dWorldView
 
 	#region Implementation
 
-	private IMain Viewmodel
-		=> (IMain)DataContext;
+	private Viewmodel.Application Viewmodel
+		=> (Viewmodel.Application)DataContext;
 
 	[SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Passiert im Unload")]
 	private void OnLoadContent(object? sender, DrawingSurfaceEventArgs e)

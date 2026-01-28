@@ -137,7 +137,7 @@ public partial class Direct3dWorldView
 
 		#region Construction
 
-		public Bodies(IMain viewmodel)
+		public Bodies(Viewmodel.Application viewmodel)
 			: base(viewmodel)
 		{
 		}
@@ -153,7 +153,7 @@ public partial class Direct3dWorldView
 		/// <inheritdoc/>
 		protected override void OnDraw(DrawEventArgs e)
 		{
-			var bodies = Viewmodel.Application
+			var bodies = Viewmodel.Domain
 								  .World
 								  .GetBodies();
 

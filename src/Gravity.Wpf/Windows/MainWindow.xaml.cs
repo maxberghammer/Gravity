@@ -32,7 +32,7 @@ internal sealed partial class MainWindow
 	{
 		InitializeComponent();
 
-		DataContext = new Main(application,
+        DataContext = new Viewmodel.Application(application,
 							   new(application.World)
 							   {
 								   ClosedBoundaries = true,
@@ -50,15 +50,15 @@ internal sealed partial class MainWindow
 						  ShowPath = true,
 						  SimulationFrequencyInHz = _displayFrequencyInHz,
 						  DisplayFrequencyInHz = _displayFrequencyInHz
-					  };
+        };
 	}
 
 	#endregion
 
 	#region Implementation
 
-	private Main Viewmodel
-		=> (Main)DataContext;
+	private Viewmodel.Application Viewmodel
+		=> (Viewmodel.Application)DataContext;
 
 	[SuppressMessage("Critical Code Smell", "S2696:Instance members should not write to \"static\" fields", Justification = "<Pending>")]
 	private void OnWorldMouseDown(object sender, MouseButtonEventArgs args)
@@ -71,7 +71,7 @@ internal sealed partial class MainWindow
 		if(Keyboard.Modifiers == ModifierKeys.None &&
 		   args.LeftButton == MouseButtonState.Pressed)
 		{
-			Viewmodel.SelectedBody = Viewmodel.Application.FindClosestBody(Vector2.Create(viewportPoint), _viewportSelectionSearchRadius);
+			Viewmodel.SelectedBody = Viewmodel.Domain.FindClosestBody(Vector2.Create(viewportPoint), _viewportSelectionSearchRadius);
 
 			if(null != Viewmodel.SelectedBody)
 			{
@@ -82,7 +82,7 @@ internal sealed partial class MainWindow
 										  {
 											  Start = entityViewportPoint,
 											  End = entityViewportPoint,
-											  Diameter = Viewmodel.Application
+											  Diameter = Viewmodel.Domain
 																  .Viewport
 																  .ToViewport((Viewmodel.SelectedBody.r + Viewmodel.SelectedBody.AtmosphereThickness) * 2)
 										  };
@@ -97,7 +97,7 @@ internal sealed partial class MainWindow
 								  {
 									  Start = viewportPoint,
 									  End = viewportPoint,
-									  Diameter = Viewmodel.Application
+									  Diameter = Viewmodel.Domain
 														  .Viewport
 														  .ToViewport((Viewmodel.SelectedBodyPreset.r + Viewmodel.SelectedBodyPreset.AtmosphereThickness) * 2)
 								  };
@@ -128,7 +128,7 @@ internal sealed partial class MainWindow
 				var deltaX = viewportPoint.X - _lastMousePosition.Value.X;
 				var deltaY = viewportPoint.Y - _lastMousePosition.Value.Y;
 
-				Viewmodel.Application.Viewport.Pan(-deltaX * _cameraPanningSensitivity, -deltaY * _cameraPanningSensitivity);
+				Viewmodel.Domain.Viewport.Pan(-deltaX * _cameraPanningSensitivity, -deltaY * _cameraPanningSensitivity);
 			}
 
 			_lastMousePosition = viewportPoint;
@@ -150,7 +150,7 @@ internal sealed partial class MainWindow
 				// Snap to 45° increments when Shift is held
 				var snap = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 
-				Viewmodel.Application.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity, snap);
+				Viewmodel.Domain.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity, snap);
 			}
 
 			_lastMousePosition = viewportPoint;
@@ -206,13 +206,13 @@ internal sealed partial class MainWindow
 		{
 			if(Keyboard.IsKeyDown(Key.LeftAlt))
 			{
-				Viewmodel.Application.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
+				Viewmodel.Domain.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), false);
 
 				return;
 			}
 
-			Viewmodel.Application.AddBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
-			Viewmodel.Application.StopRespawn();
+			Viewmodel.Domain.AddBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
+			Viewmodel.Domain.StopRespawn();
 
 			return;
 		}
@@ -222,7 +222,7 @@ internal sealed partial class MainWindow
 
 		// Check if mouse moved significantly in viewport space (2D on screen)
 		// Not in world space (3D), since the body could be at any Z depth
-		var bodyViewportPoint = Viewmodel.Application
+		var bodyViewportPoint = Viewmodel.Domain
 										 .Viewport
 										 .ToViewport(Viewmodel.SelectedBody.Position);
 		var viewportDistance = Math.Sqrt(Math.Pow(viewportPoint.X - bodyViewportPoint.X, 2) +
@@ -256,28 +256,28 @@ internal sealed partial class MainWindow
 
 		if(Keyboard.IsKeyDown(Key.LeftAlt))
 		{
-			Viewmodel.Application.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
+			Viewmodel.Domain.AddRandomBodies(100, Keyboard.IsKeyDown(Key.LeftShift), true);
 
 			return;
 		}
 
-		Viewmodel.Application.AddOrbitBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
-		Viewmodel.Application.StopRespawn();
+		Viewmodel.Domain.AddOrbitBody(referencePosition.Value, Viewmodel.CalculateVelocityPerSimulationStep(referencePosition.Value, position));
+		Viewmodel.Domain.StopRespawn();
 	}
 
 	private void OnWorldSizeChanged(object sender, SizeChangedEventArgs args)
-		=> Viewmodel.Application
+		=> Viewmodel.Domain
 					.Viewport
-					.Resize(new(Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Width),
-								Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Height),
-								Viewmodel.Application.Viewport.ToWorld((float)args.NewSize.Height)));
+					.Resize(new(Viewmodel.Domain.Viewport.ToWorld((float)args.NewSize.Width),
+								Viewmodel.Domain.Viewport.ToWorld((float)args.NewSize.Height),
+								Viewmodel.Domain.Viewport.ToWorld((float)args.NewSize.Height)));
 
 	private void OnResetClicked(object sender, RoutedEventArgs args)
-		=> Viewmodel.Application
+		=> Viewmodel.Domain
 					.Reset();
 
 	private void OnWorldMouseWheel(object sender, MouseWheelEventArgs args)
-		=> Viewmodel.Application
+		=> Viewmodel.Domain
 					.Viewport
 					.Zoom(Viewmodel.Viewport.ToWorld(args.GetPosition((IInputElement)sender)),
 						  -Math.Sign(args.Delta) * (Keyboard.IsKeyDown(Key.LeftAlt)
@@ -285,7 +285,7 @@ internal sealed partial class MainWindow
 														: 1));
 
 	private void OnAutoScaleAndCenterViewportClicked(object sender, RoutedEventArgs args)
-		=> Viewmodel.Application
+		=> Viewmodel.Domain
 					.Viewport
 					.AutoScaleAndCenter();
 
