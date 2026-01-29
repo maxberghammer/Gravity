@@ -116,12 +116,12 @@ internal sealed partial class MainWindow
 		var worldPos = Viewmodel.Viewport.ToWorld(viewportPoint);
 
 		// Update mouse coordinates display
-		_lblMouseCoordinates.Content = $"X: {worldPos.X:F1}  Y: {worldPos.Y:F1}  Z: {worldPos.Z:F1}";
+		_lblMouseCoordinates.SetCurrentValue(ContentProperty, $"X: {worldPos.X:F1}  Y: {worldPos.Y:F1}  Z: {worldPos.Z:F1}");
 
 		// Camera panning with P key + mouse movement - pan the viewport
 		if(Keyboard.IsKeyDown(Key.P))
 		{
-			_worldView.Cursor = Cursors.SizeAll;
+			_worldView.SetCurrentValue(CursorProperty, Cursors.SizeAll);
 
 			if(_lastMousePosition.HasValue)
 			{
@@ -139,7 +139,7 @@ internal sealed partial class MainWindow
 		// Camera rotation with R key + mouse movement - always rotate around viewport center
 		if(Keyboard.IsKeyDown(Key.R))
 		{
-			_worldView.Cursor = Cursors.Hand;
+			_worldView.SetCurrentValue(CursorProperty, Cursors.Hand);
 			Viewmodel.IsRotationGizmoVisible = true;
 
 			if(_lastMousePosition.HasValue)
@@ -153,14 +153,14 @@ internal sealed partial class MainWindow
 				Viewmodel.Domain.Viewport.RotateCamera(deltaX * _cameraRotationSensitivity, deltaY * _cameraRotationSensitivity, snap);
 			}
 
-			_lastMousePosition = viewportPoint;
+		_lastMousePosition = viewportPoint;
 
-			return;
-		}
+		return;
+	}
 
-		_worldView.Cursor = Cursors.Arrow;
-		_lastMousePosition = null;
-		Viewmodel.IsRotationGizmoVisible = false;
+	_worldView.SetCurrentValue(CursorProperty, Cursors.Arrow);
+	_lastMousePosition = null;
+	Viewmodel.IsRotationGizmoVisible = false;
 
 		if(null == Viewmodel.DragIndicator)
 			return;
@@ -297,33 +297,33 @@ internal sealed partial class MainWindow
 
 	private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if(e.Key == Key.R)
-		{
-			Viewmodel.IsRotationGizmoVisible = true;
-			e.Handled = true;
-			_worldView?.Cursor = Cursors.Hand;
-		}
-		else if(e.Key == Key.P)
-		{
-			e.Handled = true;
-			_worldView?.Cursor = Cursors.SizeAll;
-		}
-	}
-
-	private void OnWindowPreviewKeyUp(object sender, KeyEventArgs e)
+	if(e.Key == Key.R)
 	{
-		if(e.Key == Key.R)
-		{
-			Viewmodel.IsRotationGizmoVisible = false;
-			e.Handled = true;
-			_worldView?.Cursor = Cursors.Arrow;
-		}
-		else if(e.Key == Key.P)
-		{
-			e.Handled = true;
-			_worldView?.Cursor = Cursors.Arrow;
-		}
+		Viewmodel.IsRotationGizmoVisible = true;
+		e.Handled = true;
+		_worldView?.SetCurrentValue(CursorProperty, Cursors.Hand);
 	}
+	else if(e.Key == Key.P)
+	{
+		e.Handled = true;
+		_worldView?.SetCurrentValue(CursorProperty, Cursors.SizeAll);
+	}
+}
+
+private void OnWindowPreviewKeyUp(object sender, KeyEventArgs e)
+{
+	if(e.Key == Key.R)
+	{
+		Viewmodel.IsRotationGizmoVisible = false;
+		e.Handled = true;
+		_worldView?.SetCurrentValue(CursorProperty, Cursors.Arrow);
+	}
+	else if(e.Key == Key.P)
+	{
+		e.Handled = true;
+		_worldView?.SetCurrentValue(CursorProperty, Cursors.Arrow);
+	}
+}
 
 	#endregion
 }

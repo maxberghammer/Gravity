@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Shapes;
 
 namespace Gravity.Wpf.Controls;
 
@@ -80,25 +81,25 @@ internal sealed partial class RotationGizmo : UserControl
 		// X axis (red) - points right in world space
 		var xEndX = CenterX + AxisLength * cosYaw;
 		var xEndY = CenterY + AxisLength * sinYaw * sinPitch;
-		_gizmoAxisX.X2 = xEndX;
-		_gizmoAxisX.Y2 = xEndY;
+		_gizmoAxisX.SetCurrentValue(Line.X2Property, xEndX);
+		_gizmoAxisX.SetCurrentValue(Line.Y2Property, xEndY);
 
 		// Y axis (green) - points up in world space
 		var yEndX = CenterX;
 		var yEndY = CenterY - AxisLength * cosPitch;
-		_gizmoAxisY.X2 = yEndX;
-		_gizmoAxisY.Y2 = yEndY;
+		_gizmoAxisY.SetCurrentValue(Line.X2Property, yEndX);
+		_gizmoAxisY.SetCurrentValue(Line.Y2Property, yEndY);
 
 		// Z axis (blue) - points towards viewer in world space
 		var zEndX = CenterX + AxisLength * sinYaw;
 		var zEndY = CenterY - AxisLength * cosYaw * sinPitch;
-		_gizmoAxisZ.X2 = zEndX;
-		_gizmoAxisZ.Y2 = zEndY;
+		_gizmoAxisZ.SetCurrentValue(Line.X2Property, zEndX);
+		_gizmoAxisZ.SetCurrentValue(Line.Y2Property, zEndY);
 
 		// Update angle text
 		var yawDeg = yaw * 180 / Math.PI;
 		var pitchDeg = pitch * 180 / Math.PI;
-		_gizmoAngleText.Text = $"Yaw: {yawDeg:F1}°  Pitch: {pitchDeg:F1}°";
+		_gizmoAngleText.SetCurrentValue(TextBlock.TextProperty, $"Yaw: {yawDeg:F1}°  Pitch: {pitchDeg:F1}°");
 	}
 
 	#endregion

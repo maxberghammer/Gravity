@@ -6,10 +6,10 @@
 				xmlns:view="clr-namespace:Gravity.Wpf.View"
 				xmlns:controls="clr-namespace:Gravity.Wpf.Controls"
 				xmlns:conv="clr-namespace:Gravity.Wpf.Converters"
-				xmlns:application="clr-namespace:Gravity.Application.Gravity.Application;assembly=Gravity.Application"
-				xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
-				d:DataContext="{d:DesignInstance Type=viewmodel:Main}"
-				mc:Ignorable="d"
+			xmlns:application="clr-namespace:Gravity.Application.Gravity.Application;assembly=Gravity.Application"
+			xmlns:viewmodel="clr-namespace:Gravity.Wpf.Viewmodel"
+			d:DataContext="{d:DesignInstance Type=viewmodel:Application}"
+			mc:Ignorable="d"
 				Title="Gravity"
 				WindowState="Maximized"
 				Background="Black"
@@ -80,55 +80,55 @@
 
 		<Grid Grid.Row="0"
 					Grid.RowSpan="3">
-			<Line Stroke="GreenYellow"
-						StrokeThickness="1"
-						StrokeDashArray="5 5"
-						IsHitTestVisible="False"
-						X1="{Binding DragIndicator.Start.X}"
-						Y1="{Binding DragIndicator.Start.Y}"
-						X2="{Binding DragIndicator.End.X}"
-						Y2="{Binding DragIndicator.End.Y}"/>
+		<Line Stroke="GreenYellow"
+					StrokeThickness="1"
+					StrokeDashArray="5 5"
+					IsHitTestVisible="False"
+					X1="{Binding DragIndicator.Start.X, FallbackValue=0}"
+					Y1="{Binding DragIndicator.Start.Y, FallbackValue=0}"
+					X2="{Binding DragIndicator.End.X, FallbackValue=0}"
+					Y2="{Binding DragIndicator.End.Y, FallbackValue=0}"/>
 
 			<Ellipse HorizontalAlignment="Left"
 							 VerticalAlignment="Top"
-							 Width="{Binding DragIndicator.Diameter}"
-							 Height="{Binding DragIndicator.Diameter}"
+							 Width="{Binding DragIndicator.Diameter, FallbackValue=0}"
+							 Height="{Binding DragIndicator.Diameter, FallbackValue=0}"
 							 Stroke="GreenYellow"
 							 StrokeThickness="1"
 							 IsHitTestVisible="False">
-				<Ellipse.RenderTransform>
-					<TransformGroup>
-						<TranslateTransform X="{Binding DragIndicator.Start.X}"
-																Y="{Binding DragIndicator.Start.Y}"/>
-						<TranslateTransform X="{Binding DragIndicator.BodyTranslate}"
-																Y="{Binding DragIndicator.BodyTranslate}"/>
-					</TransformGroup>
-				</Ellipse.RenderTransform>
+			<Ellipse.RenderTransform>
+				<TransformGroup>
+					<TranslateTransform X="{Binding DragIndicator.Start.X, FallbackValue=0}"
+																Y="{Binding DragIndicator.Start.Y, FallbackValue=0}"/>
+					<TranslateTransform X="{Binding DragIndicator.BodyTranslate, FallbackValue=0}"
+																Y="{Binding DragIndicator.BodyTranslate, FallbackValue=0}"/>
+				</TransformGroup>
+			</Ellipse.RenderTransform>
 			</Ellipse>
 
 			<Ellipse HorizontalAlignment="Left"
 							 VerticalAlignment="Top"
-							 Width="{Binding DragIndicator.Diameter}"
-							 Height="{Binding DragIndicator.Diameter}"
+							 Width="{Binding DragIndicator.Diameter, FallbackValue=0}"
+							 Height="{Binding DragIndicator.Diameter, FallbackValue=0}"
 							 Stroke="GreenYellow"
 							 StrokeThickness="1"
 							 StrokeDashArray="5 5"
 							 IsHitTestVisible="False">
-				<Ellipse.RenderTransform>
-					<TransformGroup>
-						<TranslateTransform X="{Binding DragIndicator.End.X}"
-																Y="{Binding DragIndicator.End.Y}"/>
-						<TranslateTransform X="{Binding DragIndicator.BodyTranslate}"
-																Y="{Binding DragIndicator.BodyTranslate}"/>
-					</TransformGroup>
-				</Ellipse.RenderTransform>
+			<Ellipse.RenderTransform>
+				<TransformGroup>
+					<TranslateTransform X="{Binding DragIndicator.End.X, FallbackValue=0}"
+																Y="{Binding DragIndicator.End.Y, FallbackValue=0}"/>
+					<TranslateTransform X="{Binding DragIndicator.BodyTranslate, FallbackValue=0}"
+																Y="{Binding DragIndicator.BodyTranslate, FallbackValue=0}"/>
+				</TransformGroup>
+			</Ellipse.RenderTransform>
 			</Ellipse>
 
-			<Label HorizontalAlignment="Center"
-						 VerticalAlignment="Bottom"
-						 Content="{Binding DragIndicator.Label}"
-						 Foreground="GreenYellow"
-						 IsHitTestVisible="False"/>
+		<Label HorizontalAlignment="Center"
+					 VerticalAlignment="Bottom"
+					 Content="{Binding DragIndicator.Label, FallbackValue=''}"
+					 Foreground="GreenYellow"
+					 IsHitTestVisible="False"/>
 		</Grid>
 
 		<controls:RotationGizmo x:Name="_rotationGizmo"
@@ -342,18 +342,18 @@
 				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition Width="*"/>
 			</Grid.ColumnDefinitions>
-			<Label Grid.Column="1"
-						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
-						 Content="{Binding SelectedBody.Id}"
-						 ContentStringFormat="Id={0}"/>
-			<Label Grid.Column="2"
-						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
-						 Content="{Binding SelectedBody.v}"
-						 ContentStringFormat="v={0}m/s"/>
-			<Label Grid.Column="3"
-						 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
-						 Content="{Binding SelectedBody.m}"
-						 ContentStringFormat="m={0}kg"/>
+		<Label Grid.Column="1"
+					 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+					 Content="{Binding SelectedBody.Id, FallbackValue=''}"
+					 ContentStringFormat="Id={0}"/>
+		<Label Grid.Column="2"
+					 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+					 Content="{Binding SelectedBody.v, FallbackValue=''}"
+					 ContentStringFormat="v={0}m/s"/>
+		<Label Grid.Column="3"
+					 Visibility="{Binding IsBodySelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+					 Content="{Binding SelectedBody.m, FallbackValue=''}"
+					 ContentStringFormat="m={0}kg"/>
 		</Grid>
 
 		<Grid Grid.Row="0"
