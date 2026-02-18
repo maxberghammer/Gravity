@@ -1,7 +1,5 @@
 <Solution>
   <Folder Name="/.msbuild/">
-    <File Path="../.gitignore" />
-    <File Path="../.gitmodules" />
     <File Path="../Directory.Build.props" />
   </Folder>
   <Folder Name="/.options/">

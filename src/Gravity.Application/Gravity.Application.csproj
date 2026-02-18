@@ -1,13 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<!-- Allgemeine Projekt-Einstellungen -->
-	<Import Project="$(CommonProjectSettingsFilePath)" />
-	<ItemGroup>
-	  <Compile Remove="Microsoft\Extensions\NewFolder\**" />
-	  <EmbeddedResource Remove="Microsoft\Extensions\NewFolder\**" />
-	  <None Remove="Microsoft\Extensions\NewFolder\**" />
-	</ItemGroup>
-
+	<!-- Allgemeien Projekt-Einstellungen -->
+	<Import Project="$(CommonProjectSettingsProps)" Condition="!$(CommonProjectSettingsPropsImported)"/>
+	
 	<ItemGroup>
 	  <ProjectReference Include="..\Gravity.SimulationEngine.Serialization\Gravity.SimulationEngine.Serialization.csproj" />
 	  <ProjectReference Include="..\Gravity.SimulationEngine\Gravity.SimulationEngine.csproj" />

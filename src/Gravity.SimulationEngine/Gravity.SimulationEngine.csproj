@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	
-	<!-- Allgemeine Projekt-Einstellungen -->
-	<Import Project="$(CommonProjectSettingsFilePath)" />
+
+	<!-- Allgemeien Projekt-Einstellungen -->
+	<Import Project="$(CommonProjectSettingsProps)" Condition="!$(CommonProjectSettingsPropsImported)"/>
 
 	<PropertyGroup>
 		<RootNamespace />
