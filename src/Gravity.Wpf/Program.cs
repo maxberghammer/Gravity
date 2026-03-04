@@ -1,23 +1,24 @@
 using System;
 using System.Threading.Tasks;
-using Wellenlib.Windows.Hosting.Wpf;
+using Wellenlib.Hosting;
 
 namespace Gravity.Wpf;
 
-internal sealed class Program : ProgramBase<Program, AppSettings, Startup, App>
+internal sealed class Program : Wellenlib.Windows.Hosting.Wpf.ProgramBase<Program, AppSettings, Startup, App>,
+								IProgram<AppSettings>
 {
 	#region Implementation
 
 	/// <inheritdoc/>
-	protected override string ApplicationCompany
+	static string IProgram<AppSettings>.ApplicationCompany
 		=> "Wellental";
 
 	/// <inheritdoc/>
-	protected override string ApplicationName
-		=> "Wellenlib.Samples.WpfApplication";
+	static string IProgram<AppSettings>.ApplicationName
+		=> "Gravity";
 
 	/// <inheritdoc/>
-	protected override Version ApplicationVersion
+	static Version IProgram<AppSettings>.ApplicationVersion
 		=> new(1, 0);
 
 	// ReSharper disable once InconsistentNaming
