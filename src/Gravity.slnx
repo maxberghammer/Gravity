@@ -3,6 +3,8 @@
     <File Path="../Directory.Build.props" />
   </Folder>
   <Folder Name="/.options/">
+    <File Path="../.editorconfig" />
+    <File Path="../.gitattributes" />
     <File Path="../.gitignore" />
     <File Path="../.gitmodules" />
   </Folder>
@@ -21,7 +23,9 @@
     <File Path="../Wellenlib/Directory.Build.props" />
   </Folder>
   <Folder Name="/Wellenlib/.options/">
+    <File Path="../Wellenlib/.editorconfig" />
     <File Path="../Wellenlib/.git" />
+    <File Path="../Wellenlib/.gitattributes" />
     <File Path="../Wellenlib/.gitignore" />
   </Folder>
   <Project Path="Gravity.Application/Gravity.Application.csproj" Id="1c759831-53ad-435d-a416-bd8006bba072" />
