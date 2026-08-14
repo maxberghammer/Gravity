@@ -291,7 +291,7 @@ public partial class Direct3dWorldView
 				_bufferCapacity = Math.Max(totalVerts, _bufferCapacity * 2);
 				_buffer = e.Device.CreateBuffer(new((uint)(_bufferCapacity * Marshal.SizeOf<Vector3>()), BindFlags.VertexBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write));
 				// Re-bind vertex buffer with new capacity
-				e.Context.IASetVertexBuffers(0, [_buffer!], [stride], [offset]);
+				e.Context.IASetVertexBuffers(0, [_buffer], [stride], [offset]);
 			}
 
 			e.Context.Map(_buffer, 0, MapMode.WriteDiscard, MapFlags.None, out var box);

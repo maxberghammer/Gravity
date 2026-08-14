@@ -125,6 +125,7 @@ public readonly struct Vector3D : IEquatable<Vector3D>
 	#region Implementation
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[SuppressMessage("Major Bug", "S1244:Floating point numbers should not be tested for equality", Justification = "Ich will hier exakten Vergleich")]
 	private bool Equals(Vector3D other)
 		=> X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
 

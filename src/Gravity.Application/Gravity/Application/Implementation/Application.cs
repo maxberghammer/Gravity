@@ -403,9 +403,9 @@ internal sealed class Application : IApplication,
 												  // Log every ~60 frames; use TraceInformation for explicit event type
 												  if(frameDiagnosticsMeasurement.FrameCount % 60 == 0)
 												  {
-													  var engineDiagnostics = string.Join(" | ", _simulationEngine!.GetDiagnostics()
-																												   .Fields
-																												   .Select(p => $"{p.Key}: {p.Value}"));
+													  var engineDiagnostics = string.Join(" | ", _simulationEngine.GetDiagnostics()
+																												  .Fields
+																												  .Select(p => $"{p.Key}: {p.Value}"));
 
 													  Trace.TraceInformation($"Frame: {frameDiagnosticsMeasurement.LastFrameDurationInMs:F1} ms" +
 																			 $" | CPU: {frameDiagnosticsMeasurement.CpuUtilizationInPercent}%" +

@@ -243,7 +243,7 @@ public partial class Direct3dWorldView
 												  ResourceOptionFlags.BufferStructured,
 												  (uint)Marshal.SizeOf<BodyGpu>()));
 			_shaderResourceView?.Dispose();
-			_shaderResourceView = device.CreateShaderResourceView(_bodyBuffer!,
+			_shaderResourceView = device.CreateShaderResourceView(_bodyBuffer,
 																  new ShaderResourceViewDescription
 																  {
 																	  Format = Format.Unknown,
